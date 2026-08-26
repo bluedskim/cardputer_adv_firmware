@@ -10,11 +10,11 @@ constexpr uint32_t kBlinkPeriodMs = 500;
 constexpr int kLineStep = 18;
 
 bool isBrightnessUp(char key) {
-    return key == '=' || key == '+' || key == ']' || key == 'k' || key == 'K';
+    return key == '=' || key == '+';
 }
 
 bool isBrightnessDown(char key) {
-    return key == '-' || key == '_' || key == '[' || key == 'i' || key == 'I';
+    return key == '-' || key == '_';
 }
 
 }  // namespace
