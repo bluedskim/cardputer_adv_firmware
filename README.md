@@ -60,6 +60,17 @@ IR 수신 핀: GPIO **1** (`include/config.h`에서 변경 가능)
 
 > Cardputer v1.x는 IR 수신 모듈이 별도일 수 있습니다. 수신이 안 되면 `kIrRxPin`을 실제 배선에 맞게 수정하세요.
 
+## 데스크탑 시뮬레이터
+
+Torch / IR UI를 PC에서 미리 보려면 `sim/` 환경을 사용합니다.
+
+```bash
+# Linux: sudo apt install libsdl2-dev pkg-config
+pio run -e sim -t upload
+```
+
+자세한 내용은 [sim/README.md](sim/README.md)를 참고하세요.
+
 ## 빌드
 
 ### M5Launcher 설치용 (권장)
