@@ -2,17 +2,11 @@
 
 #include <M5Cardputer.h>
 
+#include "input/arrow_keys.h"
+
 namespace {
 
 constexpr int kChromeHeight = 14;
-
-bool isPrevKey(char key) {
-    return key == ';' || key == ',' || key == 'j' || key == 'J';
-}
-
-bool isNextKey(char key) {
-    return key == '.' || key == 'l' || key == 'L';
-}
 
 }  // namespace
 
@@ -74,17 +68,18 @@ bool AppShell::consumeNavKeys() {
             return false;
         }
 
-        for (const auto key : status.word) {
-            if (isPrevKey(key)) {
+        switch (detectArrowKey(status)) {
+            case ArrowKey::Left: {
                 const std::size_t next =
                     current_index_ == 0 ? apps_.size() - 1 : current_index_ - 1;
                 switchTo(next);
                 return true;
             }
-            if (isNextKey(key)) {
+            case ArrowKey::Right:
                 switchTo((current_index_ + 1) % apps_.size());
                 return true;
-            }
+            default:
+                break;
         }
     }
 

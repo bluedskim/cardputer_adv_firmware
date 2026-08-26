@@ -6,20 +6,13 @@
 #include <algorithm>
 
 #include "config.h"
+#include "input/arrow_keys.h"
 
 namespace {
 
 constexpr int kContentTop = 16;
 constexpr int kLineHeight = 12;
 constexpr uint32_t kStatusDurationMs = 1800;
-
-bool isUpKey(char key) {
-    return key == 'k' || key == 'K';
-}
-
-bool isDownKey(char key) {
-    return key == 'j' || key == 'J';
-}
 
 std::string protocolToString(decode_type_t protocol) {
     switch (protocol) {
@@ -346,18 +339,22 @@ void IrApp::handleInput() {
         return;
     }
 
+    if (screen_ == Screen::DeviceList || screen_ == Screen::DeviceDetail) {
+        switch (detectArrowKey(status)) {
+            case ArrowKey::Up:
+                moveSelection(-1);
+                return;
+            case ArrowKey::Down:
+                moveSelection(1);
+                return;
+            default:
+                break;
+        }
+    }
+
     for (const auto key : status.word) {
         if (screen_ == Screen::TextInput) {
             consumeTextChar(key);
-            continue;
-        }
-
-        if (isUpKey(key)) {
-            moveSelection(-1);
-            continue;
-        }
-        if (isDownKey(key)) {
-            moveSelection(1);
             continue;
         }
 
@@ -427,7 +424,7 @@ void IrApp::draw() const {
 
         display.setTextColor(TFT_DARKGREY, TFT_BLACK);
         display.setCursor(4, display.height() - 24);
-        display.println("j/k move  Enter open  N new  Del delete");
+        display.println("Fn+arrow move  Enter open  N new  Del delete");
     } else if (screen_ == Screen::DeviceDetail) {
         if (selected_device_ < storage_.devices().size()) {
             const auto& device = storage_.devices()[selected_device_];
@@ -461,7 +458,7 @@ void IrApp::draw() const {
 
         display.setTextColor(TFT_DARKGREY, TFT_BLACK);
         display.setCursor(4, display.height() - 36);
-        display.println("j/k move  Enter/S send  R learn  M rename");
+        display.println("Fn+arrow move  Enter/S send  R learn  M rename");
         display.setCursor(4, display.height() - 24);
         display.println("E rename device  Del back/delete");
     } else if (screen_ == Screen::TextInput) {
