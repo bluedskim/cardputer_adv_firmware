@@ -12,9 +12,23 @@ namespace m5 {
 
 struct M5Unified_Config_t {};
 
+class Power_Class {
+public:
+    enum is_charging_t { is_charging, is_discharging, charge_unknown };
+
+    int32_t getBatteryLevel() { return level_; }
+    is_charging_t isCharging() { return charging_; }
+
+private:
+    int32_t level_ = 78;
+    is_charging_t charging_ = is_discharging;
+};
+
 class M5Unified {
 public:
     using config_t = M5Unified_Config_t;
+    Power_Class Power;
+
     config_t config() const { return {}; }
 };
 
