@@ -144,7 +144,7 @@ void TorchApp::checkTimeout() {
     display.setCursor(20, 50);
     display.println("Torch auto-off");
     display.setCursor(20, 66);
-    display.println("Fn+<-/-> to switch app");
+    display.println(", / to switch app");
     delay(1200);
     onEnter();
 }

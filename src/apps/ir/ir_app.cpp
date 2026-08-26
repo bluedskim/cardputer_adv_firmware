@@ -424,7 +424,7 @@ void IrApp::draw() const {
 
         display.setTextColor(TFT_DARKGREY, TFT_BLACK);
         display.setCursor(4, display.height() - 24);
-        display.println("Fn+arrow move  Enter open  N new  Del delete");
+        display.println("; . move  Enter open  N new  Del delete");
     } else if (screen_ == Screen::DeviceDetail) {
         if (selected_device_ < storage_.devices().size()) {
             const auto& device = storage_.devices()[selected_device_];
@@ -458,7 +458,7 @@ void IrApp::draw() const {
 
         display.setTextColor(TFT_DARKGREY, TFT_BLACK);
         display.setCursor(4, display.height() - 36);
-        display.println("Fn+arrow move  Enter/S send  R learn  M rename");
+        display.println("; . move  Enter/S send  R learn  M rename");
         display.setCursor(4, display.height() - 24);
         display.println("E rename device  Del back/delete");
     } else if (screen_ == Screen::TextInput) {

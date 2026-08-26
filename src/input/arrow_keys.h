@@ -10,11 +10,8 @@ enum class ArrowKey {
     Right,
 };
 
+// Cardputer prints arrow glyphs on ; , . / — treat them as direction keys directly.
 inline ArrowKey detectArrowKey(const Keyboard_Class::KeysState& status) {
-    if (!status.fn) {
-        return ArrowKey::None;
-    }
-
     for (const auto key : status.word) {
         switch (key) {
             case ';':
