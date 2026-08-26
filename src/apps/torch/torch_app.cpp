@@ -6,7 +6,7 @@
 
 namespace {
 
-constexpr int kContentTop = 16;
+constexpr int kContentTop = 24;
 constexpr uint32_t kBlinkPeriodMs = 500;
 
 bool isBrightnessUp(char key) {
@@ -37,8 +37,8 @@ void TorchApp::onExit() {
     M5Cardputer.Display.fillScreen(TFT_BLACK);
 }
 
-void TorchApp::onUpdate() {
-    if (handleInput()) {
+void TorchApp::onUpdate(const Keyboard_Class::KeysState* keys) {
+    if (keys != nullptr && handleInput(*keys)) {
         draw();
     }
 
@@ -48,9 +48,7 @@ void TorchApp::onUpdate() {
             blink_on_ = !blink_on_;
             last_blink_ms_ = now;
             applyBrightness();
-            if (blink_on_) {
-                draw();
-            }
+            draw();
         }
     }
 
@@ -58,26 +56,38 @@ void TorchApp::onUpdate() {
 }
 
 void TorchApp::draw() const {
+    if (blinker_enabled_ && !blink_on_) {
+        return;
+    }
+
     auto& display = M5Cardputer.Display;
-    display.fillRect(0, kContentTop, display.width(), display.height() - kContentTop, TFT_BLACK);
-    display.setTextSize(1);
+    const int width = display.width();
+    const int height = display.height();
+    const int center_x = width / 2;
+    const int center_y = (kContentTop + height) / 2;
+
+    display.setTextDatum(middle_center);
     display.setTextColor(TFT_BLACK, TFT_WHITE);
-    display.setCursor(8, kContentTop + 8);
-    display.printf("Brightness: %3u", brightness_);
-    display.setCursor(8, kContentTop + 22);
-    display.printf("Timeout: %4lus", timeout_sec_);
+    display.setTextSize(3);
+    display.drawString("TORCH", center_x, kContentTop + 24);
+
+    display.setTextSize(2);
+    display.drawString(String("Bright ") + brightness_, center_x, center_y - 28);
+    display.drawString(String("Time ") + timeout_sec_ + "s", center_x, center_y);
 
     const uint32_t elapsed_sec = (millis() - started_ms_) / 1000;
     const uint32_t remaining = elapsed_sec >= timeout_sec_ ? 0 : timeout_sec_ - elapsed_sec;
-    display.setCursor(8, kContentTop + 36);
-    display.printf("Remaining: %4lus", remaining);
+    display.drawString(String("Left ") + remaining + "s", center_x, center_y + 28);
 
-    display.setCursor(8, kContentTop + 54);
-    display.printf("Blinker: %s", blinker_enabled_ ? "ON " : "OFF");
+    display.setTextSize(2);
+    display.setTextColor(blinker_enabled_ ? TFT_RED : TFT_DARKGREY, TFT_WHITE);
+    display.drawString(String("BLINK ") + (blinker_enabled_ ? "ON" : "OFF"), center_x, center_y + 56);
 
-    display.setCursor(8, display.height() - 18);
+    display.setTextSize(1);
     display.setTextColor(TFT_DARKGREY, TFT_WHITE);
-    display.print("+/- brightness  b blink  [/] timeout");
+    display.setTextDatum(bottom_center);
+    display.drawString("+/- bright   B blink   [/] time   ,/ switch", center_x, height - 2);
+    display.setTextDatum(top_left);
 }
 
 void TorchApp::applyBrightness() const {
@@ -89,13 +99,8 @@ void TorchApp::applyBrightness() const {
     M5Cardputer.Display.setBrightness(level);
 }
 
-bool TorchApp::handleInput() {
-    if (!M5Cardputer.Keyboard.isChange() || !M5Cardputer.Keyboard.isPressed()) {
-        return false;
-    }
-
+bool TorchApp::handleInput(const Keyboard_Class::KeysState& status) {
     bool changed = false;
-    const auto status = M5Cardputer.Keyboard.keysState();
 
     for (const auto key : status.word) {
         if (isBrightnessUp(key) && brightness_ < config::kTorchMaxBrightness) {
@@ -140,11 +145,13 @@ void TorchApp::checkTimeout() {
     onExit();
     auto& display = M5Cardputer.Display;
     display.fillScreen(TFT_BLACK);
+    display.setTextDatum(middle_center);
+    display.setTextSize(2);
     display.setTextColor(TFT_ORANGE, TFT_BLACK);
-    display.setCursor(20, 50);
-    display.println("Torch auto-off");
-    display.setCursor(20, 66);
-    display.println(", / to switch app");
+    display.drawString("Torch auto-off", display.width() / 2, display.height() / 2 - 12);
+    display.setTextSize(1);
+    display.drawString(", / to switch app", display.width() / 2, display.height() / 2 + 16);
+    display.setTextDatum(top_left);
     delay(1200);
     onEnter();
 }

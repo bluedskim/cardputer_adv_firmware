@@ -2,12 +2,12 @@
 
 #include <M5Cardputer.h>
 
-#include "input/arrow_keys.h"
+#include "input/keyboard_input.h"
 #include "launcher_exit.h"
 
 namespace {
 
-constexpr int kChromeHeight = 14;
+constexpr int kChromeHeight = 22;
 
 }  // namespace
 
@@ -37,11 +37,18 @@ void AppShell::update() {
         launcher_exit::rebootToLauncher();
     }
 
-    if (consumeNavKeys()) {
+    const auto status = M5Cardputer.Keyboard.keysState();
+
+    if (consumeNavKeys(status)) {
+        if (chrome_dirty_) {
+            drawChrome();
+            chrome_dirty_ = false;
+        }
         return;
     }
 
-    apps_[current_index_]->onUpdate();
+    const KeyEvent keys = pollAppKeyEdge(status, keyboard_tracker_);
+    apps_[current_index_]->onUpdate(keys.active ? &keys.status : nullptr);
 
     if (chrome_dirty_) {
         drawChrome();
@@ -61,31 +68,25 @@ void AppShell::switchTo(const std::size_t index) {
     chrome_dirty_ = true;
 }
 
-bool AppShell::consumeNavKeys() {
-    if (!M5Cardputer.Keyboard.isChange()) {
-        return false;
-    }
-
-    if (M5Cardputer.Keyboard.isPressed()) {
-        const auto status = M5Cardputer.Keyboard.keysState();
-
-        if (status.enter) {
-            return false;
+bool AppShell::consumeNavKeys(const Keyboard_Class::KeysState& status) {
+    switch (pollNavEdge(status, keyboard_tracker_)) {
+        case ArrowKey::Left: {
+            const std::size_t next =
+                current_index_ == 0 ? apps_.size() - 1 : current_index_ - 1;
+            switchTo(next);
+            keyboard_tracker_.held_chars = status.word;
+            keyboard_tracker_.enter_down = status.enter;
+            keyboard_tracker_.del_down = status.del;
+            return true;
         }
-
-        switch (detectArrowKey(status)) {
-            case ArrowKey::Left: {
-                const std::size_t next =
-                    current_index_ == 0 ? apps_.size() - 1 : current_index_ - 1;
-                switchTo(next);
-                return true;
-            }
-            case ArrowKey::Right:
-                switchTo((current_index_ + 1) % apps_.size());
-                return true;
-            default:
-                break;
-        }
+        case ArrowKey::Right:
+            switchTo((current_index_ + 1) % apps_.size());
+            keyboard_tracker_.held_chars = status.word;
+            keyboard_tracker_.enter_down = status.enter;
+            keyboard_tracker_.del_down = status.del;
+            return true;
+        default:
+            break;
     }
 
     return false;
@@ -96,19 +97,17 @@ void AppShell::drawChrome() const {
     const int width = display.width();
 
     display.fillRect(0, 0, width, kChromeHeight, TFT_DARKGREY);
-    display.setTextSize(1);
+    display.setTextSize(2);
     display.setTextColor(TFT_WHITE, TFT_DARKGREY);
-    display.setCursor(4, 3);
+    display.setCursor(4, 4);
     display.printf("< %s >", apps_[current_index_]->name());
-    display.setCursor(width - 54, 3);
-    display.print("G0:Launcher");
 
     for (std::size_t i = 0; i < apps_.size(); ++i) {
-        const int dot_x = static_cast<int>(width - 8 - static_cast<int>((apps_.size() - 1 - i) * 8));
+        const int dot_x = static_cast<int>(width - 12 - static_cast<int>((apps_.size() - 1 - i) * 12));
         const uint16_t color = i == current_index_ ? TFT_YELLOW : TFT_DARKGREY;
-        display.fillCircle(dot_x, 7, 2, color);
+        display.fillCircle(dot_x, 11, 3, color);
         if (i == current_index_) {
-            display.drawCircle(dot_x, 7, 3, TFT_WHITE);
+            display.drawCircle(dot_x, 11, 4, TFT_WHITE);
         }
     }
 }

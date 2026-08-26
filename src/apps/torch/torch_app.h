@@ -1,5 +1,7 @@
 #pragma once
 
+#include <M5Cardputer.h>
+
 #include "apps/app_base.h"
 
 class TorchApp final : public AppBase {
@@ -7,12 +9,12 @@ public:
     const char* name() const override;
     void onEnter() override;
     void onExit() override;
-    void onUpdate() override;
+    void onUpdate(const Keyboard_Class::KeysState* keys) override;
 
 private:
     void draw() const;
     void applyBrightness() const;
-    bool handleInput();
+    bool handleInput(const Keyboard_Class::KeysState& status);
     void checkTimeout();
 
     uint8_t brightness_ = 255;

@@ -14,7 +14,7 @@ public:
     const char* name() const override;
     void onEnter() override;
     void onExit() override;
-    void onUpdate() override;
+    void onUpdate(const Keyboard_Class::KeysState* keys) override;
 
 private:
     enum class Screen {
@@ -33,7 +33,7 @@ private:
     };
 
     void draw() const;
-    void handleInput();
+    void handleInput(const Keyboard_Class::KeysState& status);
     void enterDeviceList();
     void enterDeviceDetail();
     void beginTextInput(InputPurpose purpose, const std::string& seed = "");
