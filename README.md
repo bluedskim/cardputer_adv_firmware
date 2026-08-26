@@ -6,6 +6,7 @@ M5Stack Cardputer / Cardputer-Adv용 커스텀 펌웨어입니다. 기본 탑재
 
 - 상단 크롬 바에 현재 앱 이름과 페이지 인디케이터를 표시합니다.
 - **방향키** (`;` `,` `.` `/`)로 앱을 전환합니다 (`,` = 이전, `/` = 다음).
+- **G0** 버튼으로 M5Launcher로 돌아갑니다.
 - 각 앱은 독립 화면을 가지며, 앱 내부 조작은 앱별 단축키를 사용합니다.
 
 ### 방향키
@@ -61,11 +62,40 @@ IR 수신 핀: GPIO **1** (`include/config.h`에서 변경 가능)
 
 ## 빌드
 
-### PlatformIO (권장)
+### M5Launcher 설치용 (권장)
+
+기기에는 [M5Launcher](https://github.com/bmorcelli/Launcher)를 먼저 플래시해 두고, 이 프로젝트는 **OTA 앱 바이너리**로 설치합니다.
 
 ```bash
-pio run
-pio run -t upload
+pio run -e m5launcher
+```
+
+빌드 결과:
+
+| 파일 | 용도 |
+|------|------|
+| `dist/cardputer_adv_firmware.bin` | M5Launcher에 설치할 앱 이미지 |
+| `.pio/build/m5launcher/firmware.bin` | 위와 동일 (원본 경로) |
+
+**설치 방법**
+
+1. M5Launcher 메뉴에서 `SD` / `OTA` / `WUI` 중 하나로 `.bin` 설치
+2. 설치 후 목록에서 앱 실행
+
+**런처로 돌아가기**
+
+- 앱 실행 중 **G0 버튼**(키보드 왼쪽 상단) 한 번 → M5Launcher(factory)로 재부팅
+- 복구: **G0 누른 채로 RST** → 런처 메뉴 강제 진입
+
+> `firmware.bin`을 `esptool`로 `0x0`에 직접 쓰면 M5Launcher가 지워집니다. 반드시 M5Launcher의 Install 기능을 사용하세요.
+
+### USB 직접 플래시 (단독 펌웨어)
+
+M5Launcher 없이 단독으로 쓸 때만 사용합니다.
+
+```bash
+pio run -e m5stack-cardputer
+pio run -e m5stack-cardputer -t upload
 pio device monitor
 ```
 
@@ -82,10 +112,13 @@ pio device monitor
 ```
 .
 ├── platformio.ini
+├── scripts/export_launcher_bin.py
+├── dist/                     # M5Launcher용 .bin (빌드 후 생성)
 ├── include/config.h          # 핀, 제한값, 기본 설정
 ├── src/
 │   ├── main.cpp
 │   ├── app_shell.*           # 앱 전환 셸
+│   ├── launcher_exit.*       # M5Launcher 복귀
 │   └── apps/
 │       ├── torch/            # 손전등 앱
 │       └── ir/               # IR 앱 + NVS 저장소

@@ -3,6 +3,7 @@
 #include <M5Cardputer.h>
 
 #include "input/arrow_keys.h"
+#include "launcher_exit.h"
 
 namespace {
 
@@ -31,6 +32,10 @@ void AppShell::update() {
     }
 
     M5Cardputer.update();
+
+    if (M5Cardputer.BtnA.wasClicked()) {
+        launcher_exit::rebootToLauncher();
+    }
 
     if (consumeNavKeys()) {
         return;
@@ -95,6 +100,8 @@ void AppShell::drawChrome() const {
     display.setTextColor(TFT_WHITE, TFT_DARKGREY);
     display.setCursor(4, 3);
     display.printf("< %s >", apps_[current_index_]->name());
+    display.setCursor(width - 54, 3);
+    display.print("G0:Launcher");
 
     for (std::size_t i = 0; i < apps_.size(); ++i) {
         const int dot_x = static_cast<int>(width - 8 - static_cast<int>((apps_.size() - 1 - i) * 8));
