@@ -29,6 +29,9 @@ public:
     void begin(bool enable_keyboard = true) {
         enable_keyboard_ = enable_keyboard;
         initDisplay();
+        if (enable_keyboard_) {
+            sim_keyboard_init();
+        }
     }
 
     void begin(m5::M5Unified_Config_t, bool enable_keyboard = true) { begin(enable_keyboard); }
@@ -37,8 +40,13 @@ public:
         Keyboard.updateKeyList();
         Keyboard.updateKeysState();
 
-        const Uint8* state = SDL_GetKeyboardState(nullptr);
-        const bool g0 = state != nullptr && state[SDL_SCANCODE_GRAVE];
+        bool g0 = false;
+        for (const char ch : Keyboard.keysState().word) {
+            if (ch == '`') {
+                g0 = true;
+                break;
+            }
+        }
         BtnA.update(g0);
     }
 
@@ -47,6 +55,7 @@ private:
 
     void initDisplay() {
         Display.init();
+        SDL_StopTextInput();
         Display.fillScreen(TFT_BLACK);
     }
 };

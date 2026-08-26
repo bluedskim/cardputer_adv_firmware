@@ -56,11 +56,11 @@ void TorchApp::onUpdate(const Keyboard_Class::KeysState* keys) {
 }
 
 void TorchApp::draw() const {
+    auto& display = M5Cardputer.Display;
     if (blinker_enabled_ && !blink_on_) {
         return;
     }
 
-    auto& display = M5Cardputer.Display;
     const int width = display.width();
     const int height = display.height();
     const int center_x = width / 2;
@@ -90,12 +90,17 @@ void TorchApp::draw() const {
 }
 
 void TorchApp::applyBrightness() const {
-    uint8_t level = brightness_;
+    auto& display = M5Cardputer.Display;
+    const int content_y = config::kContentTop;
+    const int content_h = display.height() - content_y;
+
     if (blinker_enabled_ && !blink_on_) {
-        level = 0;
+        display.fillRect(0, content_y, display.width(), content_h, TFT_BLACK);
+        return;
     }
-    M5Cardputer.Display.fillScreen(TFT_WHITE);
-    M5Cardputer.Display.setBrightness(level);
+
+    display.fillRect(0, content_y, display.width(), content_h, TFT_WHITE);
+    display.setBrightness(brightness_);
 }
 
 bool TorchApp::handleInput(const Keyboard_Class::KeysState& status) {
