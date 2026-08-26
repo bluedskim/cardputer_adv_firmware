@@ -37,9 +37,9 @@ void AppShell::update() {
         launcher_exit::rebootToLauncher();
     }
 
-    const KeyEvent keys = pollKeyEvent();
+    const auto status = M5Cardputer.Keyboard.keysState();
 
-    if (keys.active && consumeNavKeys(keys.status)) {
+    if (consumeNavKeys(status)) {
         if (chrome_dirty_) {
             drawChrome();
             chrome_dirty_ = false;
@@ -47,6 +47,7 @@ void AppShell::update() {
         return;
     }
 
+    const KeyEvent keys = pollAppKeyEdge(status, keyboard_tracker_);
     apps_[current_index_]->onUpdate(keys.active ? &keys.status : nullptr);
 
     if (chrome_dirty_) {
@@ -68,19 +69,21 @@ void AppShell::switchTo(const std::size_t index) {
 }
 
 bool AppShell::consumeNavKeys(const Keyboard_Class::KeysState& status) {
-    if (status.enter) {
-        return false;
-    }
-
-    switch (detectArrowKey(status)) {
+    switch (pollNavEdge(status, keyboard_tracker_)) {
         case ArrowKey::Left: {
             const std::size_t next =
                 current_index_ == 0 ? apps_.size() - 1 : current_index_ - 1;
             switchTo(next);
+            keyboard_tracker_.held_chars = status.word;
+            keyboard_tracker_.enter_down = status.enter;
+            keyboard_tracker_.del_down = status.del;
             return true;
         }
         case ArrowKey::Right:
             switchTo((current_index_ + 1) % apps_.size());
+            keyboard_tracker_.held_chars = status.word;
+            keyboard_tracker_.enter_down = status.enter;
+            keyboard_tracker_.del_down = status.del;
             return true;
         default:
             break;
