@@ -1,18 +1,104 @@
 # cardputer_adv_firmware
 
+M5Stack Cardputer / Cardputer-Adv용 커스텀 펌웨어입니다. 기본 탑재 UI처럼 기능별로 좌우 전환하며, **Torch(손전등)** 와 **IR 리모컨** 기능을 제공합니다.
+
 ## UI
 
-1. 기본적으로 탑재된 UI와 비슷한 방식(기능별 좌우 넘김)을 사용
+- 상단 크롬 바에 현재 앱 이름과 페이지 인디케이터를 표시합니다.
+- `;` / `.` 키로 앱을 좌우로 전환합니다 (`j` / `l` 도 동작).
+- 각 앱은 독립 화면을 가지며, 앱 내부 조작은 앱별 단축키를 사용합니다.
 
-## 기능 후보
+## 기능
 
-1. torch: 액정을 최대한 밝게 켜서 전등처럼 사용하기.
-    1. 너무 오래 켜져있으면 고장날 수 있으니 max timeout 10이 기본
-    2. 키보드로 밝기 조절 가능
-    3. blinker 가능
-1. ir reader/sender
-    1. 신규기기 등록 기능
-    1. 등록 기기 관리 기능: 목록 조회, 선택, 수정, 삭제
-    1. 리모컨 button 등록(read 기능)
-    1. 등록된 리모컨 button 의 ir을 send 하는 기능
+### Torch
 
+액정을 최대한 밝게 켜 전등처럼 사용합니다.
+
+| 동작 | 키 |
+|------|-----|
+| 밝기 증가 | `+`, `=`, `]`, `k` |
+| 밝기 감소 | `-`, `_`, `[`, `i` |
+| 블링커 토글 | `b` |
+| 타임아웃 조절 | `[` / `]` (60초 단위) |
+
+- 기본 최대 타임아웃: **10분(600초)**
+- 타임아웃이 지나면 자동으로 꺼지고 다시 켜집니다.
+- 장시간 고휘도 유지는 패널에 부담을 줄 수 있으니 타임아웃을 꼭 활용하세요.
+
+### IR Reader / Sender
+
+등록한 기기와 버튼의 IR 코드를 NVS에 저장하고 송신합니다.
+
+**기기 관리**
+
+- 신규 기기 등록 (`N`)
+- 기기 목록 조회 / 선택 (`j`/`k`, Enter)
+- 기기 이름 수정 (`E`)
+- 기기 삭제 (`Del`)
+
+**버튼 관리**
+
+- IR 수신(학습) (`R` — 기본 이름 `Button`, `N`으로 이름 입력 후 학습)
+- 등록된 버튼 IR 송신 (`Enter` 또는 `S`)
+- 버튼 이름 수정 (`M`)
+- 버튼 삭제 (`Del`)
+
+IR 송신 핀: GPIO **44** (M5 공식 예제 기준)  
+IR 수신 핀: GPIO **1** (`include/config.h`에서 변경 가능)
+
+> Cardputer v1.x는 IR 수신 모듈이 별도일 수 있습니다. 수신이 안 되면 `kIrRxPin`을 실제 배선에 맞게 수정하세요.
+
+## 빌드
+
+### PlatformIO (권장)
+
+```bash
+pio run
+pio run -t upload
+pio device monitor
+```
+
+### 요구 사항
+
+- [PlatformIO](https://platformio.org/)
+- M5Cardputer 보드 (ESP32-S3)
+- USB-C 데이터 케이블
+
+`platformio.ini`에 M5Cardputer, Arduino-IRremote 의존성이 정의되어 있습니다.
+
+## 프로젝트 구조
+
+```
+.
+├── platformio.ini
+├── include/config.h          # 핀, 제한값, 기본 설정
+├── src/
+│   ├── main.cpp
+│   ├── app_shell.*           # 앱 전환 셸
+│   └── apps/
+│       ├── torch/            # 손전등 앱
+│       └── ir/               # IR 앱 + NVS 저장소
+└── README.md
+```
+
+## 설정
+
+`include/config.h`에서 다음 값을 조정할 수 있습니다.
+
+| 상수 | 기본값 | 설명 |
+|------|--------|------|
+| `kIrTxPin` | 44 | IR 송신 GPIO |
+| `kIrRxPin` | 1 | IR 수신 GPIO |
+| `kTorchDefaultTimeoutSec` | 600 | Torch 기본 타임아웃(초) |
+| `kMaxDevices` | 16 | 저장 가능한 기기 수 |
+| `kMaxButtonsPerDevice` | 16 | 기기당 버튼 수 |
+
+## 로드맵
+
+- [ ] 추가 프로토콜 송신 지원 확대
+- [ ] SD 카드 백업/복원
+- [ ] 더 많은 유틸리티 앱 (타이머, 키보드 HID 등)
+
+## 라이선스
+
+이 저장소의 라이선스는 별도 명시가 없으면 저장소 소유자 정책을 따릅니다.
