@@ -6,12 +6,12 @@
 #include <algorithm>
 
 #include "config.h"
-#include "input/arrow_keys.h"
+#include "input/keyboard_input.h"
 
 namespace {
 
-constexpr int kContentTop = 16;
-constexpr int kLineHeight = 12;
+constexpr int kContentTop = 24;
+constexpr int kLineHeight = 18;
 constexpr uint32_t kStatusDurationMs = 1800;
 
 std::string protocolToString(decode_type_t protocol) {
@@ -72,12 +72,14 @@ void IrApp::onExit() {
     M5Cardputer.Display.fillScreen(TFT_BLACK);
 }
 
-void IrApp::onUpdate() {
+void IrApp::onUpdate(const Keyboard_Class::KeysState* keys) {
     if (screen_ == Screen::Learn) {
         pollLearn();
     }
 
-    handleInput();
+    if (keys != nullptr) {
+        handleInput(*keys);
+    }
     draw();
 }
 
@@ -289,17 +291,7 @@ std::string IrApp::screenTitle() const {
     return "IR";
 }
 
-void IrApp::handleInput() {
-    if (!M5Cardputer.Keyboard.isChange()) {
-        return;
-    }
-
-    if (!M5Cardputer.Keyboard.isPressed()) {
-        return;
-    }
-
-    const auto status = M5Cardputer.Keyboard.keysState();
-
+void IrApp::handleInput(const Keyboard_Class::KeysState& status) {
     if (status.del) {
         if (screen_ == Screen::TextInput) {
             if (!input_buffer_.empty()) {
@@ -392,20 +384,20 @@ void IrApp::handleInput() {
 void IrApp::draw() const {
     auto& display = M5Cardputer.Display;
     display.fillRect(0, kContentTop, display.width(), display.height() - kContentTop, TFT_BLACK);
-    display.setTextSize(1);
+    display.setTextSize(2);
     display.setTextColor(TFT_CYAN, TFT_BLACK);
     display.setCursor(4, kContentTop + 2);
     display.println(screenTitle().c_str());
 
-    int y = kContentTop + 16;
+    int y = kContentTop + 24;
 
     if (screen_ == Screen::DeviceList) {
         if (storage_.devices().empty()) {
             display.setTextColor(TFT_WHITE, TFT_BLACK);
             display.setCursor(8, y);
-            display.println("No devices yet");
+            display.println("No devices");
             display.setCursor(8, y + kLineHeight);
-            display.println("Press N to add");
+            display.println("Press N");
         } else {
             for (std::size_t i = 0; i < storage_.devices().size(); ++i) {
                 const bool selected = i == selected_device_;
@@ -416,24 +408,25 @@ void IrApp::draw() const {
                                storage_.devices()[i].name.c_str(),
                                static_cast<unsigned>(storage_.devices()[i].buttons.size()));
                 y += kLineHeight;
-                if (y > display.height() - 28) {
+                if (y > display.height() - 40) {
                     break;
                 }
             }
         }
 
+        display.setTextSize(1);
         display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        display.setCursor(4, display.height() - 24);
-        display.println("; . move  Enter open  N new  Del delete");
+        display.setCursor(4, display.height() - 28);
+        display.println("; . move  Enter open  N new");
     } else if (screen_ == Screen::DeviceDetail) {
         if (selected_device_ < storage_.devices().size()) {
             const auto& device = storage_.devices()[selected_device_];
             if (device.buttons.empty()) {
                 display.setTextColor(TFT_WHITE, TFT_BLACK);
                 display.setCursor(8, y);
-                display.println("No buttons yet");
+                display.println("No buttons");
                 display.setCursor(8, y + kLineHeight);
-                display.println("Press R to learn");
+                display.println("Press R");
             } else {
                 for (std::size_t i = 0; i < device.buttons.size(); ++i) {
                     const bool selected = i == selected_button_;
@@ -442,47 +435,46 @@ void IrApp::draw() const {
                     display.setCursor(8, y);
                     display.printf("%c %s", selected ? '>' : ' ', button.name.c_str());
                     y += kLineHeight;
-                    display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-                    display.setCursor(16, y);
-                    display.printf("  %s A:%04X C:%02X",
-                                   button.protocol.c_str(),
-                                   static_cast<unsigned>(button.address),
-                                   static_cast<unsigned>(button.command));
-                    y += kLineHeight;
-                    if (y > display.height() - 36) {
+                    if (y > display.height() - 48) {
                         break;
                     }
                 }
             }
         }
 
+        display.setTextSize(1);
         display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        display.setCursor(4, display.height() - 36);
-        display.println("; . move  Enter/S send  R learn  M rename");
-        display.setCursor(4, display.height() - 24);
-        display.println("E rename device  Del back/delete");
+        display.setCursor(4, display.height() - 40);
+        display.println("; . move  Enter send  R learn");
+        display.setCursor(4, display.height() - 28);
+        display.println("M rename  E device  Del back");
     } else if (screen_ == Screen::TextInput) {
+        display.setTextSize(2);
         display.setTextColor(TFT_WHITE, TFT_BLACK);
         display.setCursor(8, y);
         display.print("> ");
         display.print(input_buffer_.c_str());
         display.print("_");
-        display.setCursor(8, y + 20);
+        display.setTextSize(1);
+        display.setCursor(8, y + 28);
         display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        display.println("Type name, Enter save, Del erase");
+        display.println("Enter save  Del erase");
     } else if (screen_ == Screen::Learn) {
+        display.setTextSize(2);
         display.setTextColor(TFT_ORANGE, TFT_BLACK);
         display.setCursor(8, y);
         display.println(status_message_.c_str());
-        display.setCursor(8, y + 20);
+        display.setTextSize(1);
+        display.setCursor(8, y + 28);
         display.setTextColor(TFT_DARKGREY, TFT_BLACK);
         display.println("Del to cancel");
     }
 
     if (!status_message_.empty() && status_until_ms_ > millis()) {
-        display.fillRect(0, display.height() - 12, display.width(), 12, TFT_NAVY);
+        display.fillRect(0, display.height() - 18, display.width(), 18, TFT_NAVY);
+        display.setTextSize(1);
         display.setTextColor(TFT_WHITE, TFT_NAVY);
-        display.setCursor(4, display.height() - 10);
+        display.setCursor(4, display.height() - 14);
         display.print(status_message_.c_str());
     }
 }
