@@ -10,7 +10,7 @@
 
 namespace {
 
-constexpr int kContentTop = 24;
+constexpr int kContentTop = config::kContentTop;
 constexpr int kLineHeight = 18;
 constexpr uint32_t kStatusDurationMs = 1800;
 

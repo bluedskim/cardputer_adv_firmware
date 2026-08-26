@@ -2,14 +2,9 @@
 
 #include <M5Cardputer.h>
 
+#include "config.h"
 #include "input/keyboard_input.h"
 #include "launcher_exit.h"
-
-namespace {
-
-constexpr int kChromeHeight = 22;
-
-}  // namespace
 
 void AppShell::addApp(std::unique_ptr<AppBase> app) {
     apps_.push_back(std::move(app));
@@ -96,7 +91,7 @@ void AppShell::drawChrome() const {
     auto& display = M5Cardputer.Display;
     const int width = display.width();
 
-    display.fillRect(0, 0, width, kChromeHeight, TFT_DARKGREY);
+    display.fillRect(0, 0, width, config::kChromeHeight, TFT_DARKGREY);
     display.setTextSize(2);
     display.setTextColor(TFT_WHITE, TFT_DARKGREY);
     display.setCursor(4, 4);

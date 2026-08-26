@@ -6,8 +6,8 @@
 
 namespace {
 
-constexpr int kContentTop = 24;
 constexpr uint32_t kBlinkPeriodMs = 500;
+constexpr int kLineStep = 18;
 
 bool isBrightnessUp(char key) {
     return key == '=' || key == '+' || key == ']' || key == 'k' || key == 'K';
@@ -64,29 +64,28 @@ void TorchApp::draw() const {
     const int width = display.width();
     const int height = display.height();
     const int center_x = width / 2;
-    const int center_y = (kContentTop + height) / 2;
+    const int content_bottom = height - config::kFooterHeight;
+    const int base_y = config::kContentTop + 12;
 
     display.setTextDatum(middle_center);
     display.setTextColor(TFT_BLACK, TFT_WHITE);
-    display.setTextSize(3);
-    display.drawString("TORCH", center_x, kContentTop + 24);
-
     display.setTextSize(2);
-    display.drawString(String("Bright ") + brightness_, center_x, center_y - 28);
-    display.drawString(String("Time ") + timeout_sec_ + "s", center_x, center_y);
+    display.drawString(String("Bright ") + brightness_, center_x, base_y);
+    display.drawString(String("Time ") + timeout_sec_ + "s", center_x, base_y + kLineStep);
 
     const uint32_t elapsed_sec = (millis() - started_ms_) / 1000;
     const uint32_t remaining = elapsed_sec >= timeout_sec_ ? 0 : timeout_sec_ - elapsed_sec;
-    display.drawString(String("Left ") + remaining + "s", center_x, center_y + 28);
+    display.drawString(String("Left ") + remaining + "s", center_x, base_y + kLineStep * 2);
 
-    display.setTextSize(2);
     display.setTextColor(blinker_enabled_ ? TFT_RED : TFT_DARKGREY, TFT_WHITE);
-    display.drawString(String("BLINK ") + (blinker_enabled_ ? "ON" : "OFF"), center_x, center_y + 56);
+    display.drawString(String("BLINK ") + (blinker_enabled_ ? "ON" : "OFF"), center_x,
+                       base_y + kLineStep * 3);
 
     display.setTextSize(1);
     display.setTextColor(TFT_DARKGREY, TFT_WHITE);
-    display.setTextDatum(bottom_center);
-    display.drawString("+/- bright   B blink   [/] time   ,/ switch", center_x, height - 2);
+    display.setTextDatum(top_center);
+    display.drawString("+/- bright  B blink", center_x, content_bottom);
+    display.drawString("[/] time  ,/ switch", center_x, content_bottom + 8);
     display.setTextDatum(top_left);
 }
 

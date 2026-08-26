@@ -46,12 +46,7 @@ private:
     bool enable_keyboard_ = true;
 
     void initDisplay() {
-        auto* panel = new lgfx::Panel_sdl();
-        panel->setScaling(3, 3);
-        panel->setWindowTitle("cardputer_adv_firmware (sim)");
-        Display.setPanel(panel);
         Display.init();
-        Display.setRotation(1);
         Display.fillScreen(TFT_BLACK);
     }
 };
