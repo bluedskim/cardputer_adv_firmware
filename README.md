@@ -2,6 +2,78 @@
 
 M5Stack Cardputer / Cardputer-Adv용 커스텀 펌웨어입니다. 기본 탑재 UI처럼 기능별로 좌우 전환하며, **Torch(손전등)** 와 **IR 리모컨** 기능을 제공합니다.
 
+주 개발 환경은 **Fedora** 기준이며, 아래 설치·업로드 절차도 Fedora를 우선으로 적어 두었습니다.
+
+## 개발 환경 (Fedora)
+
+### 1. 시스템 패키지
+
+```bash
+sudo dnf install git python3-pip gcc-c++ make SDL2-devel pkg-config
+```
+
+| 패키지 | 용도 |
+|--------|------|
+| `git`, `python3-pip` | PlatformIO, 소스 클론 |
+| `gcc-c++`, `make` | 네이티브/sim 빌드 |
+| `SDL2-devel`, `pkg-config` | 데스크탑 시뮬레이터 (`sim`) |
+
+### 2. PlatformIO
+
+**Cursor / VS Code 확장** (권장): [PlatformIO IDE](https://platformio.org/install/ide?install=vscode) 설치 후 저장소를 열면 `platformio.ini` 의존성을 자동으로 받습니다.
+
+**CLI**만 쓸 때:
+
+```bash
+pip install --user platformio
+# ~/.local/bin 이 PATH에 없으면 추가 (예: ~/.bashrc)
+export PATH="$HOME/.local/bin:$PATH"
+pio --version
+```
+
+저장소 루트에서 첫 빌드 시 ESP32 툴체인·라이브러리가 `~/.platformio` 아래로 내려받아집니다.
+
+### 3. USB 업로드 · 시리얼 모니터
+
+Cardputer-Adv(ESP32-S3)는 USB CDC로 `/dev/ttyACM*` 에 잡힙니다. 권한이 없으면 `pio run -t upload` 또는 `pio device monitor`가 실패합니다.
+
+**방법 A — `dialout` 그룹 (일반적)**
+
+```bash
+sudo usermod -aG dialout "$USER"
+# 로그아웃 후 다시 로그인 (또는 재부팅)
+```
+
+**방법 B — udev 규칙 (Espressif)**
+
+`/etc/udev/rules.d/99-espressif.rules`:
+
+```
+SUBSYSTEM=="usb", ATTR{idVendor}=="303a", MODE="0666", GROUP="dialout"
+```
+
+적용:
+
+```bash
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+# USB 케이블 재연결
+```
+
+연결 확인:
+
+```bash
+pio device list
+```
+
+### 4. 다른 Linux / macOS / Windows
+
+| OS | 참고 |
+|----|------|
+| Debian/Ubuntu | `sudo apt install build-essential git python3-pip libsdl2-dev pkg-config` · 시리얼 그룹 `dialout` |
+| macOS | [PlatformIO IDE](https://platformio.org/install/ide?install=vscode) · 시뮬: `brew install sdl2 pkg-config` ([sim/README.md](sim/README.md)) |
+| Windows | PlatformIO IDE · 시뮬: MSYS2 + SDL2 ([sim/README.md](sim/README.md)) |
+
 ## UI
 
 - 상단 크롬 바에 현재 앱 이름과 페이지 인디케이터를 표시합니다.
@@ -28,8 +100,8 @@ M5Stack Cardputer / Cardputer-Adv용 커스텀 펌웨어입니다. 기본 탑재
 
 | 동작 | 키 |
 |------|-----|
-| 밝기 증가 | `+`, `=`, `]`, `k` |
-| 밝기 감소 | `-`, `_`, `[`, `i` |
+| 밝기 증가 | `+`, `=` |
+| 밝기 감소 | `-`, `_` |
 | 블링커 토글 | `b` |
 | 타임아웃 조절 | `[` / `]` (60초 단위) |
 
@@ -62,14 +134,13 @@ IR 수신 핀: GPIO **1** (`include/config.h`에서 변경 가능)
 
 ## 데스크탑 시뮬레이터
 
-Torch / IR UI를 PC에서 미리 보려면 `sim/` 환경을 사용합니다.
+Torch / IR UI를 PC에서 미리 보려면 `sim/` 환경을 사용합니다. Fedora에서는 위 **시스템 패키지**(`SDL2-devel`, `pkg-config` 등) 설치 후:
 
 ```bash
-# Linux: sudo apt install libsdl2-dev pkg-config
 pio run -e sim -t upload
 ```
 
-자세한 내용은 [sim/README.md](sim/README.md)를 참고하세요.
+`upload` 타겟이 PC에서 SDL 창을 띄웁니다. 조작 키·구조·한계는 [sim/README.md](sim/README.md)를 참고하세요.
 
 ## 빌드
 
@@ -102,7 +173,7 @@ pio run -e m5launcher
 
 ### USB 직접 플래시 (단독 펌웨어)
 
-M5Launcher 없이 단독으로 쓸 때만 사용합니다.
+M5Launcher 없이 단독으로 쓸 때만 사용합니다. Fedora에서 [USB 권한](#3-usb-업로드--시리얼-모니터)을 맞춘 뒤:
 
 ```bash
 pio run -e m5stack-cardputer
@@ -110,11 +181,13 @@ pio run -e m5stack-cardputer -t upload
 pio device monitor
 ```
 
+업로드가 안 되면: 케이블이 **데이터** 지원인지, `pio device list`에 포트가 보이는지, `dialout` 그룹 적용 후 재로그인했는지 확인하세요. ESP32-S3은 부트로더 모드(보드의 **RST** 등)가 필요한 경우도 있습니다.
+
 ### 요구 사항
 
-- [PlatformIO](https://platformio.org/)
-- M5Cardputer 보드 (ESP32-S3)
-- USB-C 데이터 케이블
+- Fedora: [개발 환경](#개발-환경-fedora) 절의 패키지 + [PlatformIO](https://platformio.org/)
+- M5Cardputer / Cardputer-Adv 보드 (ESP32-S3)
+- USB-C **데이터** 케이블
 
 `platformio.ini`에 M5Cardputer, Arduino-IRremote 의존성이 정의되어 있습니다.
 

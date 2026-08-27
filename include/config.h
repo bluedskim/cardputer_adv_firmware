@@ -18,4 +18,9 @@ constexpr uint8_t kMaxNameLength = 24;
 
 constexpr const char* kStorageNamespace = "card_adv";
 
+// Cardputer display: 240x135 landscape, chrome bar at top.
+constexpr int kChromeHeight = 22;
+constexpr int kContentTop = 22;
+constexpr int kFooterHeight = 18;
+
 }  // namespace config

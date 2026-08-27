@@ -2,9 +2,13 @@
 
 Torch / IR UI를 PC에서 SDL2 창으로 미리 확인합니다. 실제 IR·키보드 하드웨어는 스텁으로 대체됩니다.
 
-## 요구 사항
+PlatformIO 설치·USB 권한 등 공통 개발 환경은 저장소 루트 [README.md](../README.md#개발-환경-fedora)의 **Fedora** 절을 따르세요.
 
-### Linux (Ubuntu/Debian)
+## 추가 패키지 (SDL2)
+
+루트 README의 Fedora `dnf install` 한 번으로 sim 빌드에 필요한 `SDL2-devel`, `pkg-config`가 포함됩니다. 다른 OS만 아래를 참고하세요.
+
+### Linux (Debian/Ubuntu)
 
 ```bash
 sudo apt install build-essential libsdl2-dev pkg-config

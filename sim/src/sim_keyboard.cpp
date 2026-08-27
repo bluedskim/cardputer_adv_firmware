@@ -1,23 +1,28 @@
 #include "sim_keyboard.h"
 
-#include <algorithm>
-#include <set>
-
 #include <SDL.h>
+
+#include <algorithm>
+#include <mutex>
+#include <set>
 
 namespace {
 
-struct ActiveKey {
-    char ch = 0;
-    bool special = false;
+struct KeySnapshot {
+    std::set<char> pressed_chars;
     bool del = false;
     bool enter = false;
+    bool shift = false;
 };
 
-std::set<char> g_pressed_chars;
+std::mutex g_key_mutex;
+KeySnapshot g_keys;
+bool g_watch_registered = false;
+
 bool g_del = false;
 bool g_enter = false;
 bool g_shift = false;
+std::set<char> g_pressed_chars;
 
 char mapScanCode(SDL_Scancode scancode, bool shift) {
     switch (scancode) {
@@ -68,42 +73,66 @@ char mapScanCode(SDL_Scancode scancode, bool shift) {
     return 0;
 }
 
-}  // namespace
+void applyKeyEvent(const SDL_KeyboardEvent& key, bool down) {
+    const bool shift = (key.keysym.mod & KMOD_SHIFT) != 0;
 
-void sim_keyboard_poll() {
-    SDL_PumpEvents();
-
-    g_pressed_chars.clear();
-    g_del = false;
-    g_enter = false;
-    g_shift = (SDL_GetModState() & KMOD_SHIFT) != 0;
-
-    const Uint8* state = SDL_GetKeyboardState(nullptr);
-    if (state == nullptr) {
+    if (key.keysym.scancode == SDL_SCANCODE_BACKSPACE) {
+        g_keys.del = down;
+        return;
+    }
+    if (key.keysym.scancode == SDL_SCANCODE_RETURN || key.keysym.scancode == SDL_SCANCODE_KP_ENTER) {
+        g_keys.enter = down;
+        return;
+    }
+    if (key.keysym.scancode == SDL_SCANCODE_LSHIFT || key.keysym.scancode == SDL_SCANCODE_RSHIFT) {
+        g_keys.shift = down;
         return;
     }
 
-    if (state[SDL_SCANCODE_BACKSPACE]) {
-        g_del = true;
-    }
-    if (state[SDL_SCANCODE_RETURN] || state[SDL_SCANCODE_KP_ENTER]) {
-        g_enter = true;
+    const char ch = mapScanCode(key.keysym.scancode, shift);
+    if (ch == 0) {
+        return;
     }
 
-    for (int scancode = SDL_SCANCODE_A; scancode < SDL_NUM_SCANCODES; ++scancode) {
-        if (!state[scancode]) {
-            continue;
-        }
-        if (scancode == SDL_SCANCODE_BACKSPACE || scancode == SDL_SCANCODE_RETURN ||
-            scancode == SDL_SCANCODE_KP_ENTER) {
-            continue;
-        }
-
-        const char ch = mapScanCode(static_cast<SDL_Scancode>(scancode), g_shift);
-        if (ch != 0) {
-            g_pressed_chars.insert(ch);
-        }
+    if (down) {
+        g_keys.pressed_chars.insert(ch);
+    } else {
+        g_keys.pressed_chars.erase(ch);
     }
+}
+
+int keyboardEventWatch(void*, SDL_Event* event) {
+    if (event->type != SDL_KEYDOWN && event->type != SDL_KEYUP) {
+        return 1;
+    }
+
+    std::lock_guard<std::mutex> lock(g_key_mutex);
+    applyKeyEvent(event->key, event->type == SDL_KEYDOWN);
+    return 1;
+}
+
+KeySnapshot snapshotKeys() {
+    std::lock_guard<std::mutex> lock(g_key_mutex);
+    return g_keys;
+}
+
+}  // namespace
+
+void sim_keyboard_init() {
+    if (g_watch_registered) {
+        return;
+    }
+
+    SDL_AddEventWatch(keyboardEventWatch, nullptr);
+    g_watch_registered = true;
+}
+
+void sim_keyboard_poll() {
+    const KeySnapshot keys = snapshotKeys();
+    g_del = keys.del;
+    g_enter = keys.enter;
+    g_shift = keys.shift;
+    g_pressed_chars = keys.pressed_chars;
 }
 
 void Keyboard_Class::updateKeyList() {

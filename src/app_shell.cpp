@@ -2,13 +2,13 @@
 
 #include <M5Cardputer.h>
 
+#include "config.h"
 #include "input/keyboard_input.h"
 #include "launcher_exit.h"
 #include "ui/battery_indicator.h"
 
 namespace {
 
-constexpr int kChromeHeight = 22;
 constexpr uint32_t kBatteryPollMs = 1000;
 constexpr int kBatteryWidth = 46;
 
@@ -110,7 +110,7 @@ void AppShell::drawChrome() const {
     const int dots_width = static_cast<int>(apps_.size()) * 12 + 8;
     const int battery_x = width - dots_width - kBatteryWidth;
 
-    display.fillRect(0, 0, width, kChromeHeight, TFT_DARKGREY);
+    display.fillRect(0, 0, width, config::kChromeHeight, TFT_DARKGREY);
     display.setTextSize(2);
     display.setTextColor(TFT_WHITE, TFT_DARKGREY);
     display.setCursor(4, 4);

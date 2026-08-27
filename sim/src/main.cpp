@@ -29,8 +29,14 @@ void setup() {
 void loop() {
     g_shell.update();
 
-    const Uint8* state = SDL_GetKeyboardState(nullptr);
-    const bool inject_now = state != nullptr && state[SDL_SCANCODE_I];
+    const auto& keys = M5Cardputer.Keyboard.keysState();
+    bool inject_now = false;
+    for (const char ch : keys.word) {
+        if (ch == 'i' || ch == 'I') {
+            inject_now = true;
+            break;
+        }
+    }
     if (IrReceiver.isActive() && inject_now && !g_prev_inject_ir) {
         IrReceiver.injectNec(0x00FF, 0x42);
         std::printf("[sim] injected test IR NEC addr=0x00FF cmd=0x42\n");

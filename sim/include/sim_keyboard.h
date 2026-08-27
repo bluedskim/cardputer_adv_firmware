@@ -48,4 +48,5 @@ private:
     uint8_t last_key_size_ = 0;
 };
 
+void sim_keyboard_init();
 void sim_keyboard_poll();
