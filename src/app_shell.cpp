@@ -25,6 +25,7 @@ void AppShell::begin() {
 
     M5Cardputer.Display.setRotation(1);
     M5Cardputer.Display.fillScreen(TFT_BLACK);
+    chrome_focused_ = false;
     apps_[current_index_]->onEnter();
     battery_ = readBatterySnapshot();
     last_battery_poll_ms_ = millis();
@@ -44,14 +45,45 @@ void AppShell::update() {
 
     const auto status = M5Cardputer.Keyboard.keysState();
 
-    if (consumeNavKeys(status)) {
+    if (chrome_focused_) {
+        consumeChromeKeys(status);
+        apps_[current_index_]->onUpdate(nullptr);
         refreshBatterySnapshot();
         drawChrome();
         return;
     }
 
+    const ArrowKey arrow = pollArrowEdge(status, keyboard_tracker_);
     const KeyEvent keys = pollAppKeyEdge(status, keyboard_tracker_);
-    apps_[current_index_]->onUpdate(keys.active ? &keys.status : nullptr);
+
+    Keyboard_Class::KeysState delivered = keys.status;
+    if (arrow != ArrowKey::None) {
+        // Synthesize a one-shot arrow into word so apps can use detectArrowKey.
+        delivered.word.clear();
+        switch (arrow) {
+            case ArrowKey::Up:
+                delivered.word.push_back(';');
+                break;
+            case ArrowKey::Down:
+                delivered.word.push_back('.');
+                break;
+            case ArrowKey::Left:
+                delivered.word.push_back(',');
+                break;
+            case ArrowKey::Right:
+                delivered.word.push_back('/');
+                break;
+            default:
+                break;
+        }
+    }
+
+    const bool has_input = keys.active || arrow != ArrowKey::None;
+    const NavRequest req =
+        apps_[current_index_]->onUpdate(has_input ? &delivered : nullptr);
+    if (req == NavRequest::FocusChrome) {
+        chrome_focused_ = true;
+    }
 
     refreshBatterySnapshot();
     drawChrome();
@@ -80,27 +112,33 @@ void AppShell::switchTo(const std::size_t index) {
     last_battery_poll_ms_ = millis();
 }
 
-bool AppShell::consumeNavKeys(const Keyboard_Class::KeysState& status) {
-    switch (pollNavEdge(status, keyboard_tracker_)) {
+bool AppShell::consumeChromeKeys(const Keyboard_Class::KeysState& status) {
+    const ArrowKey arrow = pollArrowEdge(status, keyboard_tracker_);
+    const bool enter_edge = status.enter && !keyboard_tracker_.enter_down;
+    keyboard_tracker_.enter_down = status.enter;
+    keyboard_tracker_.del_down = status.del;
+
+    switch (arrow) {
         case ArrowKey::Left: {
             const std::size_t next =
                 current_index_ == 0 ? apps_.size() - 1 : current_index_ - 1;
             switchTo(next);
-            keyboard_tracker_.held_chars = status.word;
-            keyboard_tracker_.enter_down = status.enter;
-            keyboard_tracker_.del_down = status.del;
             return true;
         }
         case ArrowKey::Right:
             switchTo((current_index_ + 1) % apps_.size());
-            keyboard_tracker_.held_chars = status.word;
-            keyboard_tracker_.enter_down = status.enter;
-            keyboard_tracker_.del_down = status.del;
+            return true;
+        case ArrowKey::Down:
+            chrome_focused_ = false;
             return true;
         default:
             break;
     }
 
+    if (enter_edge) {
+        chrome_focused_ = false;
+        return true;
+    }
     return false;
 }
 
@@ -109,10 +147,12 @@ void AppShell::drawChrome() const {
     const int width = display.width();
     const int dots_width = static_cast<int>(apps_.size()) * 12 + 8;
     const int battery_x = width - dots_width - kBatteryWidth;
+    const uint16_t bar = chrome_focused_ ? TFT_NAVY : TFT_DARKGREY;
+    const uint16_t title = chrome_focused_ ? TFT_YELLOW : TFT_WHITE;
 
-    display.fillRect(0, 0, width, config::kChromeHeight, TFT_DARKGREY);
+    display.fillRect(0, 0, width, config::kChromeHeight, bar);
     display.setTextSize(2);
-    display.setTextColor(TFT_WHITE, TFT_DARKGREY);
+    display.setTextColor(title, bar);
     display.setCursor(4, 4);
     display.printf("< %s >", apps_[current_index_]->name());
 
