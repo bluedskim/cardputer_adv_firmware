@@ -223,9 +223,19 @@ pio device monitor
 
 ## 로드맵
 
-- [ ] 추가 프로토콜 송신 지원 확대
+- [ ] 더 많은 유틸리티 앱
+  - [ ] 시계
+  - [ ] 타이머
+  - [ ] 키보드 HID(블루투스, usb)
+  - [ ] ssh commander: ssh로 명령을 전송하고 결과를 받아 출력
+  - [ ] web commander: web protocol로 서버를 호출하고 결과를 받아 출력
 - [ ] SD 카드 백업/복원
-- [ ] 더 많은 유틸리티 앱 (타이머, 키보드 HID 등)
+
+### 다음 major 버전
+
+1. mobile(android) companion
+  2. 스마트폰 알림 수신
+     
 
 ## 라이선스
 
