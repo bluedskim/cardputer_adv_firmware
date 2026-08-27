@@ -25,6 +25,7 @@ void TorchApp::onEnter() {
     brightness_ = config::kTorchDefaultBrightness;
     timeout_sec_ = config::kTorchDefaultTimeoutSec;
     started_ms_ = millis();
+    last_remaining_sec_ = timeout_sec_;
     blinker_enabled_ = false;
     blink_on_ = true;
     last_blink_ms_ = started_ms_;
@@ -38,8 +39,10 @@ void TorchApp::onExit() {
 }
 
 void TorchApp::onUpdate(const Keyboard_Class::KeysState* keys) {
+    bool need_draw = false;
+
     if (keys != nullptr && handleInput(*keys)) {
-        draw();
+        need_draw = true;
     }
 
     if (blinker_enabled_) {
@@ -48,8 +51,20 @@ void TorchApp::onUpdate(const Keyboard_Class::KeysState* keys) {
             blink_on_ = !blink_on_;
             last_blink_ms_ = now;
             applyBrightness();
-            draw();
+            need_draw = true;
         }
+    }
+
+    const uint32_t elapsed_sec = (millis() - started_ms_) / 1000;
+    const uint32_t remaining =
+        elapsed_sec >= timeout_sec_ ? 0 : timeout_sec_ - elapsed_sec;
+    if (remaining != last_remaining_sec_) {
+        last_remaining_sec_ = remaining;
+        need_draw = true;
+    }
+
+    if (need_draw) {
+        draw();
     }
 
     checkTimeout();
@@ -70,12 +85,14 @@ void TorchApp::draw() const {
     display.setTextDatum(middle_center);
     display.setTextColor(TFT_BLACK, TFT_WHITE);
     display.setTextSize(2);
-    display.drawString(String("Bright ") + brightness_, center_x, base_y);
-    display.drawString(String("Time ") + timeout_sec_ + "s", center_x, base_y + kLineStep);
+    display.drawString(String("Bright ") + String(static_cast<int>(brightness_)), center_x, base_y);
+    display.drawString(String("Time ") + String(static_cast<unsigned>(timeout_sec_)) + "s", center_x,
+                       base_y + kLineStep);
 
     const uint32_t elapsed_sec = (millis() - started_ms_) / 1000;
     const uint32_t remaining = elapsed_sec >= timeout_sec_ ? 0 : timeout_sec_ - elapsed_sec;
-    display.drawString(String("Left ") + remaining + "s", center_x, base_y + kLineStep * 2);
+    display.drawString(String("Left ") + String(static_cast<unsigned>(remaining)) + "s", center_x,
+                       base_y + kLineStep * 2);
 
     display.setTextColor(blinker_enabled_ ? TFT_RED : TFT_DARKGREY, TFT_WHITE);
     display.drawString(String("BLINK ") + (blinker_enabled_ ? "ON" : "OFF"), center_x,
@@ -96,6 +113,7 @@ void TorchApp::applyBrightness() const {
 
     if (blinker_enabled_ && !blink_on_) {
         display.fillRect(0, content_y, display.width(), content_h, TFT_BLACK);
+        display.setBrightness(0);
         return;
     }
 
@@ -108,16 +126,14 @@ bool TorchApp::handleInput(const Keyboard_Class::KeysState& status) {
 
     for (const auto key : status.word) {
         if (isBrightnessUp(key) && brightness_ < config::kTorchMaxBrightness) {
-            brightness_ = static_cast<uint8_t>(brightness_ + 8);
-            if (brightness_ > config::kTorchMaxBrightness) {
-                brightness_ = config::kTorchMaxBrightness;
-            }
+            const int next = static_cast<int>(brightness_) + 8;
+            brightness_ = static_cast<uint8_t>(
+                next > config::kTorchMaxBrightness ? config::kTorchMaxBrightness : next);
             changed = true;
         } else if (isBrightnessDown(key) && brightness_ > config::kTorchMinBrightness) {
-            brightness_ = static_cast<uint8_t>(brightness_ - 8);
-            if (brightness_ < config::kTorchMinBrightness) {
-                brightness_ = config::kTorchMinBrightness;
-            }
+            const int next = static_cast<int>(brightness_) - 8;
+            brightness_ = static_cast<uint8_t>(
+                next < config::kTorchMinBrightness ? config::kTorchMinBrightness : next);
             changed = true;
         } else if (key == 'b' || key == 'B') {
             blinker_enabled_ = !blinker_enabled_;

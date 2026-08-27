@@ -2,7 +2,7 @@
 
 #include <SDL.h>
 
-#include <algorithm>
+#include <map>
 #include <mutex>
 #include <set>
 
@@ -17,6 +17,7 @@ struct KeySnapshot {
 
 std::mutex g_key_mutex;
 KeySnapshot g_keys;
+std::map<SDL_Scancode, char> g_down_by_scancode;
 bool g_watch_registered = false;
 
 bool g_del = false;
@@ -41,9 +42,11 @@ char mapScanCode(SDL_Scancode scancode, bool shift) {
         case SDL_SCANCODE_SPACE:
             return ' ';
         case SDL_SCANCODE_MINUS:
+        case SDL_SCANCODE_KP_MINUS:
             return shift ? '_' : '-';
         case SDL_SCANCODE_EQUALS:
-            return shift ? '+' : '=';
+        case SDL_SCANCODE_KP_PLUS:
+            return shift ? '+' : (scancode == SDL_SCANCODE_KP_PLUS ? '+' : '=');
         case SDL_SCANCODE_LEFTBRACKET:
             return shift ? '{' : '[';
         case SDL_SCANCODE_RIGHTBRACKET:
@@ -73,36 +76,49 @@ char mapScanCode(SDL_Scancode scancode, bool shift) {
     return 0;
 }
 
+void rebuildPressedChars() {
+    g_keys.pressed_chars.clear();
+    for (const auto& entry : g_down_by_scancode) {
+        g_keys.pressed_chars.insert(entry.second);
+    }
+}
+
 void applyKeyEvent(const SDL_KeyboardEvent& key, bool down) {
     const bool shift = (key.keysym.mod & KMOD_SHIFT) != 0;
+    const SDL_Scancode scancode = key.keysym.scancode;
 
-    if (key.keysym.scancode == SDL_SCANCODE_BACKSPACE) {
+    if (scancode == SDL_SCANCODE_BACKSPACE) {
         g_keys.del = down;
         return;
     }
-    if (key.keysym.scancode == SDL_SCANCODE_RETURN || key.keysym.scancode == SDL_SCANCODE_KP_ENTER) {
+    if (scancode == SDL_SCANCODE_RETURN || scancode == SDL_SCANCODE_KP_ENTER) {
         g_keys.enter = down;
         return;
     }
-    if (key.keysym.scancode == SDL_SCANCODE_LSHIFT || key.keysym.scancode == SDL_SCANCODE_RSHIFT) {
+    if (scancode == SDL_SCANCODE_LSHIFT || scancode == SDL_SCANCODE_RSHIFT) {
         g_keys.shift = down;
         return;
     }
 
-    const char ch = mapScanCode(key.keysym.scancode, shift);
-    if (ch == 0) {
-        return;
-    }
-
     if (down) {
-        g_keys.pressed_chars.insert(ch);
+        const char ch = mapScanCode(scancode, shift);
+        if (ch == 0) {
+            return;
+        }
+        g_down_by_scancode[scancode] = ch;
     } else {
-        g_keys.pressed_chars.erase(ch);
+        g_down_by_scancode.erase(scancode);
     }
+    rebuildPressedChars();
 }
 
 int keyboardEventWatch(void*, SDL_Event* event) {
     if (event->type != SDL_KEYDOWN && event->type != SDL_KEYUP) {
+        return 1;
+    }
+
+    // Ignore auto-repeat KEYDOWNs so edge detection stays one-shot.
+    if (event->type == SDL_KEYDOWN && event->key.repeat) {
         return 1;
     }
 
