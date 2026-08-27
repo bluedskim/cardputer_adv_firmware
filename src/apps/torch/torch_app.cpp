@@ -5,6 +5,8 @@
 #include "config.h"
 #include "input/keyboard_input.h"
 
+#include <algorithm>
+
 namespace {
 
 constexpr uint32_t kBlinkPeriodMs = 500;
@@ -24,6 +26,8 @@ void TorchApp::onEnter() {
     blinker_enabled_ = false;
     blink_on_ = true;
     last_blink_ms_ = started_ms_;
+    auto_off_ = false;
+    auto_off_until_ms_ = 0;
     applyBrightness();
     draw();
 }
@@ -34,6 +38,15 @@ void TorchApp::onExit() {
 }
 
 NavRequest TorchApp::onUpdate(const Keyboard_Class::KeysState* keys) {
+    if (auto_off_) {
+        if (keys != nullptr) {
+            onEnter();
+            return NavRequest::None;
+        }
+        checkTimeout();
+        return NavRequest::None;
+    }
+
     NavRequest req = NavRequest::None;
     bool need_draw = false;
 
@@ -151,7 +164,7 @@ void TorchApp::adjustFocused(const int delta) {
         }
         case Focus::Timeout: {
             if (delta > 0) {
-                timeout_sec_ += kTimeoutStepSec;
+                timeout_sec_ = std::min(timeout_sec_ + kTimeoutStepSec, config::kTorchMaxTimeoutSec);
             } else if (timeout_sec_ > kTimeoutStepSec) {
                 timeout_sec_ -= kTimeoutStepSec;
             }
@@ -199,21 +212,29 @@ NavRequest TorchApp::handleInput(const Keyboard_Class::KeysState& status) {
 }
 
 void TorchApp::checkTimeout() {
+    if (auto_off_) {
+        if (millis() >= auto_off_until_ms_) {
+            onEnter();
+        }
+        return;
+    }
+
     const uint32_t elapsed_sec = (millis() - started_ms_) / 1000;
     if (elapsed_sec < timeout_sec_) {
         return;
     }
 
-    onExit();
+    auto_off_ = true;
+    auto_off_until_ms_ = millis() + 1200;
+    M5Cardputer.Display.setBrightness(128);
     auto& display = M5Cardputer.Display;
-    display.fillScreen(TFT_BLACK);
+    display.fillRect(0, config::kContentTop, display.width(),
+                     display.height() - config::kContentTop, TFT_BLACK);
     display.setTextDatum(middle_center);
     display.setTextSize(2);
     display.setTextColor(TFT_ORANGE, TFT_BLACK);
     display.drawString("Torch auto-off", display.width() / 2, display.height() / 2 - 12);
     display.setTextSize(1);
-    display.drawString("v to continue", display.width() / 2, display.height() / 2 + 16);
+    display.drawString("any key / wait", display.width() / 2, display.height() / 2 + 16);
     display.setTextDatum(top_left);
-    delay(1200);
-    onEnter();
 }

@@ -12,6 +12,8 @@ namespace {
 
 constexpr int kContentTop = config::kContentTop;
 constexpr int kLineHeight = 16;
+constexpr int kListTop = kContentTop + 22;
+constexpr int kFooterReserve = 14;
 constexpr uint32_t kStatusDurationMs = 1800;
 
 std::string protocolToString(decode_type_t protocol) {
@@ -47,6 +49,23 @@ void sendStoredButton(const IrButton& button) {
 
 }  // namespace
 
+const char* IrApp::actionLabel(ListAction action) {
+    switch (action) {
+        case ListAction::New:
+            return "+ New";
+        case ListAction::Learn:
+            return "+ Learn";
+        case ListAction::Rename:
+            return "* Rename";
+        case ListAction::RenameDevice:
+            return "* Dev name";
+        case ListAction::Delete:
+            return "x Delete";
+        default:
+            return "";
+    }
+}
+
 IrApp::IrApp() { storage_.begin(); }
 
 IrApp::~IrApp() = default;
@@ -80,44 +99,78 @@ NavRequest IrApp::onUpdate(const Keyboard_Class::KeysState* keys) {
     NavRequest req = NavRequest::None;
     if (keys != nullptr) {
         req = handleInput(*keys);
+        markDirty();
     }
-    draw();
+
+    const bool status_now = !status_message_.empty() && status_until_ms_ > millis();
+    if (status_now != status_visible_) {
+        status_visible_ = status_now;
+        markDirty();
+    }
+
+    if (dirty_) {
+        draw();
+        dirty_ = false;
+    }
     return req;
+}
+
+void IrApp::clampSelection() {
+    if (storage_.devices().empty()) {
+        selected_device_ = 0;
+        selected_button_ = 0;
+        return;
+    }
+    selected_device_ = std::min(selected_device_, storage_.devices().size() - 1);
+    const auto& device = storage_.devices()[selected_device_];
+    if (device.buttons.empty()) {
+        selected_button_ = 0;
+    } else {
+        selected_button_ = std::min(selected_button_, device.buttons.size() - 1);
+    }
+}
+
+int IrApp::visibleRowCount() const {
+    const int available = M5Cardputer.Display.height() - kFooterReserve - kListTop;
+    return std::max(1, available / kLineHeight);
+}
+
+void IrApp::ensureCursorVisible() {
+    const std::size_t visible = static_cast<std::size_t>(visibleRowCount());
+    if (cursor_ < scroll_) {
+        scroll_ = cursor_;
+    } else if (cursor_ >= scroll_ + visible) {
+        scroll_ = cursor_ + 1 - visible;
+    }
 }
 
 void IrApp::enterDeviceList() {
     screen_ = Screen::DeviceList;
-    selected_device_ = 0;
-    cursor_ = 0;
-    if (!storage_.devices().empty()) {
-        selected_device_ = std::min(selected_device_, storage_.devices().size() - 1);
-        cursor_ = selected_device_;
-    }
+    clampSelection();
+    cursor_ = storage_.devices().empty() ? 0 : selected_device_;
+    scroll_ = 0;
+    ensureCursorVisible();
+    markDirty();
 }
 
 void IrApp::enterDeviceDetail() {
     screen_ = Screen::DeviceDetail;
-    selected_button_ = 0;
-    cursor_ = 0;
-    if (selected_device_ < storage_.devices().size()) {
-        const auto& device = storage_.devices()[selected_device_];
-        if (!device.buttons.empty()) {
-            selected_button_ = std::min(selected_button_, device.buttons.size() - 1);
-            cursor_ = selected_button_;
-        }
-    }
+    clampSelection();
+    cursor_ = selected_button_;
+    scroll_ = 0;
+    ensureCursorVisible();
+    markDirty();
 }
 
 std::size_t IrApp::listRowCount() const {
     if (screen_ == Screen::DeviceList) {
-        // devices + New (+ Delete if any device)
         const std::size_t n = storage_.devices().size();
-        return n + 1 + (n > 0 ? 1 : 0);
+        return n + 1 + (n > 0 ? 2 : 0);  // New, + Rename + Delete
     }
     if (screen_ == Screen::DeviceDetail && selected_device_ < storage_.devices().size()) {
         const std::size_t n = storage_.devices()[selected_device_].buttons.size();
-        // buttons + Learn + Rename + Delete
-        return n + 3;
+        // Learn + Rename device + (Rename/Delete button if any)
+        return n + 2 + (n > 0 ? 2 : 0);
     }
     return 0;
 }
@@ -133,6 +186,12 @@ bool IrApp::isActionRow(const std::size_t index, ListAction* out) const {
         }
         if (n > 0 && index == n + 1) {
             if (out) {
+                *out = ListAction::RenameDevice;
+            }
+            return true;
+        }
+        if (n > 0 && index == n + 2) {
+            if (out) {
                 *out = ListAction::Delete;
             }
             return true;
@@ -142,19 +201,26 @@ bool IrApp::isActionRow(const std::size_t index, ListAction* out) const {
 
     if (screen_ == Screen::DeviceDetail && selected_device_ < storage_.devices().size()) {
         const std::size_t n = storage_.devices()[selected_device_].buttons.size();
-        if (index == n) {
+        std::size_t i = n;
+        if (index == i++) {
             if (out) {
                 *out = ListAction::Learn;
             }
             return true;
         }
-        if (index == n + 1) {
+        if (index == i++) {
+            if (out) {
+                *out = ListAction::RenameDevice;
+            }
+            return true;
+        }
+        if (n > 0 && index == i++) {
             if (out) {
                 *out = ListAction::Rename;
             }
             return true;
         }
-        if (index == n + 2) {
+        if (n > 0 && index == i) {
             if (out) {
                 *out = ListAction::Delete;
             }
@@ -165,15 +231,18 @@ bool IrApp::isActionRow(const std::size_t index, ListAction* out) const {
 }
 
 void IrApp::beginTextInput(const InputPurpose purpose, const std::string& seed) {
+    input_return_list_ = (screen_ == Screen::DeviceList);
     screen_ = Screen::TextInput;
     input_purpose_ = purpose;
     input_buffer_ = seed;
+    markDirty();
 }
 
 void IrApp::commitTextInput() {
     if (input_buffer_.empty()) {
         status_message_ = "Name required";
         status_until_ms_ = millis() + kStatusDurationMs;
+        markDirty();
         return;
     }
 
@@ -194,7 +263,11 @@ void IrApp::commitTextInput() {
             } else {
                 status_message_ = "Rename failed";
             }
-            enterDeviceDetail();
+            if (input_return_list_) {
+                enterDeviceList();
+            } else {
+                enterDeviceDetail();
+            }
             break;
         case InputPurpose::NewButton:
             beginLearn();
@@ -225,6 +298,39 @@ void IrApp::beginLearn() {
     status_until_ms_ = 0;
     IrReceiver.start();
     IrReceiver.resume();
+    markDirty();
+}
+
+void IrApp::beginConfirmDelete(const PendingDelete kind) {
+    pending_delete_ = kind;
+    screen_ = Screen::ConfirmDelete;
+    markDirty();
+}
+
+void IrApp::confirmDelete() {
+    if (pending_delete_ == PendingDelete::Device) {
+        if (storage_.removeDevice(selected_device_)) {
+            status_message_ = "Device deleted";
+            status_until_ms_ = millis() + kStatusDurationMs;
+        }
+        pending_delete_ = PendingDelete::None;
+        selected_device_ = 0;
+        enterDeviceList();
+        return;
+    }
+
+    if (pending_delete_ == PendingDelete::Button) {
+        if (storage_.removeButton(selected_device_, selected_button_)) {
+            status_message_ = "Button deleted";
+            status_until_ms_ = millis() + kStatusDurationMs;
+        }
+        pending_delete_ = PendingDelete::None;
+        enterDeviceDetail();
+        return;
+    }
+
+    pending_delete_ = PendingDelete::None;
+    goBack();
 }
 
 void IrApp::pollLearn() {
@@ -270,46 +376,30 @@ void IrApp::activateSelection() {
     if (isActionRow(cursor_, &action)) {
         switch (action) {
             case ListAction::New:
-                if (screen_ == Screen::DeviceList) {
-                    beginTextInput(InputPurpose::NewDevice);
-                }
+                beginTextInput(InputPurpose::NewDevice);
                 break;
             case ListAction::Learn:
                 input_buffer_ = "Button";
                 beginLearn();
                 break;
             case ListAction::Rename:
-                if (screen_ == Screen::DeviceDetail && selected_device_ < storage_.devices().size()) {
+                if (selected_device_ < storage_.devices().size()) {
                     const auto& device = storage_.devices()[selected_device_];
-                    if (!device.buttons.empty() && selected_button_ < device.buttons.size()) {
+                    if (selected_button_ < device.buttons.size()) {
                         beginTextInput(InputPurpose::RenameButton, device.buttons[selected_button_].name);
-                    } else {
-                        beginTextInput(InputPurpose::RenameDevice, device.name);
                     }
+                }
+                break;
+            case ListAction::RenameDevice:
+                if (selected_device_ < storage_.devices().size()) {
+                    beginTextInput(InputPurpose::RenameDevice, storage_.devices()[selected_device_].name);
                 }
                 break;
             case ListAction::Delete:
                 if (screen_ == Screen::DeviceList) {
-                    if (storage_.removeDevice(selected_device_)) {
-                        status_message_ = "Device deleted";
-                        status_until_ms_ = millis() + kStatusDurationMs;
-                    }
-                    enterDeviceList();
-                } else if (screen_ == Screen::DeviceDetail) {
-                    if (selected_device_ < storage_.devices().size()) {
-                        const auto& device = storage_.devices()[selected_device_];
-                        if (!device.buttons.empty()) {
-                            if (storage_.removeButton(selected_device_, selected_button_)) {
-                                status_message_ = "Button deleted";
-                                status_until_ms_ = millis() + kStatusDurationMs;
-                            }
-                            enterDeviceDetail();
-                        } else if (storage_.removeDevice(selected_device_)) {
-                            status_message_ = "Device deleted";
-                            status_until_ms_ = millis() + kStatusDurationMs;
-                            enterDeviceList();
-                        }
-                    }
+                    beginConfirmDelete(PendingDelete::Device);
+                } else {
+                    beginConfirmDelete(PendingDelete::Button);
                 }
                 break;
             default:
@@ -329,15 +419,27 @@ void IrApp::activateSelection() {
         sendSelectedButton();
         status_message_ = "IR sent";
         status_until_ms_ = millis() + kStatusDurationMs;
+        markDirty();
     }
 }
 
 void IrApp::goBack() {
-    if (screen_ == Screen::TextInput) {
-        if (input_purpose_ == InputPurpose::NewDevice) {
+    if (screen_ == Screen::ConfirmDelete) {
+        const PendingDelete kind = pending_delete_;
+        pending_delete_ = PendingDelete::None;
+        if (kind == PendingDelete::Device) {
             enterDeviceList();
         } else {
             enterDeviceDetail();
+        }
+        return;
+    }
+    pending_delete_ = PendingDelete::None;
+    if (screen_ == Screen::TextInput) {
+        if (input_purpose_ == InputPurpose::RenameButton || input_purpose_ == InputPurpose::NewButton) {
+            enterDeviceDetail();
+        } else {
+            enterDeviceList();
         }
         return;
     }
@@ -372,11 +474,25 @@ std::string IrApp::screenTitle() const {
             return "Enter name";
         case Screen::Learn:
             return "Learning IR";
+        case Screen::ConfirmDelete:
+            return "Confirm";
     }
     return "IR";
 }
 
 NavRequest IrApp::handleInput(const Keyboard_Class::KeysState& status) {
+    if (screen_ == Screen::ConfirmDelete) {
+        if (status.enter) {
+            confirmDelete();
+            return NavRequest::None;
+        }
+        if (status.del || detectArrowKey(status) == ArrowKey::Left) {
+            goBack();
+            return NavRequest::None;
+        }
+        return NavRequest::None;
+    }
+
     if (screen_ == Screen::TextInput) {
         if (status.enter) {
             commitTextInput();
@@ -410,7 +526,6 @@ NavRequest IrApp::handleInput(const Keyboard_Class::KeysState& status) {
             goBack();
             return NavRequest::None;
         }
-        // Root list: Left does nothing; Up-from-top goes to chrome.
     }
 
     if (status.enter) {
@@ -433,6 +548,7 @@ NavRequest IrApp::handleInput(const Keyboard_Class::KeysState& status) {
                     selected_button_ = cursor_;
                 }
             }
+            ensureCursorVisible();
             return NavRequest::None;
         }
         case ArrowKey::Down: {
@@ -452,6 +568,7 @@ NavRequest IrApp::handleInput(const Keyboard_Class::KeysState& status) {
                     selected_button_ = cursor_;
                 }
             }
+            ensureCursorVisible();
             return NavRequest::None;
         }
         default:
@@ -469,12 +586,35 @@ void IrApp::draw() const {
     display.setCursor(4, kContentTop + 2);
     display.println(screenTitle().c_str());
 
-    int y = kContentTop + 22;
+    int y = kListTop;
+
+    if (screen_ == Screen::ConfirmDelete) {
+        display.setTextSize(2);
+        display.setTextColor(TFT_ORANGE, TFT_BLACK);
+        display.setCursor(8, y);
+        if (pending_delete_ == PendingDelete::Device && selected_device_ < storage_.devices().size()) {
+            display.printf("Del %s?", storage_.devices()[selected_device_].name.c_str());
+        } else if (pending_delete_ == PendingDelete::Button && selected_device_ < storage_.devices().size()) {
+            const auto& device = storage_.devices()[selected_device_];
+            if (selected_button_ < device.buttons.size()) {
+                display.printf("Del %s?", device.buttons[selected_button_].name.c_str());
+            }
+        } else {
+            display.print("Delete?");
+        }
+        display.setTextSize(1);
+        display.setTextColor(TFT_DARKGREY, TFT_BLACK);
+        display.setCursor(8, y + 36);
+        display.print("Ent yes  < no");
+        return;
+    }
 
     if (screen_ == Screen::DeviceList || screen_ == Screen::DeviceDetail) {
         const std::size_t rows = listRowCount();
+        const std::size_t visible = static_cast<std::size_t>(visibleRowCount());
         const int width = display.width();
-        for (std::size_t i = 0; i < rows; ++i) {
+        const std::size_t end = std::min(rows, scroll_ + visible);
+        for (std::size_t i = scroll_; i < end; ++i) {
             const bool selected = i == cursor_;
             const uint16_t fg = selected ? TFT_YELLOW : TFT_WHITE;
             const uint16_t bg = selected ? TFT_NAVY : TFT_BLACK;
@@ -487,24 +627,7 @@ void IrApp::draw() const {
 
             ListAction action = ListAction::None;
             if (isActionRow(i, &action)) {
-                const char* label = "";
-                switch (action) {
-                    case ListAction::New:
-                        label = "+ New";
-                        break;
-                    case ListAction::Learn:
-                        label = "+ Learn";
-                        break;
-                    case ListAction::Rename:
-                        label = "* Rename";
-                        break;
-                    case ListAction::Delete:
-                        label = "x Delete";
-                        break;
-                    default:
-                        break;
-                }
-                display.printf("%c %s", selected ? '>' : ' ', label);
+                display.printf("%c %s", selected ? '>' : ' ', actionLabel(action));
             } else if (screen_ == Screen::DeviceList) {
                 display.printf("%c %s (%u)",
                                selected ? '>' : ' ',
@@ -517,9 +640,6 @@ void IrApp::draw() const {
             }
 
             y += kLineHeight;
-            if (y > display.height() - 24) {
-                break;
-            }
         }
 
         display.setTextSize(1);

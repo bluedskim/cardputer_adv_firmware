@@ -8,6 +8,7 @@ constexpr uint8_t kIrTxPin = 44;
 constexpr uint8_t kIrRxPin = 1;
 
 constexpr uint32_t kTorchDefaultTimeoutSec = 600;
+constexpr uint32_t kTorchMaxTimeoutSec = 3600;
 constexpr uint8_t kTorchMinBrightness = 10;
 constexpr uint8_t kTorchMaxBrightness = 255;
 constexpr uint8_t kTorchDefaultBrightness = 255;

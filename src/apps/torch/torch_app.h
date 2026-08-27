@@ -33,4 +33,6 @@ private:
     bool blinker_enabled_ = false;
     bool blink_on_ = true;
     uint32_t last_blink_ms_ = 0;
+    bool auto_off_ = false;
+    uint32_t auto_off_until_ms_ = 0;
 };

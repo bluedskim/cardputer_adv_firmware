@@ -2,6 +2,8 @@
 
 #include <M5Cardputer.h>
 
+#include <algorithm>
+
 #include "config.h"
 #include "input/keyboard_input.h"
 #include "launcher_exit.h"
@@ -11,6 +13,21 @@ namespace {
 
 constexpr uint32_t kBatteryPollMs = 1000;
 constexpr int kBatteryWidth = 46;
+
+char arrowToChar(ArrowKey arrow) {
+    switch (arrow) {
+        case ArrowKey::Up:
+            return ';';
+        case ArrowKey::Down:
+            return '.';
+        case ArrowKey::Left:
+            return ',';
+        case ArrowKey::Right:
+            return '/';
+        default:
+            return 0;
+    }
+}
 
 }  // namespace
 
@@ -29,7 +46,9 @@ void AppShell::begin() {
     apps_[current_index_]->onEnter();
     battery_ = readBatterySnapshot();
     last_battery_poll_ms_ = millis();
+    chrome_dirty_ = true;
     drawChrome();
+    chrome_dirty_ = false;
 }
 
 void AppShell::update() {
@@ -44,12 +63,20 @@ void AppShell::update() {
     }
 
     const auto status = M5Cardputer.Keyboard.keysState();
+    const bool battery_changed = refreshBatterySnapshot();
+    if (battery_changed) {
+        chrome_dirty_ = true;
+    }
 
     if (chrome_focused_) {
-        consumeChromeKeys(status);
+        if (consumeChromeKeys(status)) {
+            chrome_dirty_ = true;
+        }
         apps_[current_index_]->onUpdate(nullptr);
-        refreshBatterySnapshot();
-        drawChrome();
+        if (chrome_dirty_) {
+            drawChrome();
+            chrome_dirty_ = false;
+        }
         return;
     }
 
@@ -57,25 +84,10 @@ void AppShell::update() {
     const KeyEvent keys = pollAppKeyEdge(status, keyboard_tracker_);
 
     Keyboard_Class::KeysState delivered = keys.status;
+    delivered.word.erase(std::remove_if(delivered.word.begin(), delivered.word.end(), isArrowChar),
+                         delivered.word.end());
     if (arrow != ArrowKey::None) {
-        // Synthesize a one-shot arrow into word so apps can use detectArrowKey.
-        delivered.word.clear();
-        switch (arrow) {
-            case ArrowKey::Up:
-                delivered.word.push_back(';');
-                break;
-            case ArrowKey::Down:
-                delivered.word.push_back('.');
-                break;
-            case ArrowKey::Left:
-                delivered.word.push_back(',');
-                break;
-            case ArrowKey::Right:
-                delivered.word.push_back('/');
-                break;
-            default:
-                break;
-        }
+        delivered.word.insert(delivered.word.begin(), arrowToChar(arrow));
     }
 
     const bool has_input = keys.active || arrow != ArrowKey::None;
@@ -83,20 +95,28 @@ void AppShell::update() {
         apps_[current_index_]->onUpdate(has_input ? &delivered : nullptr);
     if (req == NavRequest::FocusChrome) {
         chrome_focused_ = true;
+        chrome_dirty_ = true;
     }
 
-    refreshBatterySnapshot();
-    drawChrome();
+    if (chrome_dirty_) {
+        drawChrome();
+        chrome_dirty_ = false;
+    }
 }
 
-void AppShell::refreshBatterySnapshot() {
+bool AppShell::refreshBatterySnapshot() {
     const uint32_t now = millis();
     if (now - last_battery_poll_ms_ < kBatteryPollMs) {
-        return;
+        return false;
     }
 
     last_battery_poll_ms_ = now;
-    battery_ = readBatterySnapshot();
+    const BatterySnapshot next = readBatterySnapshot();
+    if (next == battery_) {
+        return false;
+    }
+    battery_ = next;
+    return true;
 }
 
 void AppShell::switchTo(const std::size_t index) {
@@ -110,6 +130,7 @@ void AppShell::switchTo(const std::size_t index) {
     apps_[current_index_]->onEnter();
     battery_ = readBatterySnapshot();
     last_battery_poll_ms_ = millis();
+    chrome_dirty_ = true;
 }
 
 bool AppShell::consumeChromeKeys(const Keyboard_Class::KeysState& status) {
@@ -156,7 +177,7 @@ void AppShell::drawChrome() const {
     display.setCursor(4, 4);
     display.printf("< %s >", apps_[current_index_]->name());
 
-    drawBatteryIndicator(display, battery_x, 6, battery_);
+    drawBatteryIndicator(display, battery_x, 6, battery_, bar);
 
     for (std::size_t i = 0; i < apps_.size(); ++i) {
         const int dot_x = static_cast<int>(width - 12 - static_cast<int>((apps_.size() - 1 - i) * 12));

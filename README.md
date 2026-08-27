@@ -118,9 +118,9 @@ pio device list
 | Blink 토글 (포커스 시) | `Enter` |
 | 앱 전환 | Bright에서 `↑` → 크롬 |
 
-- 타임아웃 조절 단위: **60초**
-- 기본 최대 타임아웃: **10분(600초)**
-- 타임아웃이 지나면 자동으로 꺼지고 다시 켜집니다.
+- 타임아웃 조절 단위: **60초** (최대 **60분**)
+- 기본 타임아웃: **10분(600초)**
+- 타임아웃이 지나면 자동으로 꺼졌다가 다시 켜집니다 (키를 누르면 바로 재시작).
 - 장시간 고휘도 유지는 패널에 부담을 줄 수 있으니 타임아웃을 꼭 활용하세요.
 
 ### IR Reader / Sender
@@ -129,15 +129,16 @@ pio device list
 
 **기기 목록**
 
-- `↑` `↓` 로 기기 / `+ New` / `x Delete` 이동
-- `Enter` — 기기 열기, New, Delete 실행
+- `↑` `↓` 로 기기 / `+ New` / `* Dev name` / `x Delete` 이동 (목록이 길면 스크롤)
+- `Enter` — 기기 열기, New, 이름 변경, Delete(확인 화면)
 - 맨 위에서 `↑` — 크롬(앱 전환)
 
 **기기 상세**
 
-- `↑` `↓` 로 버튼 / `+ Learn` / `* Rename` / `x Delete` 이동
+- `↑` `↓` 로 버튼 / `+ Learn` / `* Dev name` / `* Rename` / `x Delete` 이동
 - `Enter` — 버튼 IR 송신 또는 액션 실행
 - `←` 또는 `Del` — 기기 목록으로
+- Delete는 `Ent yes` / `< no` 확인 후 적용
 
 **이름 입력 / 학습**
 
@@ -188,6 +189,18 @@ pio run -e m5launcher
 
 > `firmware.bin`을 `esptool`로 `0x0`에 직접 쓰면 M5Launcher가 지워집니다. 반드시 M5Launcher의 Install 기능을 사용하세요.
 
+### 실기 테스트 체크리스트
+
+M5Launcher에 `.bin` 설치 후 기기에서 확인합니다. (sim은 백라이트·IR 하드웨어가 없습니다.)
+
+- [ ] **밝기:** Torch에서 Bright 포커스 후 `←` 시 패널이 어두워지고, `→` 시 밝아진다. 최대에서 `→`를 눌러도 255에 머문다.
+- [ ] **타임아웃:** Time 포커스에서 `←` `→`가 60초 단위로 바뀌고, `Left`가 1초마다 줄어든다. 만료 후 메시지가 뜬 뒤 키가 다시 먹는다 (멈춘 것처럼 보이지 않음).
+- [ ] **IR 학습:** 상세에서 `+ Learn` → 리모컨 버튼을 누르면 저장된다. 안 되면 `kIrRxPin`(기본 GPIO 1)을 배선에 맞게 바꾼다.
+- [ ] **IR 송신:** 저장된 버튼에서 `Enter` 시 기기가 반응한다 (GPIO 44).
+- [ ] **IR 목록:** 기기가 많을 때 `↓`로 화면 밖 항목까지 스크롤된다. `* Dev name`으로 기기 이름이 바뀐다. `x Delete`는 확인 후에만 지워진다.
+- [ ] **G0:** 앱 실행 중 G0 한 번 → M5Launcher로 돌아간다.
+- [ ] **배터리:** 크롬 오른쪽에 %가 보이고, USB 연결 시 충전 표시가 바뀐다.
+
 ### USB 직접 플래시 (단독 펌웨어)
 
 M5Launcher 없이 단독으로 쓸 때만 사용합니다. Fedora에서 [USB 권한](#3-usb-업로드--시리얼-모니터)을 맞춘 뒤:
@@ -235,6 +248,7 @@ pio device monitor
 | `kIrTxPin` | 44 | IR 송신 GPIO |
 | `kIrRxPin` | 1 | IR 수신 GPIO |
 | `kTorchDefaultTimeoutSec` | 600 | Torch 기본 타임아웃(초) |
+| `kTorchMaxTimeoutSec` | 3600 | Torch 타임아웃 상한(초) |
 | `kMaxDevices` | 16 | 저장 가능한 기기 수 |
 | `kMaxButtonsPerDevice` | 16 | 기기당 버튼 수 |
 

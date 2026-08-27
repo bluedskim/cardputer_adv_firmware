@@ -22,6 +22,7 @@ private:
         DeviceDetail,
         TextInput,
         Learn,
+        ConfirmDelete,
     };
 
     enum class InputPurpose {
@@ -31,13 +32,19 @@ private:
         RenameButton,
     };
 
-    // Unified cursor over list rows + trailing action rows.
     enum class ListAction : uint8_t {
         None = 0,
         New,
         Learn,
         Rename,
+        RenameDevice,
         Delete,
+    };
+
+    enum class PendingDelete {
+        None,
+        Device,
+        Button,
     };
 
     void draw() const;
@@ -47,14 +54,21 @@ private:
     void beginTextInput(InputPurpose purpose, const std::string& seed = "");
     void commitTextInput();
     void beginLearn();
+    void beginConfirmDelete(PendingDelete kind);
+    void confirmDelete();
     void pollLearn();
     void sendSelectedButton() const;
     void activateSelection();
     void goBack();
+    void clampSelection();
+    void ensureCursorVisible();
+    int visibleRowCount() const;
     std::size_t listRowCount() const;
     bool isActionRow(std::size_t index, ListAction* out = nullptr) const;
     std::string screenTitle() const;
     bool consumeTextChar(char key);
+    void markDirty() { dirty_ = true; }
+    static const char* actionLabel(ListAction action);
 
     IrStorage storage_;
     Screen screen_ = Screen::DeviceList;
@@ -62,8 +76,13 @@ private:
     std::size_t selected_device_ = 0;
     std::size_t selected_button_ = 0;
     std::size_t cursor_ = 0;
+    std::size_t scroll_ = 0;
     std::string input_buffer_;
     std::string status_message_;
     uint32_t status_until_ms_ = 0;
+    bool status_visible_ = false;
     bool receiver_ready_ = false;
+    bool dirty_ = true;
+    PendingDelete pending_delete_ = PendingDelete::None;
+    bool input_return_list_ = false;
 };
