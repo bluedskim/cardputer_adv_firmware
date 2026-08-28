@@ -1,5 +1,7 @@
 # cardputer_adv_firmware
 
+현재 릴리스: **[v0.1.1](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.1.1)**
+
 M5Stack Cardputer / Cardputer-Adv용 커스텀 펌웨어입니다. 기본 탑재 UI처럼 기능별로 좌우 전환하며, **Torch(손전등)** 와 **IR 리모컨** 기능을 제공합니다.
 
 주 개발 환경은 **Fedora** 기준이며, 아래 설치·업로드 절차도 Fedora를 우선으로 적어 두었습니다.
