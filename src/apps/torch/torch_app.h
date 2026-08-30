@@ -20,6 +20,7 @@ private:
     };
 
     void draw() const;
+    void drawCountdown() const;
     void applyBrightness() const;
     NavRequest handleInput(const Keyboard_Class::KeysState& status);
     void adjustFocused(int delta);

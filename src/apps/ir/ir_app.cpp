@@ -61,6 +61,8 @@ const char* IrApp::actionLabel(ListAction action) {
             return "* Dev name";
         case ListAction::Delete:
             return "x Delete";
+        case ListAction::DeleteDevice:
+            return "x Remove";
         default:
             return "";
     }
@@ -73,15 +75,24 @@ IrApp::~IrApp() = default;
 const char* IrApp::name() const { return "IR Remote"; }
 
 void IrApp::onEnter() {
+    enterDeviceList();
+}
+
+void IrApp::ensureSender() {
+    if (sender_ready_) {
+        return;
+    }
+    IrSender.begin(config::kIrTxPin);
+    sender_ready_ = true;
+}
+
+void IrApp::ensureReceiver() {
     if (!receiver_ready_) {
-        IrSender.begin(DISABLE_LED_FEEDBACK);
-        IrSender.setSendPin(config::kIrTxPin);
-        IrReceiver.begin(config::kIrRxPin, ENABLE_LED_FEEDBACK);
-        IrReceiver.start();
+        IrReceiver.begin(config::kIrRxPin, DISABLE_LED_FEEDBACK);
         receiver_ready_ = true;
     }
-
-    enterDeviceList();
+    IrReceiver.start();
+    IrReceiver.resume();
 }
 
 void IrApp::onExit() {
@@ -165,12 +176,12 @@ void IrApp::enterDeviceDetail() {
 std::size_t IrApp::listRowCount() const {
     if (screen_ == Screen::DeviceList) {
         const std::size_t n = storage_.devices().size();
-        return n + 1 + (n > 0 ? 2 : 0);  // New, + Rename + Delete
+        return n + 1;  // devices + New
     }
     if (screen_ == Screen::DeviceDetail && selected_device_ < storage_.devices().size()) {
         const std::size_t n = storage_.devices()[selected_device_].buttons.size();
-        // Learn + Rename device + (Rename/Delete button if any)
-        return n + 2 + (n > 0 ? 2 : 0);
+        // Learn + Dev name + (Rename/Delete button) + Remove device
+        return n + 3 + (n > 0 ? 2 : 0);
     }
     return 0;
 }
@@ -181,18 +192,6 @@ bool IrApp::isActionRow(const std::size_t index, ListAction* out) const {
         if (index == n) {
             if (out) {
                 *out = ListAction::New;
-            }
-            return true;
-        }
-        if (n > 0 && index == n + 1) {
-            if (out) {
-                *out = ListAction::RenameDevice;
-            }
-            return true;
-        }
-        if (n > 0 && index == n + 2) {
-            if (out) {
-                *out = ListAction::Delete;
             }
             return true;
         }
@@ -220,9 +219,15 @@ bool IrApp::isActionRow(const std::size_t index, ListAction* out) const {
             }
             return true;
         }
-        if (n > 0 && index == i) {
+        if (n > 0 && index == i++) {
             if (out) {
                 *out = ListAction::Delete;
+            }
+            return true;
+        }
+        if (index == i) {
+            if (out) {
+                *out = ListAction::DeleteDevice;
             }
             return true;
         }
@@ -296,8 +301,7 @@ void IrApp::beginLearn() {
     screen_ = Screen::Learn;
     status_message_ = "Point remote & press";
     status_until_ms_ = 0;
-    IrReceiver.start();
-    IrReceiver.resume();
+    ensureReceiver();
     markDirty();
 }
 
@@ -358,10 +362,11 @@ void IrApp::pollLearn() {
     enterDeviceDetail();
 }
 
-void IrApp::sendSelectedButton() const {
+void IrApp::sendSelectedButton() {
     if (selected_device_ >= storage_.devices().size()) {
         return;
     }
+    ensureSender();
 
     const auto& device = storage_.devices()[selected_device_];
     if (selected_button_ >= device.buttons.size()) {
@@ -396,11 +401,10 @@ void IrApp::activateSelection() {
                 }
                 break;
             case ListAction::Delete:
-                if (screen_ == Screen::DeviceList) {
-                    beginConfirmDelete(PendingDelete::Device);
-                } else {
-                    beginConfirmDelete(PendingDelete::Button);
-                }
+                beginConfirmDelete(PendingDelete::Button);
+                break;
+            case ListAction::DeleteDevice:
+                beginConfirmDelete(PendingDelete::Device);
                 break;
             default:
                 break;

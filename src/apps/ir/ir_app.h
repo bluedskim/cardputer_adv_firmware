@@ -39,6 +39,7 @@ private:
         Rename,
         RenameDevice,
         Delete,
+        DeleteDevice,
     };
 
     enum class PendingDelete {
@@ -57,7 +58,7 @@ private:
     void beginConfirmDelete(PendingDelete kind);
     void confirmDelete();
     void pollLearn();
-    void sendSelectedButton() const;
+    void sendSelectedButton();
     void activateSelection();
     void goBack();
     void clampSelection();
@@ -68,6 +69,8 @@ private:
     std::string screenTitle() const;
     bool consumeTextChar(char key);
     void markDirty() { dirty_ = true; }
+    void ensureSender();
+    void ensureReceiver();
     static const char* actionLabel(ListAction action);
 
     IrStorage storage_;
@@ -81,6 +84,7 @@ private:
     std::string status_message_;
     uint32_t status_until_ms_ = 0;
     bool status_visible_ = false;
+    bool sender_ready_ = false;
     bool receiver_ready_ = false;
     bool dirty_ = true;
     PendingDelete pending_delete_ = PendingDelete::None;

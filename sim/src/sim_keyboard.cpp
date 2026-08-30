@@ -188,5 +188,29 @@ void Keyboard_Class::updateKeysState() {
             keys_state_.space = true;
         }
         keys_state_.word.push_back(ch);
+        switch (ch) {
+            case ';':
+            case ':':
+                keys_state_.up = true;
+                keys_state_.hid_keys.push_back(0x52);
+                break;
+            case ',':
+            case '<':
+                keys_state_.left = true;
+                keys_state_.hid_keys.push_back(0x50);
+                break;
+            case '.':
+            case '>':
+                keys_state_.down = true;
+                keys_state_.hid_keys.push_back(0x51);
+                break;
+            case '/':
+            case '?':
+                keys_state_.right = true;
+                keys_state_.hid_keys.push_back(0x4F);
+                break;
+            default:
+                break;
+        }
     }
 }

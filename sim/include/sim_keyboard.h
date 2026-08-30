@@ -28,6 +28,10 @@ public:
         bool del = false;
         bool enter = false;
         bool space = false;
+        bool up = false;
+        bool left = false;
+        bool down = false;
+        bool right = false;
         uint8_t modifiers = 0;
         std::vector<char> word;
         std::vector<uint8_t> hid_keys;

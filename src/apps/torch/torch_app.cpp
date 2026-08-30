@@ -29,6 +29,9 @@ void TorchApp::onEnter() {
     auto_off_ = false;
     auto_off_until_ms_ = 0;
     applyBrightness();
+    auto& display = M5Cardputer.Display;
+    display.fillRect(0, config::kContentTop, display.width(),
+                     display.height() - config::kContentTop, TFT_WHITE);
     draw();
 }
 
@@ -70,7 +73,7 @@ NavRequest TorchApp::onUpdate(const Keyboard_Class::KeysState* keys) {
         elapsed_sec >= timeout_sec_ ? 0 : timeout_sec_ - elapsed_sec;
     if (remaining != last_remaining_sec_) {
         last_remaining_sec_ = remaining;
-        need_draw = true;
+        drawCountdown();
     }
 
     if (need_draw) {
@@ -93,16 +96,11 @@ void TorchApp::draw() const {
     const int content_bottom = height - config::kFooterHeight;
     const int base_y = config::kContentTop + 12;
 
-    display.fillRect(0, config::kContentTop, width, height - config::kContentTop, TFT_WHITE);
-    display.setBrightness(brightness_);
-
     auto drawRow = [&](Focus row, int y, const String& text, uint16_t idle_fg = TFT_BLACK) {
         const bool selected = focus_ == row;
         const uint16_t fg = selected ? TFT_YELLOW : idle_fg;
         const uint16_t bg = selected ? TFT_NAVY : TFT_WHITE;
-        if (selected) {
-            display.fillRect(0, y - 8, width, 16, bg);
-        }
+        display.fillRect(0, y - 8, width, 16, bg);
         display.setTextDatum(middle_center);
         display.setTextColor(fg, bg);
         display.setTextSize(2);
@@ -112,24 +110,40 @@ void TorchApp::draw() const {
     drawRow(Focus::Bright, base_y, String("Bright ") + String(static_cast<int>(brightness_)));
     drawRow(Focus::Timeout, base_y + kLineStep,
             String("Time ") + String(static_cast<unsigned>(timeout_sec_)) + "s");
-
-    const uint32_t elapsed_sec = (millis() - started_ms_) / 1000;
-    const uint32_t remaining = elapsed_sec >= timeout_sec_ ? 0 : timeout_sec_ - elapsed_sec;
-    display.setTextDatum(middle_center);
-    display.setTextColor(TFT_DARKGREY, TFT_WHITE);
-    display.setTextSize(2);
-    display.drawString(String("Left ") + String(static_cast<unsigned>(remaining)) + "s", center_x,
-                       base_y + kLineStep * 2);
+    drawCountdown();
 
     drawRow(Focus::Blink, base_y + kLineStep * 3,
             String("BLINK ") + (blinker_enabled_ ? "ON" : "OFF"),
             blinker_enabled_ ? TFT_RED : TFT_DARKGREY);
 
+    display.fillRect(0, content_bottom, width, config::kFooterHeight, TFT_WHITE);
     display.setTextSize(1);
     display.setTextColor(TFT_DARKGREY, TFT_WHITE);
     display.setTextDatum(top_center);
     display.drawString("^v move  <> adj  Ent ok", center_x, content_bottom);
     display.drawString("^ top: app switch", center_x, content_bottom + 8);
+    display.setTextDatum(top_left);
+}
+
+void TorchApp::drawCountdown() const {
+    auto& display = M5Cardputer.Display;
+    if (blinker_enabled_ && !blink_on_) {
+        return;
+    }
+
+    const int width = display.width();
+    const int center_x = width / 2;
+    const int base_y = config::kContentTop + 12;
+    const int y = base_y + kLineStep * 2;
+
+    const uint32_t elapsed_sec = (millis() - started_ms_) / 1000;
+    const uint32_t remaining = elapsed_sec >= timeout_sec_ ? 0 : timeout_sec_ - elapsed_sec;
+
+    display.fillRect(0, y - 8, width, 16, TFT_WHITE);
+    display.setTextDatum(middle_center);
+    display.setTextColor(TFT_DARKGREY, TFT_WHITE);
+    display.setTextSize(2);
+    display.drawString(String("Left ") + String(static_cast<unsigned>(remaining)) + "s", center_x, y);
     display.setTextDatum(top_left);
 }
 
@@ -144,7 +158,6 @@ void TorchApp::applyBrightness() const {
         return;
     }
 
-    display.fillRect(0, content_y, display.width(), content_h, TFT_WHITE);
     display.setBrightness(brightness_);
 }
 
