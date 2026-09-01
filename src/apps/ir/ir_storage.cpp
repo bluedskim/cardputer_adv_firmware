@@ -24,7 +24,7 @@ void IrStorage::load() {
     devices_.clear();
 
     Preferences prefs;
-    if (!prefs.begin(config::kStorageNamespace, true)) {
+    if (!prefs.begin(config::kIrStorageNamespace, true)) {
         return;
     }
 
@@ -62,7 +62,7 @@ void IrStorage::load() {
 
 bool IrStorage::save() const {
     Preferences prefs;
-    if (!prefs.begin(config::kStorageNamespace, false)) {
+    if (!prefs.begin(config::kIrStorageNamespace, false)) {
         return false;
     }
 
@@ -99,7 +99,7 @@ bool IrStorage::save() const {
 void IrStorage::clear() {
     devices_.clear();
     Preferences prefs;
-    if (prefs.begin(config::kStorageNamespace, false)) {
+    if (prefs.begin(config::kIrStorageNamespace, false)) {
         prefs.clear();
         prefs.end();
     }

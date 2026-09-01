@@ -4,7 +4,7 @@
 
 namespace config {
 
-constexpr const char* kFirmwareVersion = "0.1.1";
+constexpr const char* kFirmwareVersion = "0.2.0";
 
 constexpr uint8_t kIrTxPin = 44;
 constexpr uint8_t kIrRxPin = 1;
@@ -19,7 +19,15 @@ constexpr uint8_t kMaxDevices = 16;
 constexpr uint8_t kMaxButtonsPerDevice = 16;
 constexpr uint8_t kMaxNameLength = 24;
 
-constexpr const char* kStorageNamespace = "card_adv";
+constexpr uint8_t kMaxTimers = 8;
+constexpr uint8_t kTimerMaxHours = 23;
+
+constexpr uint8_t kMaxStopwatchHistory = 10;
+constexpr const char* kIrStorageNamespace = "card_adv";
+constexpr const char* kTimerStorageNamespace = "card_adv_tm";
+constexpr const char* kStopwatchStorageNamespace = "card_adv_sw";
+
+constexpr const char* kStorageNamespace = kIrStorageNamespace;
 
 // Cardputer display: 240x135 landscape, chrome bar at top.
 constexpr int kChromeHeight = 22;

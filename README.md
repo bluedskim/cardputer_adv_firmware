@@ -1,8 +1,8 @@
 # cardputer_adv_firmware
 
-현재 릴리스: **[v0.1.1](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.1.1)**
+현재 릴리스: **[v0.1.1](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.1.1)** · 개발 중: **v0.2.0**
 
-M5Stack Cardputer / Cardputer-Adv용 커스텀 펌웨어입니다. 기본 탑재 UI처럼 기능별로 좌우 전환하며, **Torch(손전등)** 와 **IR 리모컨** 기능을 제공합니다.
+M5Stack Cardputer / Cardputer-Adv용 커스텀 펌웨어입니다. 기본 탑재 UI처럼 기능별로 좌우 전환하며, **Torch(손전등)**, **Timer**, **Stopwatch**, **IR 리모컨** 기능을 제공합니다.
 
 주 개발 환경은 **Fedora** 기준이며, 아래 설치·업로드 절차도 Fedora를 우선으로 적어 두었습니다.
 
@@ -152,6 +152,39 @@ IR 수신 핀: GPIO **1** (`include/config.h`에서 변경 가능)
 
 > Cardputer v1.x는 IR 수신 모듈이 별도일 수 있습니다. 수신이 안 되면 `kIrRxPin`을 실제 배선에 맞게 수정하세요.
 
+### Timer
+
+여러 개의 카운트다운 타이머를 NVS에 저장합니다. **시간·분** 단위로만 설정합니다.
+
+**목록**
+
+- `↑` `↓` — 타이머 / `+ New`
+- `Enter` — 타이머 열기·시작·완료 해제 / New 추가
+- 실행 중 `Enter` — 취소
+- 맨 위 `↑` — 크롬(앱 전환)
+
+**설정**
+
+- `↑` `↓` — Hours / Minutes / `> Start` / `x Remove`
+- `←` `→` — 시간·분 조절 (0–23h, 0–59m)
+- `Enter` — Start 또는 Remove(확인)
+- `←` / `Del` — 목록으로
+
+완료된 타이머는 목록에 `DONE`으로 표시됩니다.
+
+### Stopwatch
+
+이름을 지정하고 측정한 기록을 NVS에 저장합니다 (최대 **10**건).
+
+| 항목 | `Enter` |
+|------|---------|
+| Name | 이름 입력 |
+| Start / Stop | 측정 시작·종료 (Stop 시 이력 저장) |
+| History | 저장된 기록 목록 |
+
+- `↑` `↓` — 항목 이동 · 맨 위 `↑` → 크롬
+- History 화면: `↑` `↓` 스크롤 · `←` / `Del` 복귀
+
 ## 데스크탑 시뮬레이터
 
 Torch / IR UI를 PC에서 미리 보려면 `sim/` 환경을 사용합니다. Fedora에서는 위 **시스템 패키지**(`SDL2-devel`, `pkg-config` 등) 설치 후:
@@ -201,6 +234,8 @@ M5Launcher에 `.bin` 설치 후 기기에서 확인합니다. (sim은 백라이�
 - [ ] **IR 송신:** 저장된 버튼에서 `Enter` 시 기기가 반응한다 (GPIO 44).
 - [ ] **IR 목록:** 기기가 많을 때 `↓`로 화면 밖 항목까지 스크롤된다.
 - [ ] **IR 상세:** `* Dev name`으로 기기 이름이 바뀐다. `x Remove`로 기기가 지워지고, `x Delete`로 버튼이 지워진다(확인 후).
+- [ ] **Timer:** `+ New`로 추가, Hours/Minutes만 조절, Start 후 카운트다운·DONE 표시.
+- [ ] **Stopwatch:** Name 변경, Start/Stop 후 History에 기록(최대 10).
 - [ ] **G0:** 앱 실행 중 G0 한 번 → M5Launcher로 돌아간다.
 - [ ] **배터리:** 크롬 오른쪽에 %가 보이고, USB 연결 시 충전 표시가 바뀐다.
 
@@ -238,6 +273,8 @@ pio device monitor
 │   ├── launcher_exit.*       # M5Launcher 복귀
 │   └── apps/
 │       ├── torch/            # 손전등 앱
+│       ├── timer/            # 타이머 앱 + NVS
+│       ├── stopwatch/        # 스톱워치 앱 + NVS
 │       └── ir/               # IR 앱 + NVS 저장소
 └── README.md
 ```
@@ -252,28 +289,22 @@ pio device monitor
 | `kIrRxPin` | 1 | IR 수신 GPIO |
 | `kTorchDefaultTimeoutSec` | 600 | Torch 기본 타임아웃(초) |
 | `kTorchMaxTimeoutSec` | 3600 | Torch 타임아웃 상한(초) |
-| `kMaxDevices` | 16 | 저장 가능한 기기 수 |
-| `kMaxButtonsPerDevice` | 16 | 기기당 버튼 수 |
+| `kMaxDevices` | 16 | 저장 가능한 IR 기기 수 |
+| `kMaxButtonsPerDevice` | 16 | IR 기기당 버튼 수 |
+| `kMaxTimers` | 8 | 저장 가능한 타이머 수 |
+| `kTimerMaxHours` | 23 | 타이머 시간 상한 |
+| `kMaxStopwatchHistory` | 10 | 스톱워치 이력 최대 건수 |
 
 ## 로드맵
 
 - [ ] 더 많은 유틸리티 앱
   - [ ] 시계
-  - [ ] 타이머
+  - [x] 타이머
+  - [x] 스톱워치
   - [ ] 키보드 HID(블루투스, usb)
   - [ ] ssh commander: ssh로 명령을 전송하고 결과를 받아 출력
   - [ ] web commander: web protocol로 서버를 호출하고 결과를 받아 출력
 - [ ] SD 카드 백업/복원
-
-
-### 다음 minor 버전
-
-1. 타이머
-    1. 새 타이머 추가
-    2. 시간/분 단위로만 설정 가능
-2. stop watch
-    1. 이름 지정 가능
-    2. 이력 자동 저장(최대 10개만)
 
 ### 다음 major 버전
 

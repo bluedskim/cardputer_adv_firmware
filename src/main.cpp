@@ -4,6 +4,8 @@
 
 #include "app_shell.h"
 #include "apps/ir/ir_app.h"
+#include "apps/stopwatch/stopwatch_app.h"
+#include "apps/timer/timer_app.h"
 #include "apps/torch/torch_app.h"
 #include "config.h"
 
@@ -20,6 +22,8 @@ void setup() {
     Serial.printf("cardputer_adv_firmware %s\n", config::kFirmwareVersion);
 
     g_shell.addApp(std::unique_ptr<AppBase>(new TorchApp()));
+    g_shell.addApp(std::unique_ptr<AppBase>(new TimerApp()));
+    g_shell.addApp(std::unique_ptr<AppBase>(new StopwatchApp()));
     g_shell.addApp(std::unique_ptr<AppBase>(new IrApp()));
     g_shell.begin();
 }
