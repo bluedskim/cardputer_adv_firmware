@@ -40,7 +40,7 @@ void TorchApp::onExit() {
     M5Cardputer.Display.fillScreen(TFT_BLACK);
 }
 
-NavRequest TorchApp::onUpdate(const Keyboard_Class::KeysState* keys) {
+NavRequest TorchApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_focused) {
     if (auto_off_) {
         if (keys != nullptr) {
             onEnter();
@@ -52,6 +52,11 @@ NavRequest TorchApp::onUpdate(const Keyboard_Class::KeysState* keys) {
 
     NavRequest req = NavRequest::None;
     bool need_draw = false;
+
+    if (chrome_focused_ != chrome_focused) {
+        chrome_focused_ = chrome_focused;
+        need_draw = true;
+    }
 
     if (keys != nullptr) {
         req = handleInput(*keys);
@@ -91,13 +96,11 @@ void TorchApp::draw() const {
     }
 
     const int width = display.width();
-    const int height = display.height();
     const int center_x = width / 2;
-    const int content_bottom = height - config::kFooterHeight;
     const int base_y = config::kContentTop + 12;
 
     auto drawRow = [&](Focus row, int y, const String& text, uint16_t idle_fg = TFT_BLACK) {
-        const bool selected = focus_ == row;
+        const bool selected = focus_ == row && !chrome_focused_;
         const uint16_t fg = selected ? TFT_YELLOW : idle_fg;
         const uint16_t bg = selected ? TFT_NAVY : TFT_WHITE;
         display.fillRect(0, y - 8, width, 16, bg);
@@ -115,13 +118,6 @@ void TorchApp::draw() const {
     drawRow(Focus::Blink, base_y + kLineStep * 3,
             String("BLINK ") + (blinker_enabled_ ? "ON" : "OFF"),
             blinker_enabled_ ? TFT_RED : TFT_DARKGREY);
-
-    display.fillRect(0, content_bottom, width, config::kFooterHeight, TFT_WHITE);
-    display.setTextSize(1);
-    display.setTextColor(TFT_DARKGREY, TFT_WHITE);
-    display.setTextDatum(top_center);
-    display.drawString("^v move  <> adj  Ent ok", center_x, content_bottom);
-    display.drawString("^ top: app switch", center_x, content_bottom + 8);
     display.setTextDatum(top_left);
 }
 

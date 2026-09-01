@@ -30,8 +30,7 @@ BatterySnapshot readBatterySnapshot() {
     return snapshot;
 }
 
-void drawBatteryIndicator(M5GFX& display, int x, int y, const BatterySnapshot& battery,
-                          uint16_t text_bg) {
+void drawBatteryIndicator(M5GFX& display, int x, int y, const BatterySnapshot& battery) {
     display.drawRect(x, y, kBodyWidth, kBodyHeight, TFT_WHITE);
     display.fillRect(x + kBodyWidth, y + 3, kTipWidth, kBodyHeight - 6, TFT_WHITE);
 
@@ -46,14 +45,5 @@ void drawBatteryIndicator(M5GFX& display, int x, int y, const BatterySnapshot& b
         display.drawLine(cx, y + 2, cx - 3, y + 6, TFT_WHITE);
         display.drawLine(cx, y + 2, cx + 3, y + 6, TFT_WHITE);
         display.drawLine(cx - 3, y + 6, cx + 3, y + 6, TFT_WHITE);
-    }
-
-    display.setTextSize(1);
-    display.setTextColor(TFT_WHITE, text_bg);
-    display.setCursor(x + kBodyWidth + kTipWidth + 3, y + 1);
-    if (battery.level >= 0) {
-        display.printf("%3d%%", battery.level);
-    } else {
-        display.print("---");
     }
 }

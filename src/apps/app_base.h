@@ -18,5 +18,7 @@ public:
     virtual void onEnter() = 0;
     virtual void onExit() = 0;
     // keys may be null (no new edge). Still called every frame for timers/UI.
-    virtual NavRequest onUpdate(const Keyboard_Class::KeysState* keys) = 0;
+    // When chrome_focused is true, only the header is active; apps must not
+    // highlight content selection until the user presses Down from the header.
+    virtual NavRequest onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_focused) = 0;
 };

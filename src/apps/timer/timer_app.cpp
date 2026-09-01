@@ -14,7 +14,7 @@ constexpr int kContentTop = config::kContentTop;
 constexpr int kLineHeight = 16;
 constexpr int kListTop = kContentTop + 4;
 constexpr int kListTopWithTitle = kContentTop + 22;
-constexpr int kFooterReserve = 14;
+constexpr int kFooterReserve = 0;
 
 }  // namespace
 
@@ -70,6 +70,7 @@ void TimerApp::enterList() {
     scroll_ = 0;
     ensureCursorVisible();
     markDirty();
+    requestChromeFocus();
 }
 
 void TimerApp::enterEdit(const std::size_t index) {
@@ -80,7 +81,7 @@ void TimerApp::enterEdit(const std::size_t index) {
         edit_hours_ = entry.hours;
         edit_minutes_ = entry.minutes;
     }
-    cursor_ = 0;
+    cursor_ = 1;
     scroll_ = 0;
     markDirty();
 }
@@ -92,11 +93,16 @@ int TimerApp::visibleRowCount() const {
 }
 
 void TimerApp::ensureCursorVisible() {
+    if (screen_ == Screen::Edit && cursor_ == 0) {
+        return;
+    }
+    const std::size_t list_cursor =
+        screen_ == Screen::Edit ? cursor_ - 1 : cursor_;
     const std::size_t visible = static_cast<std::size_t>(visibleRowCount());
-    if (cursor_ < scroll_) {
-        scroll_ = cursor_;
-    } else if (cursor_ >= scroll_ + visible) {
-        scroll_ = cursor_ + 1 - visible;
+    if (list_cursor < scroll_) {
+        scroll_ = list_cursor;
+    } else if (list_cursor >= scroll_ + visible) {
+        scroll_ = list_cursor + 1 - visible;
     }
 }
 
@@ -170,7 +176,12 @@ void TimerApp::tickTimers() {
     }
 }
 
-NavRequest TimerApp::onUpdate(const Keyboard_Class::KeysState* keys) {
+NavRequest TimerApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_focused) {
+    if (chrome_focused_ != chrome_focused) {
+        chrome_focused_ = chrome_focused;
+        markDirty();
+    }
+
     tickTimers();
 
     NavRequest req = NavRequest::None;
@@ -182,6 +193,10 @@ NavRequest TimerApp::onUpdate(const Keyboard_Class::KeysState* keys) {
     if (dirty_) {
         draw();
         dirty_ = false;
+    }
+    if (pending_chrome_focus_) {
+        pending_chrome_focus_ = false;
+        return NavRequest::FocusChrome;
     }
     return req;
 }
@@ -206,7 +221,9 @@ void TimerApp::startSelected() {
 
 void TimerApp::activateSelection() {
     ListAction action = ListAction::None;
-    if (isActionRow(cursor_, &action)) {
+    const std::size_t row =
+        (screen_ == Screen::Edit && cursor_ > 0) ? cursor_ - 1 : cursor_;
+    if (isActionRow(row, &action)) {
         switch (action) {
             case ListAction::New: {
                 const std::size_t n = storage_.timers().size() + 1;
@@ -250,10 +267,14 @@ void TimerApp::activateSelection() {
         return;
     }
 
-    if (screen_ == Screen::Edit && cursor_ <= 1) {
-        if (cursor_ == 0) {
+    if (screen_ == Screen::Edit && cursor_ == 0) {
+        return;
+    }
+
+    if (screen_ == Screen::Edit) {
+        if (cursor_ == 1) {
             edit_hours_ = (edit_hours_ + 1) % (config::kTimerMaxHours + 1);
-        } else {
+        } else if (cursor_ == 2) {
             edit_minutes_ = (edit_minutes_ + 1) % 60;
         }
         markDirty();
@@ -289,10 +310,30 @@ NavRequest TimerApp::handleInput(const Keyboard_Class::KeysState& status) {
         return NavRequest::None;
     }
 
-    if (status.del || detectArrowKey(status) == ArrowKey::Left) {
-        if (screen_ == Screen::Edit) {
+    if (screen_ == Screen::Edit) {
+        if (cursor_ == 0 && detectArrowKey(status) == ArrowKey::Left) {
             goBack();
             return NavRequest::None;
+        }
+        if (cursor_ == 1 || cursor_ == 2) {
+            switch (detectArrowKey(status)) {
+                case ArrowKey::Left:
+                    if (cursor_ == 1) {
+                        edit_hours_ = edit_hours_ == 0 ? config::kTimerMaxHours : edit_hours_ - 1;
+                    } else {
+                        edit_minutes_ = edit_minutes_ == 0 ? 59 : edit_minutes_ - 1;
+                    }
+                    return NavRequest::None;
+                case ArrowKey::Right:
+                    if (cursor_ == 1) {
+                        edit_hours_ = (edit_hours_ + 1) % (config::kTimerMaxHours + 1);
+                    } else {
+                        edit_minutes_ = (edit_minutes_ + 1) % 60;
+                    }
+                    return NavRequest::None;
+                default:
+                    break;
+            }
         }
     }
 
@@ -301,31 +342,13 @@ NavRequest TimerApp::handleInput(const Keyboard_Class::KeysState& status) {
         return NavRequest::None;
     }
 
-    if (screen_ == Screen::Edit && cursor_ <= 1) {
-        switch (detectArrowKey(status)) {
-            case ArrowKey::Left:
-                if (cursor_ == 0) {
-                    edit_hours_ = edit_hours_ == 0 ? config::kTimerMaxHours : edit_hours_ - 1;
-                } else {
-                    edit_minutes_ = edit_minutes_ == 0 ? 59 : edit_minutes_ - 1;
-                }
-                return NavRequest::None;
-            case ArrowKey::Right:
-                if (cursor_ == 0) {
-                    edit_hours_ = (edit_hours_ + 1) % (config::kTimerMaxHours + 1);
-                } else {
-                    edit_minutes_ = (edit_minutes_ + 1) % 60;
-                }
-                return NavRequest::None;
-            default:
-                break;
-        }
-    }
-
     switch (detectArrowKey(status)) {
         case ArrowKey::Up:
             if (cursor_ == 0) {
-                return NavRequest::FocusChrome;
+                if (isRootScreen()) {
+                    return NavRequest::FocusChrome;
+                }
+                return NavRequest::None;
             }
             --cursor_;
             if (screen_ == Screen::List && cursor_ < storage_.timers().size()) {
@@ -334,6 +357,15 @@ NavRequest TimerApp::handleInput(const Keyboard_Class::KeysState& status) {
             ensureCursorVisible();
             return NavRequest::None;
         case ArrowKey::Down: {
+            if (screen_ == Screen::Edit) {
+                if (cursor_ == 0) {
+                    cursor_ = 1;
+                } else if (cursor_ < 4) {
+                    ++cursor_;
+                }
+                ensureCursorVisible();
+                return NavRequest::None;
+            }
             const std::size_t rows = listRowCount();
             if (rows == 0) {
                 return NavRequest::None;
@@ -411,10 +443,17 @@ void TimerApp::draw() const {
     display.fillRect(0, kContentTop, display.width(), display.height() - kContentTop, TFT_BLACK);
 
     if (screen_ == Screen::Edit && selected_ < storage_.timers().size()) {
+        const bool title_selected = cursor_ == 0 && !chrome_focused_;
+        const uint16_t fg = title_selected ? TFT_YELLOW : TFT_CYAN;
+        const uint16_t bg = title_selected ? TFT_NAVY : TFT_BLACK;
+        if (title_selected) {
+            display.fillRect(0, kContentTop, display.width(), kListTopWithTitle - kContentTop, bg);
+        }
         display.setTextSize(2);
-        display.setTextColor(TFT_CYAN, TFT_BLACK);
+        display.setTextColor(fg, bg);
         display.setCursor(4, kContentTop + 2);
-        display.println(storage_.timers()[selected_].name.c_str());
+        display.printf("%c %s", title_selected ? '>' : ' ',
+                       storage_.timers()[selected_].name.c_str());
     }
 
     const int top = screen_ == Screen::Edit ? kListTopWithTitle : kListTop;
@@ -429,10 +468,6 @@ void TimerApp::draw() const {
         } else {
             display.print("Delete?");
         }
-        display.setTextSize(1);
-        display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        display.setCursor(8, y + 36);
-        display.print("Ent yes  < no");
         return;
     }
 
@@ -440,16 +475,8 @@ void TimerApp::draw() const {
     const std::size_t visible = static_cast<std::size_t>(visibleRowCount());
     const std::size_t end = std::min(rows, scroll_ + visible);
     for (std::size_t i = scroll_; i < end; ++i) {
-        drawListRow(y, i, i == cursor_);
+        const std::size_t row_cursor = screen_ == Screen::Edit ? i + 1 : i;
+        drawListRow(y, i, row_cursor == cursor_ && !chrome_focused_);
         y += kLineHeight;
-    }
-
-    display.setTextSize(1);
-    display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    display.setCursor(4, display.height() - 12);
-    if (screen_ == Screen::Edit) {
-        display.print("^v move  <> adj  Ent ok  < back");
-    } else {
-        display.print("^v move  Ent ok");
     }
 }

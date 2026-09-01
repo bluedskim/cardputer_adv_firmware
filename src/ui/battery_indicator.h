@@ -15,5 +15,4 @@ struct BatterySnapshot {
 };
 
 BatterySnapshot readBatterySnapshot();
-void drawBatteryIndicator(M5GFX& display, int x, int y, const BatterySnapshot& battery,
-                          uint16_t text_bg = TFT_DARKGREY);
+void drawBatteryIndicator(M5GFX& display, int x, int y, const BatterySnapshot& battery);

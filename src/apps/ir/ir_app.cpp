@@ -12,8 +12,9 @@ namespace {
 
 constexpr int kContentTop = config::kContentTop;
 constexpr int kLineHeight = 16;
-constexpr int kListTop = kContentTop + 22;
-constexpr int kFooterReserve = 14;
+constexpr int kListTop = kContentTop + 4;
+constexpr int kListTopWithTitle = kContentTop + 22;
+constexpr int kFooterReserve = 0;
 constexpr uint32_t kStatusDurationMs = 1800;
 
 std::string protocolToString(decode_type_t protocol) {
@@ -52,13 +53,13 @@ void sendStoredButton(const IrButton& button) {
 const char* IrApp::actionLabel(ListAction action) {
     switch (action) {
         case ListAction::New:
-            return "+ New";
+            return "* New Device";
         case ListAction::Learn:
             return "+ Learn";
         case ListAction::Rename:
             return "* Rename";
         case ListAction::RenameDevice:
-            return "* Dev name";
+            return "* Rename";
         case ListAction::Delete:
             return "x Delete";
         case ListAction::DeleteDevice:
@@ -102,7 +103,12 @@ void IrApp::onExit() {
     M5Cardputer.Display.fillScreen(TFT_BLACK);
 }
 
-NavRequest IrApp::onUpdate(const Keyboard_Class::KeysState* keys) {
+NavRequest IrApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_focused) {
+    if (chrome_focused_ != chrome_focused) {
+        chrome_focused_ = chrome_focused;
+        markDirty();
+    }
+
     if (screen_ == Screen::Learn) {
         pollLearn();
     }
@@ -123,6 +129,10 @@ NavRequest IrApp::onUpdate(const Keyboard_Class::KeysState* keys) {
         draw();
         dirty_ = false;
     }
+    if (pending_chrome_focus_) {
+        pending_chrome_focus_ = false;
+        return NavRequest::FocusChrome;
+    }
     return req;
 }
 
@@ -142,7 +152,8 @@ void IrApp::clampSelection() {
 }
 
 int IrApp::visibleRowCount() const {
-    const int available = M5Cardputer.Display.height() - kFooterReserve - kListTop;
+    const int top = screen_ == Screen::DeviceList ? kListTop : kListTopWithTitle;
+    const int available = M5Cardputer.Display.height() - kFooterReserve - top;
     return std::max(1, available / kLineHeight);
 }
 
@@ -162,6 +173,7 @@ void IrApp::enterDeviceList() {
     scroll_ = 0;
     ensureCursorVisible();
     markDirty();
+    requestChromeFocus();
 }
 
 void IrApp::enterDeviceDetail() {
@@ -468,7 +480,7 @@ bool IrApp::consumeTextChar(const char key) {
 std::string IrApp::screenTitle() const {
     switch (screen_) {
         case Screen::DeviceList:
-            return "Devices";
+            return "";
         case Screen::DeviceDetail:
             if (selected_device_ < storage_.devices().size()) {
                 return storage_.devices()[selected_device_].name;
@@ -540,7 +552,10 @@ NavRequest IrApp::handleInput(const Keyboard_Class::KeysState& status) {
     switch (detectArrowKey(status)) {
         case ArrowKey::Up: {
             if (cursor_ == 0) {
-                return NavRequest::FocusChrome;
+                if (isRootScreen()) {
+                    return NavRequest::FocusChrome;
+                }
+                return NavRequest::None;
             }
             --cursor_;
             if (screen_ == Screen::DeviceList && cursor_ < storage_.devices().size()) {
@@ -585,12 +600,17 @@ NavRequest IrApp::handleInput(const Keyboard_Class::KeysState& status) {
 void IrApp::draw() const {
     auto& display = M5Cardputer.Display;
     display.fillRect(0, kContentTop, display.width(), display.height() - kContentTop, TFT_BLACK);
-    display.setTextSize(2);
-    display.setTextColor(TFT_CYAN, TFT_BLACK);
-    display.setCursor(4, kContentTop + 2);
-    display.println(screenTitle().c_str());
 
-    int y = kListTop;
+    const std::string title = screenTitle();
+    if (!title.empty()) {
+        display.setTextSize(2);
+        display.setTextColor(TFT_CYAN, TFT_BLACK);
+        display.setCursor(4, kContentTop + 2);
+        display.println(title.c_str());
+    }
+
+    const int top = screen_ == Screen::DeviceList ? kListTop : kListTopWithTitle;
+    int y = top;
 
     if (screen_ == Screen::ConfirmDelete) {
         display.setTextSize(2);
@@ -606,10 +626,6 @@ void IrApp::draw() const {
         } else {
             display.print("Delete?");
         }
-        display.setTextSize(1);
-        display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        display.setCursor(8, y + 36);
-        display.print("Ent yes  < no");
         return;
     }
 
@@ -619,7 +635,7 @@ void IrApp::draw() const {
         const int width = display.width();
         const std::size_t end = std::min(rows, scroll_ + visible);
         for (std::size_t i = scroll_; i < end; ++i) {
-            const bool selected = i == cursor_;
+            const bool selected = i == cursor_ && !chrome_focused_;
             const uint16_t fg = selected ? TFT_YELLOW : TFT_WHITE;
             const uint16_t bg = selected ? TFT_NAVY : TFT_BLACK;
             if (selected) {
@@ -645,11 +661,6 @@ void IrApp::draw() const {
 
             y += kLineHeight;
         }
-
-        display.setTextSize(1);
-        display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        display.setCursor(4, display.height() - 12);
-        display.print("^v move  Ent ok  < back");
     } else if (screen_ == Screen::TextInput) {
         display.setTextSize(2);
         display.setTextColor(TFT_WHITE, TFT_BLACK);
@@ -657,19 +668,11 @@ void IrApp::draw() const {
         display.print("> ");
         display.print(input_buffer_.c_str());
         display.print("_");
-        display.setTextSize(1);
-        display.setCursor(8, y + 28);
-        display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        display.println("Ent save  Del erase  < back");
     } else if (screen_ == Screen::Learn) {
         display.setTextSize(2);
         display.setTextColor(TFT_ORANGE, TFT_BLACK);
         display.setCursor(8, y);
         display.println(status_message_.c_str());
-        display.setTextSize(1);
-        display.setCursor(8, y + 28);
-        display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        display.println("< or Del cancel");
     }
 
     if (!status_message_.empty() && status_until_ms_ > millis()) {

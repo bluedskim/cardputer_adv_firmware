@@ -12,7 +12,7 @@
 namespace {
 
 constexpr uint32_t kBatteryPollMs = 1000;
-constexpr int kBatteryWidth = 46;
+constexpr int kBatteryWidth = 22;
 
 char arrowToChar(ArrowKey arrow) {
     switch (arrow) {
@@ -42,7 +42,7 @@ void AppShell::begin() {
 
     M5Cardputer.Display.setRotation(1);
     M5Cardputer.Display.fillScreen(TFT_BLACK);
-    chrome_focused_ = false;
+    chrome_focused_ = true;
     apps_[current_index_]->onEnter();
     battery_ = readBatterySnapshot();
     last_battery_poll_ms_ = millis();
@@ -72,7 +72,7 @@ void AppShell::update() {
         if (consumeChromeKeys(status)) {
             chrome_dirty_ = true;
         }
-        apps_[current_index_]->onUpdate(nullptr);
+        apps_[current_index_]->onUpdate(nullptr, chrome_focused_);
         if (chrome_dirty_) {
             drawChrome();
             chrome_dirty_ = false;
@@ -92,7 +92,7 @@ void AppShell::update() {
 
     const bool has_input = keys.active || arrow != ArrowKey::None;
     const NavRequest req =
-        apps_[current_index_]->onUpdate(has_input ? &delivered : nullptr);
+        apps_[current_index_]->onUpdate(has_input ? &delivered : nullptr, false);
     if (req == NavRequest::FocusChrome) {
         chrome_focused_ = true;
         chrome_dirty_ = true;
@@ -130,6 +130,7 @@ void AppShell::switchTo(const std::size_t index) {
     apps_[current_index_]->onEnter();
     battery_ = readBatterySnapshot();
     last_battery_poll_ms_ = millis();
+    chrome_focused_ = true;
     chrome_dirty_ = true;
 }
 
@@ -177,7 +178,7 @@ void AppShell::drawChrome() const {
     display.setCursor(4, 4);
     display.printf("< %s >", apps_[current_index_]->name());
 
-    drawBatteryIndicator(display, battery_x, 6, battery_, bar);
+    drawBatteryIndicator(display, battery_x, 6, battery_);
 
     for (std::size_t i = 0; i < apps_.size(); ++i) {
         const int dot_x = static_cast<int>(width - 12 - static_cast<int>((apps_.size() - 1 - i) * 12));

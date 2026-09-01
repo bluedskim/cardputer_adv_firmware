@@ -13,7 +13,7 @@ public:
     const char* name() const override;
     void onEnter() override;
     void onExit() override;
-    NavRequest onUpdate(const Keyboard_Class::KeysState* keys) override;
+    NavRequest onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_focused) override;
 
 private:
     enum class Screen {
@@ -40,6 +40,8 @@ private:
     uint32_t currentElapsedMs() const;
     bool consumeTextChar(char key);
     void markDirty() { dirty_ = true; }
+    void requestChromeFocus() { pending_chrome_focus_ = true; }
+    bool isRootScreen() const { return screen_ == Screen::Main; }
 
     StopwatchStorage storage_;
     Screen screen_ = Screen::Main;
@@ -52,4 +54,6 @@ private:
     uint32_t elapsed_ms_ = 0;
     uint32_t last_draw_cs_ = 0;
     bool dirty_ = true;
+    bool pending_chrome_focus_ = false;
+    bool chrome_focused_ = false;
 };

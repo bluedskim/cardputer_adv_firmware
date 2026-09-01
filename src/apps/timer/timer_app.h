@@ -13,7 +13,7 @@ public:
     const char* name() const override;
     void onEnter() override;
     void onExit() override;
-    NavRequest onUpdate(const Keyboard_Class::KeysState* keys) override;
+    NavRequest onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_focused) override;
 
 private:
     enum class Screen {
@@ -47,6 +47,8 @@ private:
     void formatPreset(char* buf, std::size_t len, uint8_t hours, uint8_t minutes) const;
     void formatRemaining(char* buf, std::size_t len, uint32_t ms) const;
     void markDirty() { dirty_ = true; }
+    void requestChromeFocus() { pending_chrome_focus_ = true; }
+    bool isRootScreen() const { return screen_ == Screen::List; }
 
     TimerStorage storage_;
     Screen screen_ = Screen::List;
@@ -57,4 +59,6 @@ private:
     std::size_t edit_minutes_ = 5;
     uint32_t last_tick_sec_ = 0;
     bool dirty_ = true;
+    bool pending_chrome_focus_ = false;
+    bool chrome_focused_ = false;
 };

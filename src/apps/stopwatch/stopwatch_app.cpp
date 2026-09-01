@@ -13,14 +13,18 @@ namespace {
 constexpr int kContentTop = config::kContentTop;
 constexpr int kLineHeight = 16;
 constexpr int kListTop = kContentTop + 32;
-constexpr int kFooterReserve = 14;
+constexpr int kFooterReserve = 0;
+constexpr int kElapsedY = kContentTop + 18;
+constexpr int kElapsedBandTop = kContentTop + 10;
+constexpr int kElapsedBandHeight = 16;
+constexpr int kElapsedBandWidth = 144;
+
+}  // namespace
 
 int historyVisibleRows() {
     const int available = M5Cardputer.Display.height() - kFooterReserve - kListTop;
     return std::max(1, available / kLineHeight);
 }
-
-}  // namespace
 
 StopwatchApp::StopwatchApp() { storage_.begin(); }
 
@@ -29,11 +33,9 @@ const char* StopwatchApp::name() const { return "Stopwatch"; }
 void StopwatchApp::onEnter() {
     screen_ = Screen::Main;
     focus_ = MainRow::Name;
-    running_ = false;
-    start_ms_ = 0;
-    elapsed_ms_ = 0;
     last_draw_cs_ = 0;
     markDirty();
+    requestChromeFocus();
 }
 
 void StopwatchApp::onExit() { M5Cardputer.Display.fillScreen(TFT_BLACK); }
@@ -66,10 +68,12 @@ void StopwatchApp::drawElapsed() const {
     char buf[20];
     formatDuration(buf, sizeof(buf), currentElapsedMs());
 
+    const int band_x = (display.width() - kElapsedBandWidth) / 2;
+    display.fillRect(band_x, kElapsedBandTop, kElapsedBandWidth, kElapsedBandHeight, TFT_BLACK);
     display.setTextDatum(middle_center);
     display.setTextSize(2);
     display.setTextColor(TFT_WHITE, TFT_BLACK);
-    display.drawString(buf, display.width() / 2, kContentTop + 18);
+    display.drawString(buf, display.width() / 2, kElapsedY);
     display.setTextDatum(top_left);
 }
 
@@ -118,12 +122,17 @@ bool StopwatchApp::consumeTextChar(const char key) {
     return false;
 }
 
-NavRequest StopwatchApp::onUpdate(const Keyboard_Class::KeysState* keys) {
+NavRequest StopwatchApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_focused) {
+    if (chrome_focused_ != chrome_focused) {
+        chrome_focused_ = chrome_focused;
+        markDirty();
+    }
+
     if (screen_ == Screen::Main && running_) {
         const uint32_t cs = currentElapsedMs() / 10;
         if (cs != last_draw_cs_) {
             last_draw_cs_ = cs;
-            markDirty();
+            drawElapsed();
         }
     }
 
@@ -136,6 +145,13 @@ NavRequest StopwatchApp::onUpdate(const Keyboard_Class::KeysState* keys) {
     if (dirty_) {
         draw();
         dirty_ = false;
+        if (screen_ == Screen::Main && running_) {
+            last_draw_cs_ = currentElapsedMs() / 10;
+        }
+    }
+    if (pending_chrome_focus_) {
+        pending_chrome_focus_ = false;
+        return NavRequest::FocusChrome;
     }
     return req;
 }
@@ -169,10 +185,9 @@ NavRequest StopwatchApp::handleInput(const Keyboard_Class::KeysState& status) {
         }
         switch (detectArrowKey(status)) {
             case ArrowKey::Up:
-                if (history_cursor_ == 0) {
-                    return NavRequest::FocusChrome;
+                if (history_cursor_ > 0) {
+                    --history_cursor_;
                 }
-                --history_cursor_;
                 break;
             case ArrowKey::Down:
                 if (history_cursor_ + 1 < storage_.historyCount()) {
@@ -203,6 +218,7 @@ NavRequest StopwatchApp::handleInput(const Keyboard_Class::KeysState& status) {
                 screen_ = Screen::History;
                 history_cursor_ = 0;
                 history_scroll_ = 0;
+                markDirty();
                 break;
             default:
                 break;
@@ -212,8 +228,11 @@ NavRequest StopwatchApp::handleInput(const Keyboard_Class::KeysState& status) {
 
     switch (detectArrowKey(status)) {
         case ArrowKey::Up:
-            if (focus_ == MainRow::Name) {
+            if (focus_ == MainRow::Name && isRootScreen()) {
                 return NavRequest::FocusChrome;
+            }
+            if (focus_ == MainRow::Name) {
+                return NavRequest::None;
             }
             focus_ = static_cast<MainRow>(static_cast<uint8_t>(focus_) - 1);
             return NavRequest::None;
@@ -243,10 +262,6 @@ void StopwatchApp::draw() const {
         display.print("> ");
         display.print(input_buffer_.c_str());
         display.print("_");
-        display.setTextSize(1);
-        display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        display.setCursor(8, kListTop + 28);
-        display.print("Ent save  Del erase  < back");
         return;
     }
 
@@ -262,7 +277,7 @@ void StopwatchApp::draw() const {
         const std::size_t visible = static_cast<std::size_t>(historyVisibleRows());
         const std::size_t end = std::min(count, history_scroll_ + visible);
         for (std::size_t i = history_scroll_; i < end; ++i) {
-            const bool selected = i == history_cursor_;
+            const bool selected = i == history_cursor_ && !chrome_focused_;
             const uint16_t fg = selected ? TFT_YELLOW : TFT_WHITE;
             const uint16_t bg = selected ? TFT_NAVY : TFT_BLACK;
             if (selected) {
@@ -284,11 +299,6 @@ void StopwatchApp::draw() const {
             display.setCursor(8, kListTop);
             display.print("(empty)");
         }
-
-        display.setTextSize(1);
-        display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        display.setCursor(4, display.height() - 12);
-        display.print("^v move  < back");
         return;
     }
 
@@ -297,7 +307,7 @@ void StopwatchApp::draw() const {
     const int width = display.width();
     int y = kListTop;
     auto drawRow = [&](MainRow row, const char* label) {
-        const bool selected = focus_ == row;
+        const bool selected = focus_ == row && !chrome_focused_;
         const uint16_t fg = selected ? TFT_YELLOW : TFT_WHITE;
         const uint16_t bg = selected ? TFT_NAVY : TFT_BLACK;
         if (selected) {
@@ -315,9 +325,4 @@ void StopwatchApp::draw() const {
     drawRow(MainRow::Name, name_line);
     drawRow(MainRow::RunStop, running_ ? "Stop" : "Start");
     drawRow(MainRow::History, "History");
-
-    display.setTextSize(1);
-    display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    display.setCursor(4, display.height() - 12);
-    display.print("^v move  Ent ok");
 }

@@ -14,7 +14,7 @@ public:
     const char* name() const override;
     void onEnter() override;
     void onExit() override;
-    NavRequest onUpdate(const Keyboard_Class::KeysState* keys) override;
+    NavRequest onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_focused) override;
 
 private:
     enum class Screen {
@@ -69,6 +69,8 @@ private:
     std::string screenTitle() const;
     bool consumeTextChar(char key);
     void markDirty() { dirty_ = true; }
+    void requestChromeFocus() { pending_chrome_focus_ = true; }
+    bool isRootScreen() const { return screen_ == Screen::DeviceList; }
     void ensureSender();
     void ensureReceiver();
     static const char* actionLabel(ListAction action);
@@ -87,6 +89,8 @@ private:
     bool sender_ready_ = false;
     bool receiver_ready_ = false;
     bool dirty_ = true;
+    bool pending_chrome_focus_ = false;
+    bool chrome_focused_ = false;
     PendingDelete pending_delete_ = PendingDelete::None;
     bool input_return_list_ = false;
 };
