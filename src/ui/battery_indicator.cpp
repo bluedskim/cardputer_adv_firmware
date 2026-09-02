@@ -22,9 +22,11 @@ uint16_t levelColor(const int level) {
 
 void drawLightningBolt(M5GFX& display, const int x, const int y) {
     const int cx = x + kBodyWidth / 2;
+    const int cy = y + kBodyHeight / 2;
 
-    display.fillTriangle(cx + 2, y + 1, cx - 3, y + 6, cx + 1, y + 5, TFT_WHITE);
-    display.fillTriangle(cx - 1, y + 6, cx + 2, y + 9, cx + 3, y + 5, TFT_WHITE);
+    // Horizontal bolt (vertical glyph rotated 90° CW), fits the 18x10 body.
+    display.fillTriangle(cx - 4, cy - 2, cx + 1, cy + 3, cx, cy - 1, TFT_WHITE);
+    display.fillTriangle(cx + 1, cy + 1, cx + 4, cy - 2, cx, cy - 3, TFT_WHITE);
 }
 
 }  // namespace
@@ -32,8 +34,10 @@ void drawLightningBolt(M5GFX& display, const int x, const int y) {
 BatterySnapshot readBatterySnapshot() {
     BatterySnapshot snapshot;
     snapshot.level = static_cast<int>(M5.Power.getBatteryLevel());
-    snapshot.charging =
-        M5.Power.isCharging() == m5::Power_Class::is_charging_t::is_charging;
+    const auto charge = M5.Power.isCharging();
+    snapshot.charge_known = charge != m5::Power_Class::is_charging_t::charge_unknown;
+    snapshot.charging = charge == m5::Power_Class::is_charging_t::is_charging;
+    snapshot.voltage_mv = M5.Power.getBatteryVoltage();
     return snapshot;
 }
 

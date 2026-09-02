@@ -7,9 +7,12 @@
 struct BatterySnapshot {
     int level = -1;
     bool charging = false;
+    bool charge_known = false;
+    int16_t voltage_mv = -1;
 
     bool operator==(const BatterySnapshot& other) const {
-        return level == other.level && charging == other.charging;
+        return level == other.level && charging == other.charging &&
+               charge_known == other.charge_known && voltage_mv == other.voltage_mv;
     }
     bool operator!=(const BatterySnapshot& other) const { return !(*this == other); }
 };

@@ -1,6 +1,6 @@
 # cardputer_adv_firmware
 
-현재 릴리스: **[v0.2.1](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.2.1)**
+현재 릴리스: **[v0.3.0](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.3.0)**
 
 M5Stack Cardputer / Cardputer-Adv용 커스텀 펌웨어입니다. 기본 탑재 UI처럼 기능별로 좌우 전환하며, **Torch(손전등)**, **Timer**, **Stopwatch**, **Settings** 기능을 제공합니다.
 
@@ -160,10 +160,12 @@ pio device list
 
 ### Settings
 
-화면 순서상 **맨 마지막** 앱입니다. 유휴 시 화면을 끄는 **Sleep** 시간을 NVS에 저장합니다.
+화면 순서상 **맨 마지막** 앱입니다. 유휴 시 화면을 끄는 **Sleep** 시간을 NVS에 저장하고, 배터리·펌웨어 정보를 표시합니다.
 
 - `↑` `↓` — 항목 이동 · 맨 위 `↑` → 크롬
 - `←` `→` — Sleep 시간 변경 (30초 / 1분 / **5분** / 10분, 기본 5분)
+- **Battery:** 잔량(%)과 전압(V)을 한 줄에 표시 (충전 여부는 헤더 배터리 아이콘으로 확인)
+- **S/W Ver:** 펌웨어 버전 (`config.h`의 `kFirmwareVersion`)
 - 입력이 없으면 설정된 시간 후 백라이트가 꺼지며, 아무 키나 누르면 복귀합니다. 이때 **Timer**·**Stopwatch**는 계속 동작합니다.
 
 ## 데스크탑 시뮬레이터
@@ -213,7 +215,7 @@ M5Launcher에 `.bin` 설치 후 기기에서 확인합니다. (sim은 백라이�
 - [ ] **타임아웃:** Time 포커스에서 `←` `→`가 60초 단위로 바뀌고, `Left`가 1초마다 줄어든다. 만료 후 메시지가 뜬 뒤 키가 다시 먹는다 (멈춘 것처럼 보이지 않음).
 - [ ] **Timer:** `+ New`로 추가, Hours/Minutes만 조절, Start 후 카운트다운·DONE 표시.
 - [ ] **Stopwatch:** Name 변경, Start/Stop 후 History에 기록(최대 10).
-- [ ] **Settings:** Sleep 시간 변경·저장, 유휴 후 화면 꺼짐·키 입력 시 복귀.
+- [ ] **Settings:** Sleep 시간 변경·저장, 배터리 잔량·전압 표시, 펌웨어 버전, 유휴 후 화면 꺼짐·키 입력 시 복귀.
 - [ ] **G0:** 앱 실행 중 G0 한 번 → M5Launcher로 돌아간다.
 - [ ] **배터리:** 크롬 오른쪽에 아이콘이 보이고, USB 연결 시 충전 표시가 바뀐다.
 

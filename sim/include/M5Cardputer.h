@@ -18,10 +18,12 @@ public:
 
     int32_t getBatteryLevel() { return level_; }
     is_charging_t isCharging() { return charging_; }
+    int16_t getBatteryVoltage() { return voltage_mv_; }
 
 private:
     int32_t level_ = 78;
-    is_charging_t charging_ = is_discharging;
+    is_charging_t charging_ = is_charging;
+    int16_t voltage_mv_ = 4120;
 };
 
 class M5Unified {
