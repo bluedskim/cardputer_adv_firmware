@@ -28,7 +28,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" \
-            dist/cardputer_adv_firmware.bin \
-            --title "${GITHUB_REF_NAME}" \
-            --generate-notes
+          NOTES_FILE=".github/RELEASE_NOTES/${GITHUB_REF_NAME}.md"
+          if [ -f "$NOTES_FILE" ]; then
+            gh release create "${GITHUB_REF_NAME}" \
+              dist/cardputer_adv_firmware.bin \
+              --title "${GITHUB_REF_NAME}" \
+              --notes-file "$NOTES_FILE"
+          else
+            gh release create "${GITHUB_REF_NAME}" \
+              dist/cardputer_adv_firmware.bin \
+              --title "${GITHUB_REF_NAME}" \
+              --generate-notes
+          fi

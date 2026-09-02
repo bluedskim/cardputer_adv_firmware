@@ -1,0 +1,32 @@
+name: Sync Release Notes
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/RELEASE_NOTES/*.md"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update GitHub releases from notes files
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          shopt -s nullglob
+          for file in .github/RELEASE_NOTES/v*.md; do
+            tag=$(basename "$file" .md)
+            if gh release view "$tag" >/dev/null 2>&1; then
+              echo "Updating release $tag"
+              gh release edit "$tag" --notes-file "$file"
+            else
+              echo "Release $tag not found, skipping"
+            fi
+          done
