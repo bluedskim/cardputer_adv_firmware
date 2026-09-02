@@ -313,6 +313,7 @@ pio device monitor
   - [ ] 설정 저장
 
 - [ ] 더 많은 유틸리티 앱
+  - [ ] SD reader/writer
   - [ ] 시계
   - [ ] 메트로놈
   - [ ] tuner(기타줄 6개에 해당하는 음 재생)

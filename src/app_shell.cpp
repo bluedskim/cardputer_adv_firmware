@@ -105,32 +105,27 @@ void AppShell::update() {
             noteUserActivity();
         }
         apps_[current_index_]->onUpdate(nullptr, chrome_focused_);
-        if (chrome_dirty_) {
-            drawChrome();
-            chrome_dirty_ = false;
+    } else {
+        const ArrowKey arrow = pollArrowEdge(status, keyboard_tracker_);
+        const KeyEvent keys = pollAppKeyEdge(status, keyboard_tracker_);
+
+        Keyboard_Class::KeysState delivered = keys.status;
+        delivered.word.erase(std::remove_if(delivered.word.begin(), delivered.word.end(), isArrowChar),
+                             delivered.word.end());
+        if (arrow != ArrowKey::None) {
+            delivered.word.insert(delivered.word.begin(), arrowToChar(arrow));
         }
-        return;
-    }
 
-    const ArrowKey arrow = pollArrowEdge(status, keyboard_tracker_);
-    const KeyEvent keys = pollAppKeyEdge(status, keyboard_tracker_);
-
-    Keyboard_Class::KeysState delivered = keys.status;
-    delivered.word.erase(std::remove_if(delivered.word.begin(), delivered.word.end(), isArrowChar),
-                         delivered.word.end());
-    if (arrow != ArrowKey::None) {
-        delivered.word.insert(delivered.word.begin(), arrowToChar(arrow));
-    }
-
-    const bool has_input = keys.active || arrow != ArrowKey::None;
-    if (has_input) {
-        noteUserActivity();
-    }
-    const NavRequest req =
-        apps_[current_index_]->onUpdate(has_input ? &delivered : nullptr, false);
-    if (req == NavRequest::FocusChrome) {
-        chrome_focused_ = true;
-        chrome_dirty_ = true;
+        const bool has_input = keys.active || arrow != ArrowKey::None;
+        if (has_input) {
+            noteUserActivity();
+        }
+        const NavRequest req =
+            apps_[current_index_]->onUpdate(has_input ? &delivered : nullptr, false);
+        if (req == NavRequest::FocusChrome) {
+            chrome_focused_ = true;
+            chrome_dirty_ = true;
+        }
     }
 
     if (chrome_dirty_) {
