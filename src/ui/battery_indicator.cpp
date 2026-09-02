@@ -20,6 +20,13 @@ uint16_t levelColor(const int level) {
     return TFT_GREEN;
 }
 
+void drawLightningBolt(M5GFX& display, const int x, const int y) {
+    const int cx = x + kBodyWidth / 2;
+
+    display.fillTriangle(cx + 2, y + 1, cx - 3, y + 6, cx + 1, y + 5, TFT_WHITE);
+    display.fillTriangle(cx - 1, y + 6, cx + 2, y + 9, cx + 3, y + 5, TFT_WHITE);
+}
+
 }  // namespace
 
 BatterySnapshot readBatterySnapshot() {
@@ -41,9 +48,6 @@ void drawBatteryIndicator(M5GFX& display, int x, int y, const BatterySnapshot& b
     }
 
     if (battery.charging) {
-        const int cx = x + kBodyWidth / 2;
-        display.drawLine(cx, y + 2, cx - 3, y + 6, TFT_WHITE);
-        display.drawLine(cx, y + 2, cx + 3, y + 6, TFT_WHITE);
-        display.drawLine(cx - 3, y + 6, cx + 3, y + 6, TFT_WHITE);
+        drawLightningBolt(display, x, y);
     }
 }
