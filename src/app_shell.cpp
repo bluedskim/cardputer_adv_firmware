@@ -40,8 +40,15 @@ void AppShell::begin() {
         return;
     }
 
+    SystemSettings::instance().begin();
     M5Cardputer.Display.setRotation(1);
     M5Cardputer.Display.fillScreen(TFT_BLACK);
+    saved_brightness_ = M5Cardputer.Display.getBrightness();
+    if (saved_brightness_ == 0) {
+        saved_brightness_ = 128;
+    }
+    last_activity_ms_ = millis();
+    display_asleep_ = false;
     chrome_focused_ = true;
     apps_[current_index_]->onEnter();
     battery_ = readBatterySnapshot();
@@ -58,6 +65,22 @@ void AppShell::update() {
 
     M5Cardputer.update();
 
+    for (const auto& app : apps_) {
+        app->onBackgroundTick();
+    }
+
+    if (display_asleep_) {
+        if (M5Cardputer.Keyboard.isPressed()) {
+            wakeDisplay();
+        } else {
+            return;
+        }
+    }
+
+    if (M5Cardputer.Keyboard.isPressed()) {
+        noteUserActivity();
+    }
+
     if (M5Cardputer.BtnA.wasClicked()) {
         launcher_exit::rebootToLauncher();
     }
@@ -71,6 +94,7 @@ void AppShell::update() {
     if (chrome_focused_) {
         if (consumeChromeKeys(status)) {
             chrome_dirty_ = true;
+            noteUserActivity();
         }
         apps_[current_index_]->onUpdate(nullptr, chrome_focused_);
         if (chrome_dirty_) {
@@ -91,6 +115,9 @@ void AppShell::update() {
     }
 
     const bool has_input = keys.active || arrow != ArrowKey::None;
+    if (has_input) {
+        noteUserActivity();
+    }
     const NavRequest req =
         apps_[current_index_]->onUpdate(has_input ? &delivered : nullptr, false);
     if (req == NavRequest::FocusChrome) {
@@ -102,6 +129,48 @@ void AppShell::update() {
         drawChrome();
         chrome_dirty_ = false;
     }
+
+    maybeSleepDisplay();
+}
+
+void AppShell::noteUserActivity() {
+    last_activity_ms_ = millis();
+}
+
+void AppShell::maybeSleepDisplay() {
+    const uint32_t timeout_sec = SystemSettings::instance().sleepTimeoutSec();
+    if (timeout_sec == 0 || display_asleep_) {
+        return;
+    }
+
+    if (millis() - last_activity_ms_ >= timeout_sec * 1000U) {
+        sleepDisplay();
+    }
+}
+
+void AppShell::sleepDisplay() {
+    if (display_asleep_) {
+        return;
+    }
+
+    const uint8_t brightness = M5Cardputer.Display.getBrightness();
+    if (brightness > 0) {
+        saved_brightness_ = brightness;
+    }
+    M5Cardputer.Display.setBrightness(0);
+    display_asleep_ = true;
+}
+
+void AppShell::wakeDisplay() {
+    M5Cardputer.Display.setBrightness(saved_brightness_ > 0 ? saved_brightness_ : 128);
+    display_asleep_ = false;
+    noteUserActivity();
+    chrome_dirty_ = true;
+    apps_[current_index_]->onExit();
+    M5Cardputer.Display.fillScreen(TFT_BLACK);
+    apps_[current_index_]->onEnter();
+    drawChrome();
+    chrome_dirty_ = false;
 }
 
 bool AppShell::refreshBatterySnapshot() {
@@ -130,6 +199,7 @@ void AppShell::switchTo(const std::size_t index) {
     apps_[current_index_]->onEnter();
     battery_ = readBatterySnapshot();
     last_battery_poll_ms_ = millis();
+    noteUserActivity();
     chrome_focused_ = true;
     chrome_dirty_ = true;
 }

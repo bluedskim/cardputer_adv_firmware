@@ -2,7 +2,7 @@
 
 현재 릴리스: **[v0.2.0](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.2.0)**
 
-M5Stack Cardputer / Cardputer-Adv용 커스텀 펌웨어입니다. 기본 탑재 UI처럼 기능별로 좌우 전환하며, **Torch(손전등)**, **Timer**, **Stopwatch**, **IR 리모컨** 기능을 제공합니다.
+M5Stack Cardputer / Cardputer-Adv용 커스텀 펌웨어입니다. 기본 탑재 UI처럼 기능별로 좌우 전환하며, **Torch(손전등)**, **Timer**, **Stopwatch**, **IR 리모컨**, **Settings** 기능을 제공합니다.
 
 주 개발 환경은 **Fedora** 기준이며, 아래 설치·업로드 절차도 Fedora를 우선으로 적어 두었습니다.
 
@@ -185,6 +185,14 @@ IR 수신 핀: GPIO **1** (`include/config.h`에서 변경 가능)
 - `↑` `↓` — 항목 이동 · 맨 위 `↑` → 크롬
 - History 화면: `↑` `↓` 스크롤 · `←` / `Del` 복귀
 
+### Settings
+
+화면 순서상 **맨 마지막** 앱입니다. 유휴 시 화면을 끄는 **Sleep** 시간을 NVS에 저장합니다.
+
+- `↑` `↓` — 항목 이동 · 맨 위 `↑` → 크롬
+- `←` `→` — Sleep 시간 변경 (30초 / 1분 / **5분** / 10분, 기본 5분)
+- 입력이 없으면 설정된 시간 후 백라이트가 꺼지며, 아무 키나 누르면 복귀합니다. 이때 **Timer**·**Stopwatch**는 계속 동작합니다.
+
 ## 데스크탑 시뮬레이터
 
 Torch / IR UI를 PC에서 미리 보려면 `sim/` 환경을 사용합니다. Fedora에서는 위 **시스템 패키지**(`SDL2-devel`, `pkg-config` 등) 설치 후:
@@ -236,6 +244,7 @@ M5Launcher에 `.bin` 설치 후 기기에서 확인합니다. (sim은 백라이�
 - [ ] **IR 상세:** `* Dev name`으로 기기 이름이 바뀐다. `x Remove`로 기기가 지워지고, `x Delete`로 버튼이 지워진다(확인 후).
 - [ ] **Timer:** `+ New`로 추가, Hours/Minutes만 조절, Start 후 카운트다운·DONE 표시.
 - [ ] **Stopwatch:** Name 변경, Start/Stop 후 History에 기록(최대 10).
+- [ ] **Settings:** Sleep 시간 변경·저장, 유휴 후 화면 꺼짐·키 입력 시 복귀.
 - [ ] **G0:** 앱 실행 중 G0 한 번 → M5Launcher로 돌아간다.
 - [ ] **배터리:** 크롬 오른쪽에 %가 보이고, USB 연결 시 충전 표시가 바뀐다.
 
@@ -275,7 +284,8 @@ pio device monitor
 │       ├── torch/            # 손전등 앱
 │       ├── timer/            # 타이머 앱 + NVS
 │       ├── stopwatch/        # 스톱워치 앱 + NVS
-│       └── ir/               # IR 앱 + NVS 저장소
+│       ├── ir/               # IR 앱 + NVS 저장소
+│       └── settings/         # 설정 앱 + 시스템 NVS
 └── README.md
 ```
 
@@ -294,8 +304,13 @@ pio device monitor
 | `kMaxTimers` | 8 | 저장 가능한 타이머 수 |
 | `kTimerMaxHours` | 23 | 타이머 시간 상한 |
 | `kMaxStopwatchHistory` | 10 | 스톱워치 이력 최대 건수 |
+| `kDefaultSleepOptionIndex` | 2 | Sleep 기본값 (5분) |
 
 ## 로드맵
+
+- [ ] feature
+  - [ ] sleep
+  - [ ] 설정 저장
 
 - [ ] 더 많은 유틸리티 앱
   - [ ] 시계

@@ -13,6 +13,7 @@ public:
     const char* name() const override;
     void onEnter() override;
     void onExit() override;
+    void onBackgroundTick() override;
     NavRequest onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_focused) override;
 
 private:

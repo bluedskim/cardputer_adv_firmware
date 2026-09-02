@@ -21,4 +21,6 @@ public:
     // When chrome_focused is true, only the header is active; apps must not
     // highlight content selection until the user presses Down from the header.
     virtual NavRequest onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_focused) = 0;
+    // Called every frame for all apps, including while the display is asleep.
+    virtual void onBackgroundTick() {}
 };

@@ -4,6 +4,7 @@
 
 #include "app_shell.h"
 #include "apps/ir/ir_app.h"
+#include "apps/settings/settings_app.h"
 #include "apps/stopwatch/stopwatch_app.h"
 #include "apps/timer/timer_app.h"
 #include "apps/torch/torch_app.h"
@@ -25,6 +26,7 @@ void setup() {
     g_shell.addApp(std::unique_ptr<AppBase>(new TimerApp()));
     g_shell.addApp(std::unique_ptr<AppBase>(new StopwatchApp()));
     g_shell.addApp(std::unique_ptr<AppBase>(new IrApp()));
+    g_shell.addApp(std::unique_ptr<AppBase>(new SettingsApp()));
     g_shell.begin();
 }
 

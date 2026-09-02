@@ -176,13 +176,15 @@ void TimerApp::tickTimers() {
     }
 }
 
+void TimerApp::onBackgroundTick() {
+    tickTimers();
+}
+
 NavRequest TimerApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_focused) {
     if (chrome_focused_ != chrome_focused) {
         chrome_focused_ = chrome_focused;
         markDirty();
     }
-
-    tickTimers();
 
     NavRequest req = NavRequest::None;
     if (keys != nullptr) {

@@ -23,9 +23,11 @@ constexpr uint8_t kMaxTimers = 8;
 constexpr uint8_t kTimerMaxHours = 23;
 
 constexpr uint8_t kMaxStopwatchHistory = 10;
+constexpr uint8_t kDefaultSleepOptionIndex = 2;
 constexpr const char* kIrStorageNamespace = "card_adv";
 constexpr const char* kTimerStorageNamespace = "card_adv_tm";
 constexpr const char* kStopwatchStorageNamespace = "card_adv_sw";
+constexpr const char* kSettingsStorageNamespace = "card_adv_cfg";
 
 constexpr const char* kStorageNamespace = kIrStorageNamespace;
 
