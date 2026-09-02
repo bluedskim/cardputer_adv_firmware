@@ -3,6 +3,7 @@
 #include <M5Cardputer.h>
 
 #include <algorithm>
+#include <cstring>
 
 #include "config.h"
 #include "input/keyboard_input.h"
@@ -13,6 +14,13 @@ namespace {
 
 constexpr uint32_t kBatteryPollMs = 1000;
 constexpr int kBatteryWidth = 22;
+constexpr int kDotSpacing = 7;
+constexpr int kDotRadius = 2;
+constexpr int kDotActiveRing = 3;
+constexpr int kDotsRightMargin = 4;
+constexpr int kBatteryDotGap = 4;
+constexpr int kTitleClusterGap = 4;
+constexpr int kCharWidth = 12;
 
 char arrowToChar(ArrowKey arrow) {
     switch (arrow) {
@@ -237,25 +245,51 @@ bool AppShell::consumeChromeKeys(const Keyboard_Class::KeysState& status) {
 void AppShell::drawChrome() const {
     auto& display = M5Cardputer.Display;
     const int width = display.width();
-    const int dots_width = static_cast<int>(apps_.size()) * 12 + 8;
-    const int battery_x = width - dots_width - kBatteryWidth;
+    const std::size_t app_count = apps_.size();
+    const int dots_span =
+        app_count > 0 ? static_cast<int>((app_count - 1) * kDotSpacing + kDotRadius * 2) : 0;
+    const int dots_width = dots_span + kDotsRightMargin;
+    const int cluster_width = kBatteryWidth + kBatteryDotGap + dots_width;
+    const int battery_x = width - cluster_width;
+    const int arrow_right_x = battery_x - kTitleClusterGap - 2 * kCharWidth;
+    const int title_x = 4 + 2 * kCharWidth;
     const uint16_t bar = chrome_focused_ ? TFT_NAVY : TFT_DARKGREY;
     const uint16_t title = chrome_focused_ ? TFT_YELLOW : TFT_WHITE;
 
     display.fillRect(0, 0, width, config::kChromeHeight, bar);
     display.setTextSize(2);
     display.setTextColor(title, bar);
+
     display.setCursor(4, 4);
-    display.printf("< %s >", apps_[current_index_]->name());
+    display.print("< ");
+
+    const char* app_name = apps_[current_index_]->name();
+    const int max_name_chars = std::max(0, (arrow_right_x - title_x) / kCharWidth);
+    display.setCursor(title_x, 4);
+    if (max_name_chars > 0) {
+        const std::size_t name_len = std::strlen(app_name);
+        if (static_cast<int>(name_len) <= max_name_chars) {
+            display.print(app_name);
+        } else {
+            char truncated[32];
+            std::strncpy(truncated, app_name, static_cast<std::size_t>(max_name_chars));
+            truncated[max_name_chars] = '\0';
+            display.print(truncated);
+        }
+    }
+
+    display.setCursor(arrow_right_x, 4);
+    display.print(" >");
 
     drawBatteryIndicator(display, battery_x, 6, battery_);
 
-    for (std::size_t i = 0; i < apps_.size(); ++i) {
-        const int dot_x = static_cast<int>(width - 12 - static_cast<int>((apps_.size() - 1 - i) * 12));
+    for (std::size_t i = 0; i < app_count; ++i) {
+        const int dot_x = width - kDotsRightMargin - kDotRadius -
+                          static_cast<int>((app_count - 1 - i) * kDotSpacing);
         const uint16_t color = i == current_index_ ? TFT_YELLOW : TFT_DARKGREY;
-        display.fillCircle(dot_x, 11, 3, color);
+        display.fillCircle(dot_x, 11, kDotRadius, color);
         if (i == current_index_) {
-            display.drawCircle(dot_x, 11, 4, TFT_WHITE);
+            display.drawCircle(dot_x, 11, kDotActiveRing, TFT_WHITE);
         }
     }
 }
