@@ -17,7 +17,7 @@ constexpr int kFooterReserve = 0;
 constexpr int kElapsedY = kContentTop + 18;
 constexpr int kElapsedBandTop = kContentTop + 10;
 constexpr int kElapsedBandHeight = 16;
-constexpr int kElapsedBandWidth = 144;
+constexpr int kElapsedBandWidth = 168;
 
 }  // namespace
 
@@ -49,11 +49,7 @@ void StopwatchApp::formatDuration(char* buf, const std::size_t len, const uint32
     const uint32_t min = minutes % 60;
     const uint32_t centis = cs % 100;
 
-    if (hours > 0) {
-        std::snprintf(buf, len, "%u:%02u:%02u.%02u", hours, min, sec, centis);
-    } else {
-        std::snprintf(buf, len, "%u:%02u.%02u", min, sec, centis);
-    }
+    std::snprintf(buf, len, "%02u:%02u:%02u.%02u", hours, min, sec, centis);
 }
 
 uint32_t StopwatchApp::currentElapsedMs() const {

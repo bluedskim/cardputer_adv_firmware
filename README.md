@@ -309,7 +309,7 @@ pio device monitor
 ## 로드맵
 
 - [ ] feature
-  - [ ] sleep
+  - [x] sleep
   - [ ] 설정 저장
 
 - [ ] 더 많은 유틸리티 앱
