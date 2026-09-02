@@ -2,7 +2,7 @@
 
 현재 릴리스: **[v0.2.1](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.2.1)**
 
-M5Stack Cardputer / Cardputer-Adv용 커스텀 펌웨어입니다. 기본 탑재 UI처럼 기능별로 좌우 전환하며, **Torch(손전등)**, **Timer**, **Stopwatch**, **IR 리모컨**, **Settings** 기능을 제공합니다.
+M5Stack Cardputer / Cardputer-Adv용 커스텀 펌웨어입니다. 기본 탑재 UI처럼 기능별로 좌우 전환하며, **Torch(손전등)**, **Timer**, **Stopwatch**, **Settings** 기능을 제공합니다.
 
 주 개발 환경은 **Fedora** 기준이며, 아래 설치·업로드 절차도 Fedora를 우선으로 적어 두었습니다.
 
@@ -125,33 +125,6 @@ pio device list
 - 타임아웃이 지나면 자동으로 꺼졌다가 다시 켜집니다 (키를 누르면 바로 재시작).
 - 장시간 고휘도 유지는 패널에 부담을 줄 수 있으니 타임아웃을 꼭 활용하세요.
 
-### IR Reader / Sender
-
-등록한 기기와 버튼의 IR 코드를 NVS에 저장하고 송신합니다.
-
-**기기 목록**
-
-- `↑` `↓` 로 기기 / `+ New` 이동 (목록이 길면 스크롤)
-- `Enter` — 기기 열기 또는 New
-- 맨 위에서 `↑` — 크롬(앱 전환)
-
-**기기 상세**
-
-- `↑` `↓` 로 버튼 / `+ Learn` / `* Dev name` / `* Rename` / `x Delete` / `x Remove` 이동
-- `Enter` — 버튼 IR 송신 또는 액션 실행
-- `←` 또는 `Del` — 기기 목록으로
-- `x Delete`는 버튼, `x Remove`는 기기 삭제 (`Ent yes` / `< no` 확인)
-
-**이름 입력 / 학습**
-
-- `Enter` 저장, `Del` 한 글자 삭제, `←` 취소
-- 학습 중 `←` 또는 `Del` 취소
-
-IR 송신 핀: GPIO **44** (M5 공식 예제 기준)  
-IR 수신 핀: GPIO **1** (`include/config.h`에서 변경 가능)
-
-> Cardputer v1.x는 IR 수신 모듈이 별도일 수 있습니다. 수신이 안 되면 `kIrRxPin`을 실제 배선에 맞게 수정하세요.
-
 ### Timer
 
 여러 개의 카운트다운 타이머를 NVS에 저장합니다. **시간·분** 단위로만 설정합니다.
@@ -195,7 +168,7 @@ IR 수신 핀: GPIO **1** (`include/config.h`에서 변경 가능)
 
 ## 데스크탑 시뮬레이터
 
-Torch / IR UI를 PC에서 미리 보려면 `sim/` 환경을 사용합니다. Fedora에서는 위 **시스템 패키지**(`SDL2-devel`, `pkg-config` 등) 설치 후:
+Torch / Timer / Stopwatch / Settings UI를 PC에서 미리 보려면 `sim/` 환경을 사용합니다. Fedora에서는 위 **시스템 패키지**(`SDL2-devel`, `pkg-config` 등) 설치 후:
 
 ```bash
 pio run -e sim -t upload
@@ -234,19 +207,15 @@ pio run -e m5launcher
 
 ### 실기 테스트 체크리스트
 
-M5Launcher에 `.bin` 설치 후 기기에서 확인합니다. (sim은 백라이트·IR 하드웨어가 없습니다.)
+M5Launcher에 `.bin` 설치 후 기기에서 확인합니다. (sim은 백라이트 하드웨어가 없습니다.)
 
 - [ ] **밝기:** Torch에서 Bright 포커스 후 `←` 시 패널이 어두워지고, `→` 시 밝아진다. 최대에서 `→`를 눌러도 255에 머문다.
 - [ ] **타임아웃:** Time 포커스에서 `←` `→`가 60초 단위로 바뀌고, `Left`가 1초마다 줄어든다. 만료 후 메시지가 뜬 뒤 키가 다시 먹는다 (멈춘 것처럼 보이지 않음).
-- [ ] **IR 학습:** 상세에서 `+ Learn` → 리모컨 버튼을 누르면 저장된다. 안 되면 `kIrRxPin`(기본 GPIO 1)을 배선에 맞게 바꾼다.
-- [ ] **IR 송신:** 저장된 버튼에서 `Enter` 시 기기가 반응한다 (GPIO 44).
-- [ ] **IR 목록:** 기기가 많을 때 `↓`로 화면 밖 항목까지 스크롤된다.
-- [ ] **IR 상세:** `* Dev name`으로 기기 이름이 바뀐다. `x Remove`로 기기가 지워지고, `x Delete`로 버튼이 지워진다(확인 후).
 - [ ] **Timer:** `+ New`로 추가, Hours/Minutes만 조절, Start 후 카운트다운·DONE 표시.
 - [ ] **Stopwatch:** Name 변경, Start/Stop 후 History에 기록(최대 10).
 - [ ] **Settings:** Sleep 시간 변경·저장, 유휴 후 화면 꺼짐·키 입력 시 복귀.
 - [ ] **G0:** 앱 실행 중 G0 한 번 → M5Launcher로 돌아간다.
-- [ ] **배터리:** 크롬 오른쪽에 %가 보이고, USB 연결 시 충전 표시가 바뀐다.
+- [ ] **배터리:** 크롬 오른쪽에 아이콘이 보이고, USB 연결 시 충전 표시가 바뀐다.
 
 ### USB 직접 플래시 (단독 펌웨어)
 
@@ -266,7 +235,7 @@ pio device monitor
 - M5Cardputer / Cardputer-Adv 보드 (ESP32-S3)
 - USB-C **데이터** 케이블
 
-`platformio.ini`에 M5Cardputer, Arduino-IRremote 의존성이 정의되어 있습니다.
+`platformio.ini`에 M5Cardputer 의존성이 정의되어 있습니다.
 
 ## 프로젝트 구조
 
@@ -284,7 +253,6 @@ pio device monitor
 │       ├── torch/            # 손전등 앱
 │       ├── timer/            # 타이머 앱 + NVS
 │       ├── stopwatch/        # 스톱워치 앱 + NVS
-│       ├── ir/               # IR 앱 + NVS 저장소
 │       └── settings/         # 설정 앱 + 시스템 NVS
 └── README.md
 ```
@@ -295,12 +263,8 @@ pio device monitor
 
 | 상수 | 기본값 | 설명 |
 |------|--------|------|
-| `kIrTxPin` | 44 | IR 송신 GPIO |
-| `kIrRxPin` | 1 | IR 수신 GPIO |
 | `kTorchDefaultTimeoutSec` | 600 | Torch 기본 타임아웃(초) |
 | `kTorchMaxTimeoutSec` | 3600 | Torch 타임아웃 상한(초) |
-| `kMaxDevices` | 16 | 저장 가능한 IR 기기 수 |
-| `kMaxButtonsPerDevice` | 16 | IR 기기당 버튼 수 |
 | `kMaxTimers` | 8 | 저장 가능한 타이머 수 |
 | `kTimerMaxHours` | 23 | 타이머 시간 상한 |
 | `kMaxStopwatchHistory` | 10 | 스톱워치 이력 최대 건수 |

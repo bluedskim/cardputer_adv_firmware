@@ -1,6 +1,6 @@
 # Desktop Simulator (`sim/`)
 
-Torch / IR UI를 PC에서 SDL2 창으로 미리 확인합니다. 실제 IR·키보드 하드웨어는 스텁으로 대체됩니다.
+Torch / Timer / Stopwatch / Settings UI를 PC에서 SDL2 창으로 미리 확인합니다. 실제 키보드 하드웨어는 스텁으로 대체됩니다.
 
 PlatformIO 설치·USB 권한 등 공통 개발 환경은 저장소 루트 [README.md](../README.md#개발-환경-fedora)의 **Fedora** 절을 따르세요.
 
@@ -50,19 +50,18 @@ pio run -e sim
 | 키 | 동작 |
 |----|------|
 | `↑` `↓` (`;` `.`) | 항목 이동 |
-| `←` `→` (`,` `/`) | 값 조절(Torch) / 뒤로(`←`, IR) |
+| `←` `→` (`,` `/`) | 값 조절(Torch) / 뒤로(`←`) |
 | `Enter` | 선택·실행 |
 | `Del` | 뒤로 또는 글자 삭제 |
 | 맨 위에서 `↑` | 크롬 포커스 → `←` `→` 로 앱 전환 (실기는 Fn+화살표도 동일) |
 | 크롬에서 `↓` / `Enter` | 앱으로 복귀 |
 | `` ` `` | G0 (시뮬에서는 콘솔 메시지) |
-| `I` | IR 학습 화면에서 테스트 IR 코드 주입 |
 
 ## 구조
 
 ```
 sim/
-  include/            # Arduino / M5Cardputer / IR / Preferences 스텁
+  include/            # Arduino / M5Cardputer / Preferences 스텁
   src/                # SDL main, 키보드 폴링
 src/apps/             # 실제 앱 코드 (sim 빌드에서 재사용)
 ```
@@ -70,5 +69,4 @@ src/apps/             # 실제 앱 코드 (sim 빌드에서 재사용)
 ## 한계
 
 - M5Launcher / NVS 영속성은 메모리 스텁
-- IR은 송신 로그만, 수신은 `I` 키로 테스트 데이터 주입
 - 실기 최종 확인은 여전히 필요
