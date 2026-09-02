@@ -38,8 +38,8 @@ void TimerStorage::load() {
         }
         entry.hours = prefs.getUChar((prefix + "h").c_str(), 0);
         entry.minutes = prefs.getUChar((prefix + "m").c_str(), 5);
-        entry.end_ms = prefs.getUInt((prefix + "end").c_str(), 0);
         entry.done = prefs.getUChar((prefix + "done").c_str(), 0) != 0;
+        entry.end_ms = 0;
         timers_.push_back(std::move(entry));
     }
 
@@ -63,7 +63,6 @@ bool TimerStorage::save() const {
         prefs.putString((prefix + "name").c_str(), entry.name.c_str());
         prefs.putUChar((prefix + "h").c_str(), entry.hours);
         prefs.putUChar((prefix + "m").c_str(), entry.minutes);
-        prefs.putUInt((prefix + "end").c_str(), entry.end_ms);
         prefs.putUChar((prefix + "done").c_str(), entry.done ? 1 : 0);
     }
 
@@ -112,7 +111,8 @@ bool TimerStorage::setTimerEnd(const std::size_t index, const uint32_t end_ms, c
         return false;
     }
 
+    const bool done_changed = timers_[index].done != done;
     timers_[index].end_ms = end_ms;
     timers_[index].done = done;
-    return save();
+    return done_changed ? save() : true;
 }

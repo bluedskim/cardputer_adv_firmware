@@ -158,15 +158,15 @@ void TimerApp::tickTimers() {
         }
     }
 
-    if (screen_ == Screen::List) {
-        const uint32_t sec = now / 1000;
-        if (sec != last_tick_sec_) {
-            last_tick_sec_ = sec;
-            for (const auto& entry : storage_.timers()) {
-                if (isRunning(entry)) {
+    const uint32_t sec = now / 1000;
+    if (sec != last_tick_sec_) {
+        last_tick_sec_ = sec;
+        for (const auto& entry : storage_.timers()) {
+            if (isRunning(entry)) {
+                if (screen_ == Screen::List) {
                     markDirty();
-                    return;
                 }
+                break;
             }
         }
     }
