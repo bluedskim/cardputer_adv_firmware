@@ -1,6 +1,6 @@
 # cardputer_adv_firmware
 
-현재 릴리스: **[v0.1.1](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.1.1)** · 개발 중: **v0.2.0**
+현재 릴리스: **[v0.2.0](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.2.0)**
 
 M5Stack Cardputer / Cardputer-Adv용 커스텀 펌웨어입니다. 기본 탑재 UI처럼 기능별로 좌우 전환하며, **Torch(손전등)**, **Timer**, **Stopwatch**, **IR 리모컨** 기능을 제공합니다.
 
