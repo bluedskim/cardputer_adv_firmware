@@ -4,7 +4,7 @@
 
 namespace config {
 
-constexpr const char* kFirmwareVersion = "0.2.0";
+constexpr const char* kFirmwareVersion = "0.2.1";
 
 constexpr uint8_t kIrTxPin = 44;
 constexpr uint8_t kIrRxPin = 1;
