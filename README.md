@@ -217,7 +217,7 @@ M5Launcher에 `.bin` 설치 후 기기에서 확인합니다. (sim은 백라이�
 - [ ] **Stopwatch:** Name 변경, Start/Stop 후 History에 기록(최대 10).
 - [ ] **Settings:** Sleep 시간 변경·저장, 배터리 잔량·전압 표시, 펌웨어 버전, 유휴 후 화면 꺼짐·키 입력 시 복귀.
 - [ ] **G0:** 앱 실행 중 G0 한 번 → M5Launcher로 돌아간다.
-- [ ] **배터리:** 크롬 오른쪽에 아이콘이 보이고, USB 연결 시 충전 표시가 바뀐다.
+- [ ] **배터리:** 크롬 오른쪽에 아이콘이 보이고, USB 연결 시 번개 표시가 나타난다 (Cardputer는 CHG 핀이 없어 USB 연결로 추정).
 
 ### USB 직접 플래시 (단독 펌웨어)
 
@@ -276,7 +276,8 @@ pio device monitor
 
 - [ ] feature
   - [x] sleep
-  - [ ] 설정 저장
+  - [ ] ~~Battery charge threshold 설정~~ (H/W가 미지원)
+  - [ ] 설정 백업
 
 - [ ] 더 많은 유틸리티 앱
   - [ ] SD reader/writer

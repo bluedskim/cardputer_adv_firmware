@@ -4,6 +4,10 @@
 
 #include <algorithm>
 
+#if !defined(CARDPUTER_SIM)
+#include "HWCDC.h"
+#endif
+
 namespace {
 
 constexpr int kBodyWidth = 18;
@@ -21,12 +25,60 @@ uint16_t levelColor(const int level) {
 }
 
 void drawLightningBolt(M5GFX& display, const int x, const int y) {
-    const int cx = x + kBodyWidth / 2;
-    const int cy = y + kBodyHeight / 2;
+    // Classic vertical ⚡ (6x7) — recognizable zigzag, white + black outline.
+    static constexpr const char* kRows[] = {
+        "...##.",
+        "..###.",
+        ".####.",
+        "#####.",
+        "..###.",
+        ".###..",
+        "##....",
+    };
+    constexpr int kCols = 6;
+    constexpr int kRowCount = 7;
+    const int ox = x + (kBodyWidth - kCols) / 2;
+    const int oy = y + 2;
 
-    // Horizontal bolt (vertical glyph rotated 90° CW), fits the 18x10 body.
-    display.fillTriangle(cx - 4, cy - 2, cx + 1, cy + 3, cx, cy - 1, TFT_WHITE);
-    display.fillTriangle(cx + 1, cy + 1, cx + 4, cy - 2, cx, cy - 3, TFT_WHITE);
+    auto plot = [&](const int px, const int py, const uint16_t color) {
+        if (px >= x + 1 && px < x + kBodyWidth - 1 && py >= y + 1 && py < y + kBodyHeight - 1) {
+            display.drawPixel(px, py, color);
+        }
+    };
+
+    for (int row = 0; row < kRowCount; ++row) {
+        for (int col = 0; col < kCols; ++col) {
+            if (kRows[row][col] != '#') {
+                continue;
+            }
+            const int px = ox + col;
+            const int py = oy + row;
+            for (int dy = -1; dy <= 1; ++dy) {
+                for (int dx = -1; dx <= 1; ++dx) {
+                    if (dx == 0 && dy == 0) {
+                        continue;
+                    }
+                    plot(px + dx, py + dy, TFT_BLACK);
+                }
+            }
+        }
+    }
+    for (int row = 0; row < kRowCount; ++row) {
+        for (int col = 0; col < kCols; ++col) {
+            if (kRows[row][col] == '#') {
+                plot(ox + col, oy + row, TFT_WHITE);
+            }
+        }
+    }
+}
+
+bool usbLikelyPowered() {
+#if defined(CARDPUTER_SIM)
+    return false;
+#else
+    // Cardputer has no charge-status pin; SOF presence means USB host is plugged.
+    return HWCDC::isPlugged();
+#endif
 }
 
 }  // namespace
@@ -36,7 +88,12 @@ BatterySnapshot readBatterySnapshot() {
     snapshot.level = static_cast<int>(M5.Power.getBatteryLevel());
     const auto charge = M5.Power.isCharging();
     snapshot.charge_known = charge != m5::Power_Class::is_charging_t::charge_unknown;
-    snapshot.charging = charge == m5::Power_Class::is_charging_t::is_charging;
+    if (snapshot.charge_known) {
+        snapshot.charging = charge == m5::Power_Class::is_charging_t::is_charging;
+    } else {
+        // Hardware cannot report CHG/STDBY; USB plug is the best available proxy.
+        snapshot.charging = usbLikelyPowered();
+    }
     snapshot.voltage_mv = M5.Power.getBatteryVoltage();
     return snapshot;
 }
