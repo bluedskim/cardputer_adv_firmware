@@ -30,5 +30,8 @@ void setup() {
 
 void loop() {
     g_shell.update();
-    delay(5);
+    const uint32_t delay_ms = g_shell.loopDelayMs();
+    if (delay_ms > 0) {
+        delay(delay_ms);
+    }
 }

@@ -51,10 +51,7 @@ void AppShell::begin() {
     SystemSettings::instance().begin();
     M5Cardputer.Display.setRotation(1);
     M5Cardputer.Display.fillScreen(TFT_BLACK);
-    saved_brightness_ = M5Cardputer.Display.getBrightness();
-    if (saved_brightness_ == 0) {
-        saved_brightness_ = 128;
-    }
+    saved_brightness_ = SystemSettings::instance().brightness();
     last_activity_ms_ = millis();
     display_asleep_ = false;
     chrome_focused_ = true;
@@ -81,6 +78,7 @@ void AppShell::update() {
         if (M5Cardputer.Keyboard.isPressed()) {
             wakeDisplay();
         } else {
+            enterLowPowerWait();
             return;
         }
     }
@@ -136,6 +134,40 @@ void AppShell::update() {
     maybeSleepDisplay();
 }
 
+uint32_t AppShell::loopDelayMs() const {
+    if (display_asleep_) {
+        // Low-power wait already consumed time in update(), or timers need a tight loop.
+        return anyBackgroundWork() ? config::kActiveLoopDelayMs : 0;
+    }
+    if (anyBackgroundWork()) {
+        return config::kActiveLoopDelayMs;
+    }
+    if (millis() - last_activity_ms_ < config::kIdleLoopGraceMs) {
+        return config::kActiveLoopDelayMs;
+    }
+    return config::kIdleLoopDelayMs;
+}
+
+bool AppShell::anyBackgroundWork() const {
+    for (const auto& app : apps_) {
+        if (app->hasActiveBackgroundWork()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void AppShell::enterLowPowerWait() const {
+    if (anyBackgroundWork()) {
+        return;
+    }
+#if defined(CARDPUTER_SIM)
+    delay(config::kDisplaySleepLightSleepUs / 1000U);
+#else
+    M5.Power.lightSleep(config::kDisplaySleepLightSleepUs, false);
+#endif
+}
+
 void AppShell::noteUserActivity() {
     last_activity_ms_ = millis();
 }
@@ -159,13 +191,17 @@ void AppShell::sleepDisplay() {
     const uint8_t brightness = M5Cardputer.Display.getBrightness();
     if (brightness > 0) {
         saved_brightness_ = brightness;
+    } else {
+        saved_brightness_ = SystemSettings::instance().brightness();
     }
     M5Cardputer.Display.setBrightness(0);
     display_asleep_ = true;
 }
 
 void AppShell::wakeDisplay() {
-    M5Cardputer.Display.setBrightness(saved_brightness_ > 0 ? saved_brightness_ : 128);
+    const uint8_t restore = saved_brightness_ > 0 ? saved_brightness_
+                                                   : SystemSettings::instance().brightness();
+    M5Cardputer.Display.setBrightness(restore);
     display_asleep_ = false;
     noteUserActivity();
     chrome_dirty_ = true;

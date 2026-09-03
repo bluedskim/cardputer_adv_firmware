@@ -4,6 +4,7 @@
 
 #include "config.h"
 #include "input/keyboard_input.h"
+#include "system_settings.h"
 
 #include <algorithm>
 
@@ -36,7 +37,7 @@ void TorchApp::onEnter() {
 }
 
 void TorchApp::onExit() {
-    M5Cardputer.Display.setBrightness(128);
+    SystemSettings::instance().applyBrightness();
     M5Cardputer.Display.fillScreen(TFT_BLACK);
 }
 

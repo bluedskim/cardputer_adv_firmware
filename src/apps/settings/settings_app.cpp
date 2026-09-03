@@ -70,17 +70,22 @@ NavRequest SettingsApp::handleInput(const Keyboard_Class::KeysState& status) {
         case ArrowKey::Left:
             if (focus_ == Row::Sleep) {
                 SystemSettings::instance().cycleSleepOption(-1);
+            } else if (focus_ == Row::Bright) {
+                SystemSettings::instance().cycleBrightnessOption(-1);
             }
             return NavRequest::None;
         case ArrowKey::Right:
             if (focus_ == Row::Sleep) {
                 SystemSettings::instance().cycleSleepOption(1);
+            } else if (focus_ == Row::Bright) {
+                SystemSettings::instance().cycleBrightnessOption(1);
             }
             return NavRequest::None;
         case ArrowKey::Up:
             if (focus_ == Row::Sleep) {
                 return NavRequest::FocusChrome;
             }
+            focus_ = static_cast<Row>(static_cast<uint8_t>(focus_) - 1);
             return NavRequest::None;
         case ArrowKey::Down:
             if (static_cast<uint8_t>(focus_) + 1 < static_cast<uint8_t>(Row::Count)) {
@@ -101,6 +106,20 @@ void SettingsApp::draw() const {
     const int width = display.width();
     int y = kListTop;
 
+    auto drawSelectable = [&](Row row, const char* text) {
+        const bool selected = focus_ == row && !chrome_focused_;
+        const uint16_t fg = selected ? TFT_YELLOW : TFT_WHITE;
+        const uint16_t bg = selected ? TFT_NAVY : TFT_BLACK;
+        if (selected) {
+            display.fillRect(0, y, width, kLineHeight, bg);
+        }
+        display.setTextColor(fg, bg);
+        display.setTextSize(2);
+        display.setCursor(8, y);
+        display.printf("%c %s", selected ? '>' : ' ', text);
+        y += kLineHeight;
+    };
+
     auto drawInfoLine = [&](const char* text) {
         display.setTextColor(TFT_WHITE, TFT_BLACK);
         display.setTextSize(2);
@@ -110,20 +129,15 @@ void SettingsApp::draw() const {
     };
 
     {
-        const bool selected = focus_ == Row::Sleep && !chrome_focused_;
-        const uint16_t fg = selected ? TFT_YELLOW : TFT_WHITE;
-        const uint16_t bg = selected ? TFT_NAVY : TFT_BLACK;
-        if (selected) {
-            display.fillRect(0, y, width, kLineHeight, bg);
-        }
-
         char line[32];
         std::snprintf(line, sizeof(line), "Sleep  %s", SystemSettings::instance().sleepOptionLabel());
-        display.setTextColor(fg, bg);
-        display.setTextSize(2);
-        display.setCursor(8, y);
-        display.printf("%c %s", selected ? '>' : ' ', line);
-        y += kLineHeight;
+        drawSelectable(Row::Sleep, line);
+    }
+    {
+        char line[32];
+        std::snprintf(line, sizeof(line), "Bright %s",
+                      SystemSettings::instance().brightnessOptionLabel());
+        drawSelectable(Row::Bright, line);
     }
 
     {

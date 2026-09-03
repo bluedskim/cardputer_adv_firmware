@@ -16,6 +16,7 @@ public:
     void addApp(std::unique_ptr<AppBase> app);
     void begin();
     void update();
+    uint32_t loopDelayMs() const;
 
 private:
     void switchTo(std::size_t index);
@@ -26,6 +27,8 @@ private:
     void maybeSleepDisplay();
     void sleepDisplay();
     void wakeDisplay();
+    bool anyBackgroundWork() const;
+    void enterLowPowerWait() const;
 
     std::vector<std::unique_ptr<AppBase>> apps_;
     std::size_t current_index_ = 0;

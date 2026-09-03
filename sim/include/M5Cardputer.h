@@ -15,10 +15,17 @@ struct M5Unified_Config_t {};
 class Power_Class {
 public:
     enum is_charging_t { is_charging, is_discharging, charge_unknown };
+    static constexpr uint64_t sleep_no_timer = ~0ull;
 
     int32_t getBatteryLevel() { return level_; }
     is_charging_t isCharging() { return charging_; }
     int16_t getBatteryVoltage() { return voltage_mv_; }
+    void lightSleep(uint64_t micro_seconds = sleep_no_timer, bool touch_wakeup = true) {
+        (void)touch_wakeup;
+        if (micro_seconds != 0 && micro_seconds != sleep_no_timer) {
+            SDL_Delay(static_cast<Uint32>(micro_seconds / 1000ULL));
+        }
+    }
 
 private:
     int32_t level_ = 78;

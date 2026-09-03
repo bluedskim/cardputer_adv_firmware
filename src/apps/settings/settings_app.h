@@ -15,7 +15,8 @@ public:
 private:
     enum class Row : uint8_t {
         Sleep = 0,
-        Count = 1,
+        Bright = 1,
+        Count = 2,
     };
 
     void refreshBattery();

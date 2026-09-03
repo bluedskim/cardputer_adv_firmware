@@ -180,6 +180,15 @@ void TimerApp::onBackgroundTick() {
     tickTimers();
 }
 
+bool TimerApp::hasActiveBackgroundWork() const {
+    for (const auto& entry : storage_.timers()) {
+        if (isRunning(entry)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 NavRequest TimerApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_focused) {
     if (chrome_focused_ != chrome_focused) {
         chrome_focused_ = chrome_focused;

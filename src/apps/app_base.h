@@ -23,4 +23,6 @@ public:
     virtual NavRequest onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_focused) = 0;
     // Called every frame for all apps, including while the display is asleep.
     virtual void onBackgroundTick() {}
+    // True while the app needs frequent CPU (e.g. running timer/stopwatch).
+    virtual bool hasActiveBackgroundWork() const { return false; }
 };
