@@ -5,6 +5,11 @@
 #include <algorithm>
 #include <cstring>
 
+#if !defined(CARDPUTER_SIM)
+#include <driver/gpio.h>
+#include <esp_sleep.h>
+#endif
+
 #include "config.h"
 #include "input/keyboard_input.h"
 #include "launcher_exit.h"
@@ -68,18 +73,26 @@ void AppShell::update() {
         return;
     }
 
-    M5Cardputer.update();
+    if (display_asleep_ && !anyBackgroundWork()) {
+        // Adv: sleep until TCA8418 INT. No keyboard poll and no timer wake.
+        enterLowPowerWait();
+        M5Cardputer.update();  // drain INT / key FIFO
+        // INT fired ⇒ wake even if the key was already released.
+        wakeDisplay();
+    } else {
+        M5Cardputer.update();
 
-    for (const auto& app : apps_) {
-        app->onBackgroundTick();
-    }
+        for (const auto& app : apps_) {
+            app->onBackgroundTick();
+        }
 
-    if (display_asleep_) {
-        if (M5Cardputer.Keyboard.isPressed()) {
-            wakeDisplay();
-        } else {
-            enterLowPowerWait();
-            return;
+        if (display_asleep_) {
+            // Timer/stopwatch running: stay awake enough to tick; poll keys to wake UI.
+            if (M5Cardputer.Keyboard.isPressed()) {
+                wakeDisplay();
+            } else {
+                return;
+            }
         }
     }
 
@@ -162,9 +175,20 @@ void AppShell::enterLowPowerWait() const {
         return;
     }
 #if defined(CARDPUTER_SIM)
-    delay(config::kDisplaySleepLightSleepUs / 1000U);
+    // Sim has no GPIO INT: wait until a key is held, then return.
+    do {
+        M5Cardputer.update();
+        if (M5Cardputer.Keyboard.isPressed()) {
+            break;
+        }
+        delay(50);
+    } while (true);
 #else
-    M5.Power.lightSleep(config::kDisplaySleepLightSleepUs, false);
+    const gpio_num_t int_pin = static_cast<gpio_num_t>(config::kKeyboardIntGpio);
+    gpio_wakeup_enable(int_pin, GPIO_INTR_LOW_LEVEL);
+    esp_sleep_enable_gpio_wakeup();
+    M5.Power.lightSleep(m5::Power_Class::sleep_no_timer, false);
+    gpio_wakeup_disable(int_pin);
 #endif
 }
 
@@ -199,17 +223,12 @@ void AppShell::sleepDisplay() {
 }
 
 void AppShell::wakeDisplay() {
+    // Sleep only dims the backlight; panel GRAM still holds the last frame.
     const uint8_t restore = saved_brightness_ > 0 ? saved_brightness_
                                                    : SystemSettings::instance().brightness();
     M5Cardputer.Display.setBrightness(restore);
     display_asleep_ = false;
     noteUserActivity();
-    chrome_dirty_ = true;
-    apps_[current_index_]->onExit();
-    M5Cardputer.Display.fillScreen(TFT_BLACK);
-    apps_[current_index_]->onEnter();
-    drawChrome();
-    chrome_dirty_ = false;
 }
 
 bool AppShell::refreshBatterySnapshot() {

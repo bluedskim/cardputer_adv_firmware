@@ -2,7 +2,7 @@
 
 현재 릴리스: **[v0.3.1](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.3.1)**
 
-M5Stack Cardputer / Cardputer-Adv용 커스텀 펌웨어입니다. 기본 탑재 UI처럼 기능별로 좌우 전환하며, **Torch(손전등)**, **Timer**, **Stopwatch**, **Settings** 기능을 제공합니다.
+M5Stack **Cardputer-Adv** 전용 커스텀 펌웨어입니다. 기본 탑재 UI처럼 기능별로 좌우 전환하며, **Torch(손전등)**, **Timer**, **Stopwatch**, **Settings** 기능을 제공합니다.
 
 주 개발 환경은 **Fedora** 기준이며, 아래 설치·업로드 절차도 Fedora를 우선으로 적어 두었습니다.
 
@@ -166,7 +166,7 @@ pio device list
 - `←` `→` — Sleep: 30초 / 1분 / **5분** / 10분 · Bright: 32 / 64 / **128** / 192 / 255
 - **Battery:** 잔량(%)과 전압(V)을 한 줄에 표시 (충전 여부는 헤더 배터리 아이콘으로 확인)
 - **S/W Ver:** 펌웨어 버전 (`config.h`의 `kFirmwareVersion`)
-- 입력이 없으면 Sleep 시간 후 백라이트 OFF. Timer/Stopwatch가 **실행 중이 아니면** light sleep으로 추가 절전하고, 키가 있으면 복귀합니다. 실행 중이면 light sleep하지 않고 카운트다운을 유지합니다.
+- 입력이 없으면 Sleep 시간 후 백라이트 OFF. Timer/Stopwatch가 **실행 중이 아니면** light sleep으로 추가 절전하고, **TCA8418 INT(GPIO11)** 로만 키 입력 시 복귀합니다(슬립 중 키보드 폴링·타이머 wake 없음). 실행 중이면 light sleep하지 않고 카운트다운을 유지합니다.
 - Torch는 자체 밝기를 쓰며, 앱을 나가면 Settings Bright 값으로 복귀합니다.
 
 ## 데스크탑 시뮬레이터
@@ -235,7 +235,7 @@ pio device monitor
 ### 요구 사항
 
 - Fedora: [개발 환경](#개발-환경-fedora) 절의 패키지 + [PlatformIO](https://platformio.org/)
-- M5Cardputer / Cardputer-Adv 보드 (ESP32-S3)
+- **Cardputer-Adv** 보드 (ESP32-S3, TCA8418 키보드)
 - USB-C **데이터** 케이블
 
 `platformio.ini`에 M5Cardputer 의존성이 정의되어 있습니다.

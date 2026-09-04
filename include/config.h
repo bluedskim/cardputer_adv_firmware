@@ -29,8 +29,9 @@ constexpr int kChromeHeight = 22;
 constexpr int kContentTop = 22;
 constexpr int kFooterHeight = 18;
 
-// Power: light-sleep duration while display is off and no timers are running.
-constexpr uint32_t kDisplaySleepLightSleepUs = 200000;
+// Power: Cardputer-Adv only. TCA8418 INT (GPIO11, active-low) wakes light sleep.
+// No timer wake — skip keyboard polling while display-asleep with no running timers.
+constexpr int kKeyboardIntGpio = 11;
 constexpr uint32_t kActiveLoopDelayMs = 5;
 constexpr uint32_t kIdleLoopDelayMs = 33;
 constexpr uint32_t kIdleLoopGraceMs = 500;
