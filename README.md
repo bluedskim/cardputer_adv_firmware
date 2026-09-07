@@ -282,22 +282,48 @@ pio device monitor
   - [ ] 설정 백업
 
 - [ ] 더 많은 유틸리티 앱
+  - [ ] expression calculator
   - [ ] SD reader/writer
-  - [ ] 시계
   - [ ] 메트로놈
   - [ ] tuner(기타줄 6개에 해당하는 음 재생)
   - [x] 타이머
   - [x] 스톱워치
   - [ ] 키보드 HID(블루투스, usb)
-  - [ ] ssh commander: ssh로 명령을 전송하고 결과를 받아 출력
-  - [ ] web commander: web protocol로 서버를 호출하고 결과를 받아 출력
+  - [ ] 시계
 - [ ] SD 카드 백업/복원
 
-### 다음 major 버전
+### 다음 major 버전 — Phone-backed companion
 
-1. mobile(android) companion
-  2. 스마트폰 알림 수신
-     
+테마: Cardputer는 얇은 단말 UI, Android 폰이 네트워크·보안·백그라운드를 맡는다.
+Cardputer WiFi는 사용하지 않는다. 기기↔폰 링크는 **BLE**를 기본으로 한다.
+
+#### 공통 (모든 기능의 선행 조건)
+- [ ] BLE 페어링·재연결·연결 상태 UI (크롬 또는 Settings)
+- [ ] 링크 프로토콜: 프레임 타입, 요청/응답 ID, 에러 코드, 페이로드 크기 상한
+- [ ] 시크릿은 폰 secure storage에만 보관 (Cardputer NVS에 SSH 키·토큰 저장 금지)
+- [ ] sleep/배터리 정책: 알림용 연결 vs 커맨더용 on-demand 연결 구분
+- [ ] 비범위: iOS companion, Cardputer 자체 WiFi/SSH 스택, 풀 웹 브라우저
+
+#### M1 — Companion + 알림 미러 (최소 출시)
+- [ ] Android companion 앱 (연결·권한 안내)
+- [ ] 알림 접근 권한 + 읽기 전용 미러 (앱명/제목/요약)
+- [ ] Cardputer 알림 목록·상세 (스크롤, `Del` 복귀)
+- [ ] 비범위: 알림 액션(답장/닫기), 미디어 제어, 통화
+
+#### M2 — Web commander (HTTP template)
+- [ ] 폰에 프리셋 저장: 이름, URL, method, 헤더/바디 슬롯
+- [ ] Cardputer에서 프리셋 선택 → 실행 → 응답 본문 페이징
+- [ ] 타임아웃·HTTP 에러·연결 끊김을 짧은 메시지로 표시
+- [ ] 비범위: 임의 URL 브라우징, JS 렌더링, 쿠키 저널 UI
+
+#### M3 — SSH commander (exec-only)
+- [ ] 폰에 호스트 프리셋: host, user, 키/비밀번호(secure storage)
+- [ ] 비대화형 exec: 한 줄 명령 → stdout/stderr 페이징
+- [ ] known_hosts / 최초 연결 확인은 companion에서 처리
+- [ ] 비범위: 인터랙티브 PTY, 포트포워드, SFTP, 멀티 세션 tmux
+
+우선순위: **공통 → M1 → M2 → M3**.
+기존 로드맵의 계산기·메트로놈·tuner·HID·시계는 오프라인 유틸로 유지하고, 이 major 축과 섞지 않는다.
 
 ## 라이선스
 
