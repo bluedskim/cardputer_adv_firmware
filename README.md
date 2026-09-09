@@ -1,6 +1,6 @@
 # cardputer_adv_firmware
 
-현재 릴리스: **[v0.3.1](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.3.1)**
+현재 릴리스: **[v0.3.1](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.3.1)** · 개발 트리: `0.4.0-dev` (M1 BLE)
 
 M5Stack **Cardputer-Adv** 전용 커스텀 펌웨어입니다. 기본 탑재 UI처럼 기능별로 좌우 전환하며, **Torch(손전등)**, **Timer**, **Stopwatch**, **Settings** 기능을 제공합니다.
 
@@ -160,14 +160,17 @@ pio device list
 
 ### Settings
 
-화면 순서상 **맨 마지막** 앱입니다. Sleep·밝기를 NVS에 저장하고, 배터리·펌웨어 정보를 표시합니다.
+화면 순서상 **맨 마지막** 앱입니다. Sleep·밝기·BLE 링크를 다루고, 배터리·펌웨어 정보를 표시합니다.
 
-- `↑` `↓` — Sleep / Bright 이동 · Sleep에서 `↑` → 크롬
-- `←` `→` — Sleep: 30초 / 1분 / **5분** / 10분 · Bright: 32 / 64 / **128** / 192 / 255
+- `↑` `↓` — Sleep / Bright / BLE 이동 · Sleep에서 `↑` → 크롬
+- `←` `→` — Sleep: 30초 / 1분 / **5분** / 10분 · Bright: 32 / 64 / **128** / 192 / 255 · BLE: Pair / Connect / Disconnect / Forget
+- `Enter` — BLE 행에서 선택한 동작 실행
+- **St:** BLE 상태 (`Off` / `Paired` / `Pairing` / `Wait` / `Hello` / `Connected` · sim은 `N/A`)
 - **Battery:** 잔량(%)과 전압(V)을 한 줄에 표시 (충전 여부는 헤더 배터리 아이콘으로 확인)
 - **S/W Ver:** 펌웨어 버전 (`config.h`의 `kFirmwareVersion`)
-- 입력이 없으면 Sleep 시간 후 백라이트 OFF. Timer/Stopwatch가 **실행 중이 아니면** light sleep으로 추가 절전하고, **TCA8418 INT(GPIO11)** 로만 키 입력 시 복귀합니다(슬립 중 키보드 폴링·타이머 wake 없음). 실행 중이면 light sleep하지 않고 카운트다운을 유지합니다.
+- 입력이 없으면 Sleep 시간 후 백라이트 OFF. Timer/Stopwatch가 **실행 중이 아니고** BLE 라디오가 **꺼져 있으면** light sleep으로 추가 절전하고, **TCA8418 INT(GPIO11)** 로만 키 입력 시 복귀합니다. BLE Pair/Connect 중이거나 연결 중이면 light sleep하지 않으며, **60초** 무트래픽 후 자동 disconnect·radio off.
 - Torch는 자체 밝기를 쓰며, 앱을 나가면 Settings Bright 값으로 복귀합니다.
+- Android companion: [`companion/`](companion/) · 프로토콜: [`docs/ble_link.md`](docs/ble_link.md) · 검증: [`docs/m1_verify.md`](docs/m1_verify.md)
 
 ## 데스크탑 시뮬레이터
 
@@ -216,7 +219,8 @@ M5Launcher에 `.bin` 설치 후 기기에서 확인합니다. (sim은 백라이�
 - [ ] **타임아웃:** Time 포커스에서 `←` `→`가 60초 단위로 바뀌고, `Left`가 1초마다 줄어든다. 만료 후 메시지가 뜬 뒤 키가 다시 먹는다 (멈춘 것처럼 보이지 않음).
 - [ ] **Timer:** `+ New`로 추가, Hours/Minutes만 조절, Start 후 카운트다운·DONE 표시.
 - [ ] **Stopwatch:** Name 변경, Start/Stop 후 History에 기록(최대 10).
-- [ ] **Settings:** Sleep·Bright 변경·저장, 배터리 잔량·전압, 펌웨어 버전, 유휴 후 화면 꺼짐·키 복귀, Timer 미실행 시 light sleep.
+- [ ] **Settings:** Sleep·Bright 변경·저장, **BLE** Pair/Connect/Disconnect/Forget·상태 표시, 배터리 잔량·전압, 펌웨어 버전, 유휴 후 화면 꺼짐·키 복귀, Timer 미실행·BLE off 시 light sleep.
+- [ ] **BLE M1 (실기):** Pair → companion Scan → Hello OK → Disconnect → Status `Paired`/`Off` · radio off 후 light sleep·키 wake · Forget 후 재페어링. 절차는 [companion/README.md](companion/README.md).
 - [ ] **G0:** 앱 실행 중 G0 한 번 → M5Launcher로 돌아간다.
 - [ ] **배터리:** 크롬 오른쪽에 아이콘이 보이고, USB 연결 시 번개 표시가 나타난다 (Cardputer는 CHG 핀이 없어 USB 연결로 추정).
 
@@ -247,16 +251,21 @@ pio device monitor
 ├── platformio.ini
 ├── scripts/export_launcher_bin.py
 ├── dist/                     # M5Launcher용 .bin (빌드 후 생성)
-├── include/config.h          # 핀, 제한값, 기본 설정
+├── docs/ble_link.md          # BLE 링크 프로토콜
+├── companion/                # Android companion (M1)
+├── include/
+│   ├── config.h
+│   └── ble/                  # 프로토콜 상수 · BleLink API
 ├── src/
 │   ├── main.cpp
 │   ├── app_shell.*           # 앱 전환 셸
 │   ├── launcher_exit.*       # M5Launcher 복귀
+│   ├── ble/ble_link.*        # NimBLE 링크 (sim stub)
 │   └── apps/
-│       ├── torch/            # 손전등 앱
-│       ├── timer/            # 타이머 앱 + NVS
-│       ├── stopwatch/        # 스톱워치 앱 + NVS
-│       └── settings/         # 설정 앱 + 시스템 NVS
+│       ├── torch/
+│       ├── timer/
+│       ├── stopwatch/
+│       └── settings/
 └── README.md
 ```
 
@@ -273,6 +282,7 @@ pio device monitor
 | `kMaxStopwatchHistory` | 10 | 스톱워치 이력 최대 건수 |
 | `kDefaultSleepOptionIndex` | 2 | Sleep 기본값 (5분) |
 | `kDefaultBrightnessOptionIndex` | 2 | Bright 기본값 (128) |
+| `kBleIdleDisconnectSec` | 60 | BLE 연결/광고 무트래픽 후 radio off (초) |
 
 ## 로드맵
 
@@ -302,20 +312,20 @@ Cardputer WiFi는 사용하지 않는다. 기기↔폰 링크는 **BLE**를 기�
 배터리 부담은 **알림 상시 연결**이 크고, **커맨더 on-demand**는 상대적으로 작다.
 
 #### 공통 (모든 기능의 선행 조건)
-- [ ] BLE 페어링·재연결·연결 상태 UI (크롬 또는 Settings)
-- [ ] 링크 프로토콜: 프레임 타입, 요청/응답 ID, 에러 코드, 페이로드 크기 상한
-- [ ] 시크릿은 폰 secure storage에만 보관 (Cardputer NVS에 SSH 키·토큰 저장 금지)
-- [ ] sleep/배터리 정책
-  - [ ] **기본 BLE off** — 페어링만 해 두고 라디오는 끈 상태가 기본 (현재와 비슷한 대기 수명)
-  - [ ] **커맨더 on-demand** — 앱을 열 때 연결, 나가거나 N분 유휴 시 해제 후 light sleep 복귀
-  - [ ] **알림 opt-in** — Settings 토글로만 켬. 끄면 연결·라디오 완전 분리
-  - [ ] 알림 ON이어도 화면은 기존 sleep 유지. 새 알림은 조용히 버퍼하고, 깨어난 뒤에만 목록 갱신 (강제 점등 wake는 옵션)
-- [ ] 비범위: iOS companion, Cardputer 자체 WiFi/SSH 스택, 풀 웹 브라우저
+- [x] BLE 페어링·재연결·연결 상태 UI (Settings)
+- [x] 링크 프로토콜: 프레임 타입, 요청/응답 ID, 에러 코드, 페이로드 크기 상한 ([docs/ble_link.md](docs/ble_link.md))
+- [x] 시크릿은 폰 secure storage에만 보관 (Cardputer NVS에 SSH 키·토큰 저장 금지)
+- [x] sleep/배터리 정책
+  - [x] **기본 BLE off** — 페어링만 해 두고 라디오는 끈 상태가 기본 (현재와 비슷한 대기 수명)
+  - [x] **커맨더 on-demand** — 앱을 열 때 연결, 나가거나 N분 유휴 시 해제 후 light sleep 복귀 *(M1: Settings Connect + 60s idle)*
+  - [ ] **알림 opt-in** — Settings 토글로만 켬. 끄면 연결·라디오 완전 분리 *(M4)*
+  - [ ] 알림 ON이어도 화면은 기존 sleep 유지. 새 알림은 조용히 버퍼하고, 깨어난 뒤에만 목록 갱신 (강제 점등 wake는 옵션) *(M4)*
+- [x] 비범위: iOS companion, Cardputer 자체 WiFi/SSH 스택, 풀 웹 브라우저
 
 #### M1 — Companion 앱 (연결 기반)
-- [ ] Android companion 앱 (연결·권한 안내)
-- [ ] 페어링·기본 BLE off / 연결 상태 표시
-- [ ] 비범위: 알림·커맨더 UI (아래 마일스톤)
+- [x] Android companion 앱 ([`companion/`](companion/) · 연결·권한 안내)
+- [x] 페어링·기본 BLE off / 연결 상태 표시
+- [x] 비범위: 알림·커맨더 UI (아래 마일스톤)
 
 #### M2 — Web commander (HTTP template)
 - [ ] 폰에 프리셋 저장: 이름, URL, method, 헤더/바디 슬롯
@@ -341,6 +351,10 @@ Cardputer WiFi는 사용하지 않는다. 기기↔폰 링크는 **BLE**를 기�
 우선순위: **공통 → M1 → M2 → M3 → M4**.
 커맨더(M2/M3)를 알림(M4)보다 앞에 두어, 대기 배터리를 덜 깎는 기능을 먼저 출시한다.
 기존 로드맵의 계산기·메트로놈·tuner·HID·시계는 오프라인 유틸로 유지하고, 이 major 축과 섞지 않는다.
+
+## 디버깅
+
+1. [ ] sleep에서 wake하였을 때 항상 torch화면으로 진입하는 듯. sleep시의 화면으로 돌아가야 함
 
 ## 라이선스
 
