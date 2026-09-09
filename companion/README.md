@@ -1,11 +1,12 @@
-# Cardputer Companion (Android, M1)
+# Cardputer Companion (Android, M2)
 
-Minimal BLE central for [cardputer_adv_firmware](../README.md) M1 link.
+BLE central for [cardputer_adv_firmware](../README.md): M1 link + **HTTP Web commander** presets.
 
 - Scan for advertise name `CardputerAdv`
-- Connect / bond
-- Enable TX notifications, complete `Hello` / `HelloAck`
-- No notification mirror, HTTP, or SSH (later milestones)
+- Connect / bond, `Hello` / `HelloAck`
+- HTTP presets on phone (name, URL, method, headers, body)
+- Serves `HttpList*` / `HttpRun*` when the Cardputer **Web** app requests them
+- No notification mirror or SSH yet (M3/M4)
 
 Protocol: [docs/ble_link.md](../docs/ble_link.md). UUIDs must match `include/ble/ble_protocol.h` and `BleProtocol.kt`.
 
@@ -14,6 +15,7 @@ Protocol: [docs/ble_link.md](../docs/ble_link.md). UUIDs must match `include/ble
 - Android Studio Ladybug+ (AGP 8.7)
 - Device/emulator with BLE (physical device recommended)
 - minSdk **31** (Android 12) for `BLUETOOTH_SCAN` / `BLUETOOTH_CONNECT`
+- `INTERNET` for preset HTTP execution
 
 ## Build
 
@@ -39,7 +41,17 @@ If the Gradle wrapper jar is missing, use Android Studio’s Gradle sync or inst
 4. **Disconnect** on the BLE screen (or phone). After idle (**60 s**) or disconnect, radio off → `Off Paired`.
 5. **Forget** (with confirm) clears the bond → `Off Unpaired`.
 
+## Web commander
+
+1. Edit presets in the Companion list (defaults included).
+2. On Cardputer open **Web** — device connects on demand, lists preset names, Enter runs one.
+3. Phone performs HTTPS; truncated body (≤512 B) is chunked over BLE to the device.
+4. Leaving **Web** disconnects BLE.
+
+See [docs/m2_verify.md](../docs/m2_verify.md).
+
 ## Permissions
 
 - Denied Bluetooth permissions → status explains what is needed.
 - Bluetooth off → prompts to enable.
+- Internet required to execute HTTP presets.

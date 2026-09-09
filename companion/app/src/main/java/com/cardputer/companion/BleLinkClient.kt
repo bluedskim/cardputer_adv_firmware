@@ -16,7 +16,7 @@ import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
-import android.os.ParcelUuid
+import java.util.ArrayDeque
 import java.util.UUID
 
 class BleLinkClient(
@@ -28,6 +28,7 @@ class BleLinkClient(
         fun onDetail(message: String)
         fun onHello(firmwareVersion: String)
         fun onDisconnected()
+        fun presets(): List<HttpPreset>
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -39,6 +40,8 @@ class BleLinkClient(
     private var txCharacteristic: BluetoothGattCharacteristic? = null
     private var rxCharacteristic: BluetoothGattCharacteristic? = null
     private var scanning = false
+    private var writeBusy = false
+    private val writeQueue: ArrayDeque<ByteArray> = ArrayDeque()
 
     private val serviceUuid = UUID.fromString(BleProtocol.SERVICE_UUID)
     private val rxUuid = UUID.fromString(BleProtocol.RX_UUID)
@@ -86,6 +89,8 @@ class BleLinkClient(
     @SuppressLint("MissingPermission")
     fun disconnect() {
         stopScan()
+        writeQueue.clear()
+        writeBusy = false
         gatt?.disconnect()
         gatt?.close()
         gatt = null
@@ -128,6 +133,8 @@ class BleLinkClient(
                     listener.onStatus(context.getString(R.string.disconnected))
                     listener.onDisconnected()
                 }
+                writeQueue.clear()
+                writeBusy = false
                 gatt.close()
                 if (this@BleLinkClient.gatt === gatt) {
                     this@BleLinkClient.gatt = null
@@ -178,17 +185,27 @@ class BleLinkClient(
         }
 
         @SuppressLint("MissingPermission")
+        override fun onCharacteristicWrite(
+            gatt: BluetoothGatt,
+            characteristic: BluetoothGattCharacteristic,
+            status: Int
+        ) {
+            writeBusy = false
+            pumpWriteQueue()
+        }
+
         private fun handleNotify(value: ByteArray) {
             val frame = BleProtocol.decode(value) ?: return
             when (frame.type) {
                 BleProtocol.TYPE_HELLO -> {
                     val version = frame.payload.toString(Charsets.UTF_8)
-                    val ack = BleProtocol.encode(
-                        BleProtocol.TYPE_HELLO_ACK,
-                        frame.reqId,
-                        BleProtocol.APP_VERSION.toByteArray(Charsets.UTF_8)
+                    enqueueWrite(
+                        BleProtocol.encode(
+                            BleProtocol.TYPE_HELLO_ACK,
+                            frame.reqId,
+                            BleProtocol.APP_VERSION.toByteArray(Charsets.UTF_8)
+                        )
                     )
-                    writeRx(ack)
                     handler.post {
                         listener.onHello(version)
                         listener.onStatus(
@@ -204,16 +221,114 @@ class BleLinkClient(
                     val code = frame.payload.firstOrNull()?.toInt()?.and(0xFF) ?: -1
                     handler.post { listener.onDetail("Error code=$code") }
                 }
+                BleProtocol.TYPE_HTTP_LIST_REQ -> handleListReq(frame.reqId)
+                BleProtocol.TYPE_HTTP_RUN_REQ -> handleRunReq(frame)
+                else -> {
+                    if (BleProtocol.isHttpType(frame.type)) {
+                        // ignore unexpected phone-bound HTTP responses echoed
+                    }
+                }
             }
         }
     }
 
+    private fun handleListReq(reqId: Int) {
+        val presets = listener.presets().take(BleProtocol.HTTP_MAX_PRESETS)
+        handler.post {
+            listener.onDetail("HttpListReq → ${presets.size} preset(s)")
+        }
+        if (presets.isEmpty()) {
+            enqueueWrite(BleProtocol.encode(BleProtocol.TYPE_HTTP_LIST_END, reqId))
+            return
+        }
+        val total = presets.size
+        presets.forEachIndexed { index, preset ->
+            val nameBytes = preset.name.take(BleProtocol.HTTP_NAME_MAX)
+                .toByteArray(Charsets.UTF_8)
+            val maxName = BleProtocol.MAX_PAYLOAD - 2
+            val name = if (nameBytes.size > maxName) nameBytes.copyOf(maxName) else nameBytes
+            val payload = ByteArray(2 + name.size)
+            payload[0] = index.toByte()
+            payload[1] = total.toByte()
+            System.arraycopy(name, 0, payload, 2, name.size)
+            enqueueWrite(BleProtocol.encode(BleProtocol.TYPE_HTTP_LIST_ITEM, reqId, payload))
+        }
+        enqueueWrite(BleProtocol.encode(BleProtocol.TYPE_HTTP_LIST_END, reqId))
+    }
+
+    private fun handleRunReq(frame: BleProtocol.Frame) {
+        if (frame.payload.isEmpty()) {
+            enqueueWrite(
+                BleProtocol.encode(
+                    BleProtocol.TYPE_ERROR,
+                    frame.reqId,
+                    byteArrayOf(BleProtocol.ERR_BAD_FRAME.toByte())
+                )
+            )
+            return
+        }
+        val index = frame.payload[0].toInt() and 0xFF
+        val presets = listener.presets()
+        if (index >= presets.size) {
+            enqueueWrite(
+                BleProtocol.encode(
+                    BleProtocol.TYPE_ERROR,
+                    frame.reqId,
+                    byteArrayOf(BleProtocol.ERR_HTTP_FAILED.toByte())
+                )
+            )
+            return
+        }
+        val preset = presets[index]
+        handler.post { listener.onDetail("HttpRunReq → ${preset.name}") }
+        HttpExecutor.executeAsync(preset) { result ->
+            handler.post {
+                sendRunResult(frame.reqId, result)
+            }
+        }
+    }
+
+    private fun sendRunResult(reqId: Int, result: HttpExecResult) {
+        val meta = ByteArray(4)
+        meta[0] = (result.httpStatus and 0xFF).toByte()
+        meta[1] = ((result.httpStatus shr 8) and 0xFF).toByte()
+        meta[2] = (result.errCode and 0xFF).toByte()
+        meta[3] = 0
+        enqueueWrite(BleProtocol.encode(BleProtocol.TYPE_HTTP_RUN_META, reqId, meta))
+
+        var offset = 0
+        var seq = 0
+        val body = result.body
+        while (offset < body.size) {
+            val n = minOf(BleProtocol.HTTP_CHUNK_DATA_MAX, body.size - offset)
+            val chunk = ByteArray(1 + n)
+            chunk[0] = (seq and 0xFF).toByte()
+            System.arraycopy(body, offset, chunk, 1, n)
+            enqueueWrite(BleProtocol.encode(BleProtocol.TYPE_HTTP_RUN_CHUNK, reqId, chunk))
+            offset += n
+            seq++
+        }
+        enqueueWrite(BleProtocol.encode(BleProtocol.TYPE_HTTP_RUN_END, reqId))
+        listener.onDetail("HttpRun done status=${result.httpStatus} err=${result.errCode} bytes=${body.size}")
+    }
+
+    private fun enqueueWrite(bytes: ByteArray) {
+        writeQueue.addLast(bytes)
+        pumpWriteQueue()
+    }
+
     @SuppressLint("MissingPermission")
-    private fun writeRx(bytes: ByteArray) {
+    private fun pumpWriteQueue() {
+        if (writeBusy) return
         val characteristic = rxCharacteristic ?: return
         val g = gatt ?: return
-        characteristic.value = bytes
+        val next = writeQueue.pollFirst() ?: return
+        writeBusy = true
+        characteristic.value = next
         characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
-        g.writeCharacteristic(characteristic)
+        if (!g.writeCharacteristic(characteristic)) {
+            writeBusy = false
+            handler.post { listener.onDetail("BLE write failed") }
+        }
     }
 }

@@ -70,6 +70,10 @@ Constants:
 | `0x01` | Bad frame / overflow |
 | `0x02` | Unknown type |
 | `0x03` | Not ready |
+| `0x10` | HTTP failed |
+| `0x11` | HTTP timeout |
+| `0x12` | BLE not ready |
+| `0x13` | No presets |
 
 ### Handshake
 
@@ -79,13 +83,28 @@ Constants:
 4. Phone replies `HelloAck` with the same `req_id`.
 5. Either side may `Ping`/`Pong` afterward.
 
-## Reserved (M2+)
+## Message types (M2 HTTP commander)
 
-Do not use in M1 clients:
+Phone holds presets (name, URL, method, optional headers/body). Device lists and runs them; response body is chunked (max **512** bytes shown on device).
+
+| `type` | Name | Direction | Payload |
+|--------|------|-----------|---------|
+| `0x10` | `HttpListReq` | Device → Phone | empty |
+| `0x11` | `HttpListItem` | Phone → Device | `index(1)` `total(1)` UTF-8 name (rest of payload) |
+| `0x12` | `HttpListEnd` | Phone → Device | empty |
+| `0x13` | `HttpRunReq` | Device → Phone | `index(1)` |
+| `0x14` | `HttpRunMeta` | Phone → Device | `http_status_u16_le(2)` `err_u8(1)` `reserved(1)` |
+| `0x15` | `HttpRunChunk` | Phone → Device | `seq_u8(1)` + body bytes |
+| `0x16` | `HttpRunEnd` | Phone → Device | empty |
+
+`HttpRunMeta.err`: `0` = OK (use `http_status`); otherwise an `ErrorCode` (`HttpFailed` / `HttpTimeout` / …). Chunks are ordered `seq = 0..n-1`. Truncate body to 512 bytes on the phone before sending.
+
+On-demand: Web Commander opens → device `Connect` → list/run → exit app → `disconnect` (idle 60s still applies while connected).
+
+## Reserved (M3+)
 
 | Range | Intent |
 |-------|--------|
-| `0x10`–`0x1F` | HTTP commander |
 | `0x20`–`0x2F` | SSH commander |
 | `0x30`–`0x3F` | Notification mirror |
 

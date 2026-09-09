@@ -321,7 +321,7 @@ Cardputer WiFi는 사용하지 않는다. 기기↔폰 링크는 **BLE**를 기�
 - [x] 시크릿은 폰 secure storage에만 보관 (Cardputer NVS에 SSH 키·토큰 저장 금지)
 - [x] sleep/배터리 정책
   - [x] **기본 BLE off** — 페어링만 해 두고 라디오는 끈 상태가 기본 (현재와 비슷한 대기 수명)
-  - [x] **커맨더 on-demand** — 앱을 열 때 연결, 나가거나 N분 유휴 시 해제 후 light sleep 복귀 *(M1: Settings Connect + 60s idle)*
+  - [x] **커맨더 on-demand** — 앱을 열 때 연결, 나가거나 N분 유휴 시 해제 후 light sleep 복귀 *(Web/Settings Connect + 60s idle)*
   - [ ] **알림 opt-in** — Settings 토글로만 켬. 끄면 연결·라디오 완전 분리 *(M4)*
   - [ ] 알림 ON이어도 화면은 기존 sleep 유지. 새 알림은 조용히 버퍼하고, 깨어난 뒤에만 목록 갱신 (강제 점등 wake는 옵션) *(M4)*
 - [x] 비범위: iOS companion, Cardputer 자체 WiFi/SSH 스택, 풀 웹 브라우저
@@ -332,11 +332,13 @@ Cardputer WiFi는 사용하지 않는다. 기기↔폰 링크는 **BLE**를 기�
 - [x] 비범위: 알림·커맨더 UI (아래 마일스톤)
 
 #### M2 — Web commander (HTTP template)
-- [ ] 폰에 프리셋 저장: 이름, URL, method, 헤더/바디 슬롯
-- [ ] Cardputer에서 프리셋 선택 → 실행 → 응답 본문 페이징
-- [ ] 타임아웃·HTTP 에러·연결 끊김을 짧은 메시지로 표시
-- [ ] on-demand 연결만 사용 (대기 수명 유지)
-- [ ] 비범위: 임의 URL 브라우징, JS 렌더링, 쿠키 저널 UI
+- [x] 폰에 프리셋 저장: 이름, URL, method, 헤더/바디 슬롯
+- [x] Cardputer에서 프리셋 선택 → 실행 → 응답 본문 페이징
+- [x] 타임아웃·HTTP 에러·연결 끊김을 짧은 메시지로 표시
+- [x] on-demand 연결만 사용 (대기 수명 유지)
+- [x] 비범위: 임의 URL 브라우징, JS 렌더링, 쿠키 저널 UI
+
+검증: [docs/m2_verify.md](docs/m2_verify.md) · 프로토콜: [docs/ble_link.md](docs/ble_link.md)
 
 #### M3 — SSH commander (exec-only)
 - [ ] 폰에 호스트 프리셋: host, user, 키/비밀번호(secure storage)

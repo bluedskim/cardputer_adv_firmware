@@ -4,7 +4,7 @@
 
 namespace config {
 
-constexpr const char* kFirmwareVersion = "0.4.0-dev";
+constexpr const char* kFirmwareVersion = "0.5.0-dev";
 
 constexpr uint32_t kTorchDefaultTimeoutSec = 600;
 constexpr uint32_t kTorchMaxTimeoutSec = 3600;
@@ -39,5 +39,9 @@ constexpr uint32_t kIdleLoopGraceMs = 500;
 // BLE link (M1): idle connected session ends and radio powers down.
 constexpr uint32_t kBleIdleDisconnectSec = 60;
 constexpr uint8_t kBlePeerLabelMax = 16;
+
+constexpr uint8_t kHttpMaxPresets = 12;
+constexpr uint8_t kHttpNameMax = 20;
+constexpr uint16_t kHttpBodyMax = 512;
 
 }  // namespace config

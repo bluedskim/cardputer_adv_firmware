@@ -7,6 +7,7 @@
 #include "apps/stopwatch/stopwatch_app.h"
 #include "apps/timer/timer_app.h"
 #include "apps/torch/torch_app.h"
+#include "apps/web/web_app.h"
 #include "config.h"
 
 namespace {
@@ -24,6 +25,7 @@ void setup() {
     g_shell.addApp(std::unique_ptr<AppBase>(new TorchApp()));
     g_shell.addApp(std::unique_ptr<AppBase>(new TimerApp()));
     g_shell.addApp(std::unique_ptr<AppBase>(new StopwatchApp()));
+    g_shell.addApp(std::unique_ptr<AppBase>(new WebApp()));
     g_shell.addApp(std::unique_ptr<AppBase>(new SettingsApp()));
     g_shell.begin();
 }

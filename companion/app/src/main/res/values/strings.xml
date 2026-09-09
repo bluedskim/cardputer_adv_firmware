@@ -12,4 +12,16 @@
     <string name="connected_waiting_hello">Connected — waiting for Hello…</string>
     <string name="hello_ok">Hello OK — firmware %1$s</string>
     <string name="disconnected">Disconnected</string>
+    <string name="presets_title">HTTP presets</string>
+    <string name="add_preset">Add</string>
+    <string name="edit_preset">Edit preset</string>
+    <string name="delete_preset">Delete</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="preset_name">Name</string>
+    <string name="preset_url">URL</string>
+    <string name="preset_method">Method (GET/POST/…)</string>
+    <string name="preset_headers">Headers (Key: Value per line)</string>
+    <string name="preset_body">Body (POST/PUT)</string>
+    <string name="preset_limit">Max %1$d presets</string>
 </resources>

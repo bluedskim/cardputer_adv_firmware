@@ -5,6 +5,13 @@
 
 #include "ble/ble_protocol.h"
 
+struct BleRxFrame {
+    ble_protocol::Type type = ble_protocol::Type::Error;
+    uint16_t req_id = 0;
+    uint16_t len = 0;
+    uint8_t payload[ble_protocol::kMaxPayload] = {};
+};
+
 class BleLink {
 public:
     enum class State : uint8_t {
@@ -21,8 +28,8 @@ public:
 
     State state() const { return state_; }
     bool isPaired() const { return paired_; }
+    bool isLinkUp() const { return state_ == State::Connected; }
     bool blocksLightSleep() const;
-    // UI: Off Unpaired / Off Paired / Pairing / Connecting / Connected / N/A
     const char* statusSummary() const;
     const char* peerLabel() const { return peer_label_; }
 
@@ -31,6 +38,13 @@ public:
     void disconnect();
     void forget();
     void radioOff();
+
+    uint16_t allocReqId();
+    bool send(ble_protocol::Type type, uint16_t req_id, const uint8_t* payload = nullptr,
+              uint16_t payload_len = 0);
+    // Pop one queued app frame (HTTP/SSH/…). Returns false if empty.
+    bool takeRxFrame(BleRxFrame* out);
+    void clearRxQueue();
 
     void notifyConnected(const char* peer);
     void notifyDisconnected();
@@ -55,6 +69,8 @@ private:
     void stopAdvertising();
     bool disconnectPeers();
     void quiesceToOff();
+    bool enqueueRx(ble_protocol::Type type, uint16_t req_id, const uint8_t* payload,
+                   uint16_t payload_len);
 
     State state_ = State::Off;
     bool paired_ = false;
@@ -63,4 +79,10 @@ private:
     char peer_label_[17] = {};
     uint32_t last_traffic_ms_ = 0;
     uint16_t next_req_id_ = 1;
+
+    static constexpr uint8_t kRxQueueSize = 12;
+    BleRxFrame rx_queue_[kRxQueueSize] = {};
+    uint8_t rx_head_ = 0;
+    uint8_t rx_tail_ = 0;
+    uint8_t rx_count_ = 0;
 };

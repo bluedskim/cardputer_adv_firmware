@@ -176,6 +176,11 @@ bool BleLink::startAdvertising() { return false; }
 void BleLink::stopAdvertising() {}
 bool BleLink::disconnectPeers() { return false; }
 void BleLink::quiesceToOff() { state_ = State::Off; }
+bool BleLink::enqueueRx(ble_protocol::Type, uint16_t, const uint8_t*, uint16_t) { return false; }
+bool BleLink::takeRxFrame(BleRxFrame*) { return false; }
+void BleLink::clearRxQueue() {}
+uint16_t BleLink::allocReqId() { return 1; }
+bool BleLink::send(ble_protocol::Type, uint16_t, const uint8_t*, uint16_t) { return false; }
 
 #else
 
@@ -387,6 +392,11 @@ void BleLink::handleRx(const uint8_t* data, size_t len) {
 
     const uint8_t* payload = data + ble_protocol::kHeaderSize;
 
+    if (ble_protocol::isHttpType(type) || type == ble_protocol::Type::Error) {
+        enqueueRx(type, req_id, payload, payload_len);
+        return;
+    }
+
     switch (type) {
         case ble_protocol::Type::HelloAck:
             hello_ok_ = true;
@@ -405,12 +415,57 @@ void BleLink::handleRx(const uint8_t* data, size_t len) {
         case ble_protocol::Type::Pong:
             break;
         case ble_protocol::Type::Hello:
-        case ble_protocol::Type::Error:
             break;
         default:
             sendError(req_id, ble_protocol::ErrorCode::UnknownType);
             break;
     }
+}
+
+bool BleLink::enqueueRx(ble_protocol::Type type, uint16_t req_id, const uint8_t* payload,
+                        uint16_t payload_len) {
+    if (rx_count_ >= kRxQueueSize) {
+        return false;
+    }
+    BleRxFrame& slot = rx_queue_[rx_tail_];
+    slot.type = type;
+    slot.req_id = req_id;
+    slot.len = payload_len;
+    if (payload_len > 0 && payload != nullptr) {
+        std::memcpy(slot.payload, payload, payload_len);
+    }
+    rx_tail_ = static_cast<uint8_t>((rx_tail_ + 1) % kRxQueueSize);
+    ++rx_count_;
+    return true;
+}
+
+bool BleLink::takeRxFrame(BleRxFrame* out) {
+    if (out == nullptr || rx_count_ == 0) {
+        return false;
+    }
+    *out = rx_queue_[rx_head_];
+    rx_head_ = static_cast<uint8_t>((rx_head_ + 1) % kRxQueueSize);
+    --rx_count_;
+    return true;
+}
+
+void BleLink::clearRxQueue() {
+    rx_head_ = 0;
+    rx_tail_ = 0;
+    rx_count_ = 0;
+}
+
+uint16_t BleLink::allocReqId() {
+    const uint16_t id = next_req_id_++;
+    if (next_req_id_ == 0) {
+        next_req_id_ = 1;
+    }
+    return id;
+}
+
+bool BleLink::send(ble_protocol::Type type, uint16_t req_id, const uint8_t* payload,
+                   uint16_t payload_len) {
+    return sendFrame(type, req_id, payload, payload_len);
 }
 
 #endif

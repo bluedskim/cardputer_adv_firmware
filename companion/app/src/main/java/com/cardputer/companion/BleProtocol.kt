@@ -11,15 +11,36 @@ object BleProtocol {
 
     const val HEADER_SIZE = 5
     const val MAX_PAYLOAD = 48
+    const val HTTP_BODY_MAX = 512
+    const val HTTP_CHUNK_DATA_MAX = MAX_PAYLOAD - 1 // seq byte + data
+    const val HTTP_NAME_MAX = 20
+    const val HTTP_MAX_PRESETS = 12
 
     const val TYPE_HELLO: Byte = 0x01
     const val TYPE_HELLO_ACK: Byte = 0x02
-    @Suppress("unused") // protocol constant; phone→device Ping not sent yet
+    @Suppress("unused")
     const val TYPE_PING: Byte = 0x03
     const val TYPE_PONG: Byte = 0x04
+
+    const val TYPE_HTTP_LIST_REQ: Byte = 0x10
+    const val TYPE_HTTP_LIST_ITEM: Byte = 0x11
+    const val TYPE_HTTP_LIST_END: Byte = 0x12
+    const val TYPE_HTTP_RUN_REQ: Byte = 0x13
+    const val TYPE_HTTP_RUN_META: Byte = 0x14
+    const val TYPE_HTTP_RUN_CHUNK: Byte = 0x15
+    const val TYPE_HTTP_RUN_END: Byte = 0x16
+
     const val TYPE_ERROR: Byte = 0x7F
 
-    const val APP_VERSION = "0.1.0-m1"
+    const val ERR_BAD_FRAME: Int = 0x01
+    const val ERR_UNKNOWN_TYPE: Int = 0x02
+    const val ERR_NOT_READY: Int = 0x03
+    const val ERR_HTTP_FAILED: Int = 0x10
+    const val ERR_HTTP_TIMEOUT: Int = 0x11
+    const val ERR_BLE_NOT_READY: Int = 0x12
+    const val ERR_NO_PRESETS: Int = 0x13
+
+    const val APP_VERSION = "0.2.0-m2"
 
     data class Frame(
         val type: Byte,
@@ -51,7 +72,7 @@ object BleProtocol {
         out[1] = (reqId and 0xFF).toByte()
         out[2] = ((reqId shr 8) and 0xFF).toByte()
         out[3] = (payload.size and 0xFF).toByte()
-        out[4] = 0 // u16 LE high byte; always 0 while MAX_PAYLOAD <= 255
+        out[4] = 0
         if (payload.isNotEmpty()) {
             System.arraycopy(payload, 0, out, HEADER_SIZE, payload.size)
         }
@@ -66,5 +87,10 @@ object BleProtocol {
         if (len > MAX_PAYLOAD || data.size < HEADER_SIZE + len) return null
         val payload = if (len == 0) ByteArray(0) else data.copyOfRange(HEADER_SIZE, HEADER_SIZE + len)
         return Frame(type, reqId, payload)
+    }
+
+    fun isHttpType(type: Byte): Boolean {
+        val v = type.toInt() and 0xFF
+        return v in 0x10..0x1F
     }
 }
