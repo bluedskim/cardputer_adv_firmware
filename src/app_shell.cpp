@@ -13,6 +13,7 @@
 #include "config.h"
 #include "input/keyboard_input.h"
 #include "launcher_exit.h"
+#include "ble/ble_link.h"
 #include "ui/battery_indicator.h"
 
 namespace {
@@ -54,6 +55,7 @@ void AppShell::begin() {
     }
 
     SystemSettings::instance().begin();
+    BleLink::instance().begin();
     M5Cardputer.Display.setRotation(1);
     M5Cardputer.Display.fillScreen(TFT_BLACK);
     saved_brightness_ = SystemSettings::instance().brightness();
@@ -73,7 +75,7 @@ void AppShell::update() {
         return;
     }
 
-    if (display_asleep_ && !anyBackgroundWork()) {
+    if (display_asleep_ && !anyBackgroundWork() && !BleLink::instance().blocksLightSleep()) {
         // Adv: sleep until TCA8418 INT. No keyboard poll and no timer wake.
         enterLowPowerWait();
         M5Cardputer.update();  // drain INT / key FIFO
@@ -82,12 +84,14 @@ void AppShell::update() {
     } else {
         M5Cardputer.update();
 
+        BleLink::instance().tick();
+
         for (const auto& app : apps_) {
             app->onBackgroundTick();
         }
 
         if (display_asleep_) {
-            // Timer/stopwatch running: stay awake enough to tick; poll keys to wake UI.
+            // Timer/stopwatch running or BLE radio on: stay awake enough to tick.
             if (M5Cardputer.Keyboard.isPressed()) {
                 wakeDisplay();
             } else {
@@ -149,10 +153,12 @@ void AppShell::update() {
 
 uint32_t AppShell::loopDelayMs() const {
     if (display_asleep_) {
-        // Low-power wait already consumed time in update(), or timers need a tight loop.
-        return anyBackgroundWork() ? config::kActiveLoopDelayMs : 0;
+        // Low-power wait already consumed time in update(), or timers/BLE need a tight loop.
+        return (anyBackgroundWork() || BleLink::instance().blocksLightSleep())
+                   ? config::kActiveLoopDelayMs
+                   : 0;
     }
-    if (anyBackgroundWork()) {
+    if (anyBackgroundWork() || BleLink::instance().blocksLightSleep()) {
         return config::kActiveLoopDelayMs;
     }
     if (millis() - last_activity_ms_ < config::kIdleLoopGraceMs) {
@@ -171,7 +177,7 @@ bool AppShell::anyBackgroundWork() const {
 }
 
 void AppShell::enterLowPowerWait() const {
-    if (anyBackgroundWork()) {
+    if (anyBackgroundWork() || BleLink::instance().blocksLightSleep()) {
         return;
     }
 #if defined(CARDPUTER_SIM)

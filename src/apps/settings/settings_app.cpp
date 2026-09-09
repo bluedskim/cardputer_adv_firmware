@@ -3,7 +3,9 @@
 #include <M5Cardputer.h>
 
 #include <cstdio>
+#include <cstring>
 
+#include "ble/ble_link.h"
 #include "config.h"
 #include "input/keyboard_input.h"
 #include "system_settings.h"
@@ -21,6 +23,7 @@ const char* SettingsApp::name() const { return "Settings"; }
 
 void SettingsApp::onEnter() {
     focus_ = Row::Sleep;
+    ble_action_ = BleAction::Pair;
     last_battery_ms_ = 0;
     refreshBattery();
     markDirty();
@@ -38,6 +41,57 @@ void SettingsApp::refreshBattery() {
     last_battery_ms_ = millis();
 }
 
+const char* SettingsApp::bleActionLabel() const {
+    switch (ble_action_) {
+        case BleAction::Pair:
+            return "Pair";
+        case BleAction::Connect:
+            return "Connect";
+        case BleAction::Disconnect:
+            return "Disconnect";
+        case BleAction::Forget:
+            return "Forget";
+        default:
+            return "Pair";
+    }
+}
+
+void SettingsApp::cycleBleAction(const int delta) {
+    if (delta == 0) {
+        return;
+    }
+    const int count = static_cast<int>(BleAction::Count);
+    int next = static_cast<int>(ble_action_) + delta;
+    while (next < 0) {
+        next += count;
+    }
+    while (next >= count) {
+        next -= count;
+    }
+    ble_action_ = static_cast<BleAction>(next);
+}
+
+void SettingsApp::activateBleAction() {
+    auto& link = BleLink::instance();
+    switch (ble_action_) {
+        case BleAction::Pair:
+            link.startPairing();
+            break;
+        case BleAction::Connect:
+            link.startConnect();
+            break;
+        case BleAction::Disconnect:
+            link.disconnect();
+            break;
+        case BleAction::Forget:
+            link.forget();
+            break;
+        default:
+            break;
+    }
+    markDirty();
+}
+
 NavRequest SettingsApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_focused) {
     if (chrome_focused_ != chrome_focused) {
         chrome_focused_ = chrome_focused;
@@ -46,6 +100,13 @@ NavRequest SettingsApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chr
 
     if (millis() - last_battery_ms_ >= kBatteryRefreshMs) {
         refreshBattery();
+    }
+
+    static char last_ble_status[16] = {};
+    const char* ble_status = BleLink::instance().statusLabel();
+    if (std::strncmp(last_ble_status, ble_status, sizeof(last_ble_status)) != 0) {
+        std::snprintf(last_ble_status, sizeof(last_ble_status), "%s", ble_status);
+        markDirty();
     }
 
     NavRequest req = NavRequest::None;
@@ -72,6 +133,8 @@ NavRequest SettingsApp::handleInput(const Keyboard_Class::KeysState& status) {
                 SystemSettings::instance().cycleSleepOption(-1);
             } else if (focus_ == Row::Bright) {
                 SystemSettings::instance().cycleBrightnessOption(-1);
+            } else if (focus_ == Row::BleAction) {
+                cycleBleAction(-1);
             }
             return NavRequest::None;
         case ArrowKey::Right:
@@ -79,6 +142,8 @@ NavRequest SettingsApp::handleInput(const Keyboard_Class::KeysState& status) {
                 SystemSettings::instance().cycleSleepOption(1);
             } else if (focus_ == Row::Bright) {
                 SystemSettings::instance().cycleBrightnessOption(1);
+            } else if (focus_ == Row::BleAction) {
+                cycleBleAction(1);
             }
             return NavRequest::None;
         case ArrowKey::Up:
@@ -94,6 +159,10 @@ NavRequest SettingsApp::handleInput(const Keyboard_Class::KeysState& status) {
             return NavRequest::None;
         default:
             break;
+    }
+
+    if (status.enter && focus_ == Row::BleAction) {
+        activateBleAction();
     }
 
     return NavRequest::None;
@@ -138,6 +207,22 @@ void SettingsApp::draw() const {
         std::snprintf(line, sizeof(line), "Bright %s",
                       SystemSettings::instance().brightnessOptionLabel());
         drawSelectable(Row::Bright, line);
+    }
+    {
+        char line[32];
+        std::snprintf(line, sizeof(line), "BLE %s", bleActionLabel());
+        drawSelectable(Row::BleAction, line);
+    }
+
+    {
+        char line[32];
+        const auto& link = BleLink::instance();
+        if (link.peerLabel()[0] != '\0' && link.state() != BleLink::State::Off) {
+            std::snprintf(line, sizeof(line), "St %s", link.statusLabel());
+        } else {
+            std::snprintf(line, sizeof(line), "St %s", link.statusLabel());
+        }
+        drawInfoLine(line);
     }
 
     {

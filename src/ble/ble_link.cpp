@@ -1,0 +1,409 @@
+#include "ble/ble_link.h"
+
+#include <Preferences.h>
+
+#include <cstdio>
+#include <cstring>
+
+#include "config.h"
+
+#if !defined(CARDPUTER_SIM)
+#include <NimBLEDevice.h>
+#endif
+
+namespace {
+
+constexpr const char* kNvsPairedKey = "ble_paired";
+constexpr const char* kNvsPeerKey = "ble_peer";
+
+#if !defined(CARDPUTER_SIM)
+NimBLEServer* g_server = nullptr;
+NimBLECharacteristic* g_tx = nullptr;
+NimBLECharacteristic* g_rx = nullptr;
+NimBLEService* g_service = nullptr;
+bool g_bondable_advertise = false;
+
+class ServerCallbacks final : public NimBLEServerCallbacks {
+    void onConnect(NimBLEServer* /*server*/) override {
+        BleLink::instance().notifyConnected(nullptr);
+    }
+
+    void onDisconnect(NimBLEServer* /*server*/) override {
+        BleLink::instance().notifyDisconnected();
+    }
+};
+
+class RxCallbacks final : public NimBLECharacteristicCallbacks {
+    void onWrite(NimBLECharacteristic* characteristic) override {
+        std::string value = characteristic->getValue();
+        if (value.empty()) {
+            return;
+        }
+        BleLink::instance().notifyRx(reinterpret_cast<const uint8_t*>(value.data()), value.size());
+    }
+};
+
+class TxCallbacks final : public NimBLECharacteristicCallbacks {
+    void onSubscribe(NimBLECharacteristic* /*characteristic*/, ble_gap_conn_desc* /*desc*/,
+                     uint16_t subValue) override {
+        // CCCD notify enabled (bit0) — safe to send Hello.
+        if ((subValue & 0x0001) != 0) {
+            BleLink::instance().notifySubscribed();
+        }
+    }
+};
+
+ServerCallbacks g_server_callbacks;
+RxCallbacks g_rx_callbacks;
+TxCallbacks g_tx_callbacks;
+#endif
+
+}  // namespace
+
+BleLink& BleLink::instance() {
+    static BleLink link;
+    return link;
+}
+
+void BleLink::begin() {
+    loadPersisted();
+    state_ = State::Off;
+    hello_ok_ = false;
+    stack_ready_ = false;
+}
+
+void BleLink::loadPersisted() {
+    paired_ = false;
+    peer_label_[0] = '\0';
+
+    Preferences prefs;
+    if (!prefs.begin(config::kSettingsStorageNamespace, true)) {
+        return;
+    }
+    paired_ = prefs.getUChar(kNvsPairedKey, 0) != 0;
+    const String peer = prefs.getString(kNvsPeerKey, "");
+    prefs.end();
+    if (peer.length() > 0) {
+        setPeerLabel(peer.c_str());
+    }
+}
+
+void BleLink::savePersisted() const {
+    Preferences prefs;
+    if (!prefs.begin(config::kSettingsStorageNamespace, false)) {
+        return;
+    }
+    prefs.putUChar(kNvsPairedKey, paired_ ? 1 : 0);
+    prefs.putString(kNvsPeerKey, peer_label_);
+    prefs.end();
+}
+
+void BleLink::setPeerLabel(const char* label) {
+    if (label == nullptr || label[0] == '\0') {
+        peer_label_[0] = '\0';
+        return;
+    }
+    std::snprintf(peer_label_, sizeof(peer_label_), "%.*s",
+                  static_cast<int>(config::kBlePeerLabelMax), label);
+}
+
+bool BleLink::blocksLightSleep() const {
+    return state_ != State::Off;
+}
+
+const char* BleLink::statusLabel() const {
+#if defined(CARDPUTER_SIM)
+    return "N/A";
+#else
+    switch (state_) {
+        case State::Off:
+            return paired_ ? "Paired" : "Off";
+        case State::Pairing:
+            return "Pairing";
+        case State::Advertising:
+            return "Wait";
+        case State::Connected:
+            return hello_ok_ ? "Connected" : "Hello";
+    }
+    return "Off";
+#endif
+}
+
+void BleLink::noteTraffic() {
+    last_traffic_ms_ = millis();
+}
+
+void BleLink::tick() {
+#if defined(CARDPUTER_SIM)
+    return;
+#else
+    maybeIdleDisconnect();
+#endif
+}
+
+void BleLink::maybeIdleDisconnect() {
+    if (state_ == State::Off) {
+        return;
+    }
+    if (millis() - last_traffic_ms_ < config::kBleIdleDisconnectSec * 1000U) {
+        return;
+    }
+    disconnect();
+}
+
+#if defined(CARDPUTER_SIM)
+
+bool BleLink::startPairing() { return false; }
+bool BleLink::startConnect() { return false; }
+void BleLink::disconnect() {}
+void BleLink::forget() {
+    paired_ = false;
+    peer_label_[0] = '\0';
+    savePersisted();
+}
+void BleLink::radioOff() { state_ = State::Off; }
+void BleLink::notifyConnected(const char*) {}
+void BleLink::notifyDisconnected() {}
+void BleLink::notifySubscribed() {}
+void BleLink::notifyRx(const uint8_t*, size_t) {}
+void BleLink::handleRx(const uint8_t*, size_t) {}
+bool BleLink::sendFrame(ble_protocol::Type, uint16_t, const uint8_t*, uint16_t) { return false; }
+void BleLink::sendHello() {}
+void BleLink::sendError(uint16_t, ble_protocol::ErrorCode) {}
+bool BleLink::startAdvertising(bool) { return false; }
+void BleLink::stopAdvertising() {}
+void BleLink::deinitStack() {}
+
+#else
+
+bool BleLink::startAdvertising(bool bondable) {
+    g_bondable_advertise = bondable;
+
+    if (!stack_ready_) {
+        NimBLEDevice::init(ble_protocol::kDeviceName);
+        NimBLEDevice::setPower(ESP_PWR_LVL_P3);
+        NimBLEDevice::setSecurityAuth(true, true, true);
+        NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
+
+        g_server = NimBLEDevice::createServer();
+        g_server->setCallbacks(&g_server_callbacks);
+
+        g_service = g_server->createService(ble_protocol::kServiceUuid);
+        g_tx = g_service->createCharacteristic(
+            ble_protocol::kTxUuid, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
+        g_tx->setCallbacks(&g_tx_callbacks);
+        g_rx = g_service->createCharacteristic(
+            ble_protocol::kRxUuid,
+            NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR);
+        g_rx->setCallbacks(&g_rx_callbacks);
+        g_service->start();
+        stack_ready_ = true;
+    }
+
+    NimBLEAdvertising* advertising = NimBLEDevice::getAdvertising();
+    advertising->stop();
+    advertising->reset();
+    advertising->setName(ble_protocol::kDeviceName);
+    advertising->addServiceUUID(ble_protocol::kServiceUuid);
+    advertising->setScanResponse(true);
+    advertising->start();
+    return true;
+}
+
+void BleLink::stopAdvertising() {
+    if (!stack_ready_) {
+        return;
+    }
+    NimBLEDevice::getAdvertising()->stop();
+}
+
+void BleLink::deinitStack() {
+    stopAdvertising();
+    if (stack_ready_) {
+        NimBLEDevice::deinit(true);
+        g_server = nullptr;
+        g_tx = nullptr;
+        g_rx = nullptr;
+        g_service = nullptr;
+        stack_ready_ = false;
+    }
+    state_ = State::Off;
+    hello_ok_ = false;
+}
+
+bool BleLink::startPairing() {
+    disconnect();
+    if (!startAdvertising(true)) {
+        return false;
+    }
+    state_ = State::Pairing;
+    hello_ok_ = false;
+    noteTraffic();
+    return true;
+}
+
+bool BleLink::startConnect() {
+    if (!paired_) {
+        return startPairing();
+    }
+    if (state_ == State::Connected) {
+        return true;
+    }
+    if (!startAdvertising(false)) {
+        return false;
+    }
+    state_ = State::Advertising;
+    hello_ok_ = false;
+    noteTraffic();
+    return true;
+}
+
+void BleLink::disconnect() {
+    if (stack_ready_ && g_server != nullptr) {
+        const std::vector<uint16_t> peers = g_server->getPeerDevices();
+        for (uint16_t conn_id : peers) {
+            g_server->disconnect(conn_id);
+        }
+    }
+    radioOff();
+}
+
+void BleLink::forget() {
+    disconnect();
+    if (stack_ready_) {
+        NimBLEDevice::deleteAllBonds();
+    } else {
+        // Ensure stack can clear bonds once.
+        NimBLEDevice::init(ble_protocol::kDeviceName);
+        NimBLEDevice::deleteAllBonds();
+        NimBLEDevice::deinit(true);
+    }
+    paired_ = false;
+    peer_label_[0] = '\0';
+    hello_ok_ = false;
+    savePersisted();
+    radioOff();
+}
+
+void BleLink::radioOff() {
+    deinitStack();
+}
+
+void BleLink::notifyConnected(const char* peer) {
+    stopAdvertising();
+    state_ = State::Connected;
+    hello_ok_ = false;
+    if (peer != nullptr && peer[0] != '\0') {
+        setPeerLabel(peer);
+    } else if (peer_label_[0] == '\0') {
+        setPeerLabel("phone");
+    }
+    paired_ = true;
+    savePersisted();
+    noteTraffic();
+    // Hello is sent after TX CCCD subscribe (notifySubscribed).
+}
+
+void BleLink::notifySubscribed() {
+    if (state_ != State::Connected || hello_ok_) {
+        return;
+    }
+    noteTraffic();
+    sendHello();
+}
+
+void BleLink::notifyDisconnected() {
+    hello_ok_ = false;
+    // After drop, power radio fully down (M1 default).
+    deinitStack();
+}
+
+void BleLink::notifyRx(const uint8_t* data, size_t len) {
+    noteTraffic();
+    handleRx(data, len);
+}
+
+bool BleLink::sendFrame(ble_protocol::Type type, uint16_t req_id, const uint8_t* payload,
+                        uint16_t payload_len) {
+    if (state_ != State::Connected || g_tx == nullptr) {
+        return false;
+    }
+    if (payload_len > ble_protocol::kMaxPayload) {
+        return false;
+    }
+
+    uint8_t frame[ble_protocol::kMaxFrame];
+    frame[0] = static_cast<uint8_t>(type);
+    frame[1] = static_cast<uint8_t>(req_id & 0xFF);
+    frame[2] = static_cast<uint8_t>((req_id >> 8) & 0xFF);
+    frame[3] = static_cast<uint8_t>(payload_len & 0xFF);
+    frame[4] = static_cast<uint8_t>((payload_len >> 8) & 0xFF);
+    if (payload_len > 0 && payload != nullptr) {
+        std::memcpy(frame + ble_protocol::kHeaderSize, payload, payload_len);
+    }
+
+    g_tx->setValue(frame, ble_protocol::kHeaderSize + payload_len);
+    g_tx->notify();
+    noteTraffic();
+    return true;
+}
+
+void BleLink::sendHello() {
+    const char* ver = config::kFirmwareVersion;
+    const auto len = static_cast<uint16_t>(std::strlen(ver));
+    const uint16_t req = next_req_id_++;
+    if (next_req_id_ == 0) {
+        next_req_id_ = 1;
+    }
+    sendFrame(ble_protocol::Type::Hello, req, reinterpret_cast<const uint8_t*>(ver), len);
+}
+
+void BleLink::sendError(uint16_t req_id, ble_protocol::ErrorCode code) {
+    const uint8_t payload = static_cast<uint8_t>(code);
+    sendFrame(ble_protocol::Type::Error, req_id, &payload, 1);
+}
+
+void BleLink::handleRx(const uint8_t* data, size_t len) {
+    if (data == nullptr || len < ble_protocol::kHeaderSize) {
+        sendError(0, ble_protocol::ErrorCode::BadFrame);
+        return;
+    }
+
+    const auto type = static_cast<ble_protocol::Type>(data[0]);
+    const uint16_t req_id = static_cast<uint16_t>(data[1] | (data[2] << 8));
+    const uint16_t payload_len = static_cast<uint16_t>(data[3] | (data[4] << 8));
+    if (payload_len > ble_protocol::kMaxPayload ||
+        len < static_cast<size_t>(ble_protocol::kHeaderSize + payload_len)) {
+        sendError(req_id, ble_protocol::ErrorCode::BadFrame);
+        return;
+    }
+
+    const uint8_t* payload = data + ble_protocol::kHeaderSize;
+
+    switch (type) {
+        case ble_protocol::Type::HelloAck:
+            hello_ok_ = true;
+            if (payload_len > 0) {
+                char label[17];
+                const size_t copy = payload_len < 16 ? payload_len : 16;
+                std::memcpy(label, payload, copy);
+                label[copy] = '\0';
+                setPeerLabel(label);
+                savePersisted();
+            }
+            break;
+        case ble_protocol::Type::Ping:
+            sendFrame(ble_protocol::Type::Pong, req_id, payload, payload_len);
+            break;
+        case ble_protocol::Type::Pong:
+            break;
+        case ble_protocol::Type::Hello:
+        case ble_protocol::Type::Error:
+            break;
+        default:
+            sendError(req_id, ble_protocol::ErrorCode::UnknownType);
+            break;
+    }
+}
+
+#endif

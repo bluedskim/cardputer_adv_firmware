@@ -69,4 +69,5 @@ src/apps/             # 실제 앱 코드 (sim 빌드에서 재사용)
 ## 한계
 
 - M5Launcher / NVS 영속성은 메모리 스텁
-- 실기 최종 확인은 여전히 필요
+- BLE는 stub (`St N/A`); Pair/Connect는 no-op
+- 실기 최종 확인은 여전히 필요 ([docs/m1_verify.md](../docs/m1_verify.md))
