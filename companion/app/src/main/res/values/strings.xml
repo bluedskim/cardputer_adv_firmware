@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Cardputer Companion</string>
+    <string name="status_idle">Idle — grant Bluetooth permissions, then scan.</string>
+    <string name="scan">Scan</string>
+    <string name="disconnect">Disconnect</string>
+    <string name="permission_needed">Bluetooth Scan + Connect permissions are required.</string>
+    <string name="bt_off">Turn on Bluetooth.</string>
+    <string name="scanning">Scanning for CardputerAdv…</string>
+    <string name="no_device">No CardputerAdv found. On device: Settings → BLE → Pair/Connect.</string>
+    <string name="connecting">Connecting…</string>
+    <string name="connected_waiting_hello">Connected — waiting for Hello…</string>
+    <string name="hello_ok">Hello OK — firmware %1$s</string>
+    <string name="disconnected">Disconnected</string>
+</resources>

@@ -71,3 +71,12 @@ Testing/
 # PlatformIO
 .pio/
 dist/
+
+# Android companion
+companion/.gradle/
+companion/build/
+companion/app/build/
+companion/local.properties
+companion/.idea/
+*.iml
+
