@@ -26,6 +26,7 @@ public:
         bool opt = false;
         bool alt = false;
         bool del = false;
+        bool backspace = false;
         bool enter = false;
         bool space = false;
         bool up = false;

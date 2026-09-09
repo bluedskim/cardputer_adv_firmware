@@ -163,9 +163,13 @@ pio device list
 화면 순서상 **맨 마지막** 앱입니다. Sleep·밝기·BLE 링크를 다루고, 배터리·펌웨어 정보를 표시합니다.
 
 - `↑` `↓` — Sleep / Bright / BLE 이동 · Sleep에서 `↑` → 크롬
-- `←` `→` — Sleep: 30초 / 1분 / **5분** / 10분 · Bright: 32 / 64 / **128** / 192 / 255 · BLE: Pair / Connect / Disconnect / Forget
-- `Enter` — BLE 행에서 선택한 동작 실행
-- **St:** BLE 상태 (`Off` / `Paired` / `Pairing` / `Wait` / `Hello` / `Connected` · sim은 `N/A`)
+- `←` `→` — Sleep: 30초 / 1분 / **5분** / 10분 · Bright: 32 / 64 / **128** / 192 / 255
+- **BLE 행:** 상태 요약 표시 (`Off Unpaired` / `Off Paired` / `Pairing` / `Connecting` / `Connected` · sim은 `N/A`). `Enter` → BLE 서브화면
+- **BLE 서브화면**
+  - 상태·peer(있을 때) 표시
+  - 문맥 동작만: 미페어 `Pair` · 페어됨 `Connect`/`Forget` · 진행 중 `Cancel` · 연결됨 `Disconnect`
+  - Forget은 `Forget?` 확인 후 실행 (`Enter` 예 / `Del` 취소)
+  - `←` / `Del` / 맨 위 `↑` → 메인 Settings (BLE 행 포커스)
 - **Battery:** 잔량(%)과 전압(V)을 한 줄에 표시 (충전 여부는 헤더 배터리 아이콘으로 확인)
 - **S/W Ver:** 펌웨어 버전 (`config.h`의 `kFirmwareVersion`)
 - 입력이 없으면 Sleep 시간 후 백라이트 OFF. Timer/Stopwatch가 **실행 중이 아니고** BLE 라디오가 **꺼져 있으면** light sleep으로 추가 절전하고, **TCA8418 INT(GPIO11)** 로만 키 입력 시 복귀합니다. BLE Pair/Connect 중이거나 연결 중이면 light sleep하지 않으며, **60초** 무트래픽 후 자동 disconnect·radio off.
@@ -219,8 +223,8 @@ M5Launcher에 `.bin` 설치 후 기기에서 확인합니다. (sim은 백라이�
 - [ ] **타임아웃:** Time 포커스에서 `←` `→`가 60초 단위로 바뀌고, `Left`가 1초마다 줄어든다. 만료 후 메시지가 뜬 뒤 키가 다시 먹는다 (멈춘 것처럼 보이지 않음).
 - [ ] **Timer:** `+ New`로 추가, Hours/Minutes만 조절, Start 후 카운트다운·DONE 표시.
 - [ ] **Stopwatch:** Name 변경, Start/Stop 후 History에 기록(최대 10).
-- [ ] **Settings:** Sleep·Bright 변경·저장, **BLE** Pair/Connect/Disconnect/Forget·상태 표시, 배터리 잔량·전압, 펌웨어 버전, 유휴 후 화면 꺼짐·키 복귀, Timer 미실행·BLE off 시 light sleep.
-- [ ] **BLE M1 (실기):** Pair → companion Scan → Hello OK → Disconnect → Status `Paired`/`Off` · radio off 후 light sleep·키 wake · Forget 후 재페어링. 절차는 [companion/README.md](companion/README.md).
+- [ ] **Settings:** Sleep·Bright 변경·저장, **BLE** 요약 행·서브화면(Pair/Connect/Cancel/Disconnect/Forget), 배터리 잔량·전압, 펌웨어 버전, 유휴 후 화면 꺼짐·키 복귀(이전 앱 유지), Timer 미실행·BLE off 시 light sleep.
+- [ ] **BLE M1 (실기):** BLE → Pair → companion Scan → Connected → Disconnect → `Off Paired` · sleep/wake 앱 유지 · Forget 확인. 절차는 [companion/README.md](companion/README.md) · [docs/m1_verify.md](docs/m1_verify.md).
 - [ ] **G0:** 앱 실행 중 G0 한 번 → M5Launcher로 돌아간다.
 - [ ] **배터리:** 크롬 오른쪽에 아이콘이 보이고, USB 연결 시 번개 표시가 나타난다 (Cardputer는 CHG 핀이 없어 USB 연결로 추정).
 

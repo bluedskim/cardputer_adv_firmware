@@ -14,32 +14,45 @@ public:
     NavRequest onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_focused) override;
 
 private:
-    enum class Row : uint8_t {
+    enum class Screen : uint8_t {
+        Main = 0,
+        Ble = 1,
+        BleForgetConfirm = 2,
+    };
+
+    enum class MainRow : uint8_t {
         Sleep = 0,
         Bright = 1,
-        BleAction = 2,
+        Ble = 2,
         Count = 3,
     };
 
-    enum class BleAction : uint8_t {
-        Pair = 0,
-        Connect = 1,
-        Disconnect = 2,
-        Forget = 3,
-        Count = 4,
+    // Context actions on the BLE screen (not all are always visible).
+    enum class BleRow : uint8_t {
+        Action = 0,  // Pair / Connect / Cancel / Disconnect
+        Forget = 1,  // only when Off Paired
     };
 
     void refreshBattery();
     void draw() const;
+    void drawMain() const;
+    void drawBle() const;
+    void drawBleForgetConfirm() const;
     NavRequest handleInput(const Keyboard_Class::KeysState& status);
-    void activateBleAction();
-    void cycleBleAction(int delta);
-    const char* bleActionLabel() const;
+    NavRequest handleMainInput(const Keyboard_Class::KeysState& status);
+    NavRequest handleBleInput(const Keyboard_Class::KeysState& status);
+    NavRequest handleBleForgetConfirmInput(const Keyboard_Class::KeysState& status);
+    void enterBleScreen();
+    void leaveBleScreen();
+    void runPrimaryBleAction();
+    const char* primaryBleActionLabel() const;
+    bool showForgetRow() const;
     void markDirty() { dirty_ = true; }
     void requestChromeFocus() { pending_chrome_focus_ = true; }
 
-    Row focus_ = Row::Sleep;
-    BleAction ble_action_ = BleAction::Pair;
+    Screen screen_ = Screen::Main;
+    MainRow focus_ = MainRow::Sleep;
+    BleRow ble_focus_ = BleRow::Action;
     BatterySnapshot battery_;
     uint32_t last_battery_ms_ = 0;
     bool dirty_ = true;

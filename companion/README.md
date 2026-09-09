@@ -33,10 +33,11 @@ If the Gradle wrapper jar is missing, use Android Studio’s Gradle sync or inst
 
 ## Pairing flow
 
-1. On Cardputer: **Settings → BLE → Pair** (Left/Right to choose action, Enter to run). Status should show `Pairing` / `Wait`.
-2. On phone: open Companion → allow Bluetooth permissions → **Scan**.
-3. On success: phone shows `Hello OK — firmware …`; device Status shows `Connected`.
-4. **Disconnect** on either side. After idle (**60 s**) or disconnect, device radio turns **Off** (Status `Paired` if bonded).
+1. On Cardputer: **Settings → BLE** (shows `Off Unpaired` or `Off Paired`) → **Enter** → **Pair** (or **Connect** if already paired).
+2. Status becomes `Pairing`. On phone: Companion → allow Bluetooth permissions → **Scan**.
+3. On success: phone shows `Hello OK — firmware …`; device shows `Connecting` then `Connected`.
+4. **Disconnect** on the BLE screen (or phone). After idle (**60 s**) or disconnect, radio off → `Off Paired`.
+5. **Forget** (with confirm) clears the bond → `Off Unpaired`.
 
 ## Permissions
 

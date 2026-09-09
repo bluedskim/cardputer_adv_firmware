@@ -181,6 +181,7 @@ void Keyboard_Class::updateKeysState() {
     keys_state_ = KeysState{};
     keys_state_.shift = g_shift;
     keys_state_.del = g_del;
+    keys_state_.backspace = g_del;  // PC Del exercises the device Backspace path too
     keys_state_.enter = g_enter;
 
     for (char ch : g_pressed_chars) {

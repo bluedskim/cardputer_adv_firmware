@@ -21,7 +21,6 @@ NimBLEServer* g_server = nullptr;
 NimBLECharacteristic* g_tx = nullptr;
 NimBLECharacteristic* g_rx = nullptr;
 NimBLEService* g_service = nullptr;
-bool g_bondable_advertise = false;
 
 class ServerCallbacks final : public NimBLEServerCallbacks {
     void onConnect(NimBLEServer* /*server*/) override {
@@ -46,7 +45,6 @@ class RxCallbacks final : public NimBLECharacteristicCallbacks {
 class TxCallbacks final : public NimBLECharacteristicCallbacks {
     void onSubscribe(NimBLECharacteristic* /*characteristic*/, ble_gap_conn_desc* /*desc*/,
                      uint16_t subValue) override {
-        // CCCD notify enabled (bit0) — safe to send Hello.
         if ((subValue & 0x0001) != 0) {
             BleLink::instance().notifySubscribed();
         }
@@ -108,24 +106,27 @@ void BleLink::setPeerLabel(const char* label) {
 }
 
 bool BleLink::blocksLightSleep() const {
-    return state_ != State::Off;
+    // Keep NimBLE stack resident after first use — NimBLEDevice::deinit() reboots
+    // this S3/USB-CDC board. Skip GPIO light-sleep while the stack is up.
+    return state_ != State::Off || stack_ready_;
 }
 
-const char* BleLink::statusLabel() const {
+const char* BleLink::statusSummary() const {
 #if defined(CARDPUTER_SIM)
     return "N/A";
 #else
     switch (state_) {
         case State::Off:
-            return paired_ ? "Paired" : "Off";
+            return paired_ ? "Off Paired" : "Off Unpaired";
         case State::Pairing:
             return "Pairing";
         case State::Advertising:
-            return "Wait";
+            return "Connecting";
         case State::Connected:
-            return hello_ok_ ? "Connected" : "Hello";
+            // GATT up ⇒ Connected (Hello/HelloAck still runs in the background).
+            return "Connected";
     }
-    return "Off";
+    return "Off Unpaired";
 #endif
 }
 
@@ -170,36 +171,43 @@ void BleLink::handleRx(const uint8_t*, size_t) {}
 bool BleLink::sendFrame(ble_protocol::Type, uint16_t, const uint8_t*, uint16_t) { return false; }
 void BleLink::sendHello() {}
 void BleLink::sendError(uint16_t, ble_protocol::ErrorCode) {}
-bool BleLink::startAdvertising(bool) { return false; }
+bool BleLink::ensureStack() { return false; }
+bool BleLink::startAdvertising() { return false; }
 void BleLink::stopAdvertising() {}
-void BleLink::deinitStack() {}
+bool BleLink::disconnectPeers() { return false; }
+void BleLink::quiesceToOff() { state_ = State::Off; }
 
 #else
 
-bool BleLink::startAdvertising(bool bondable) {
-    g_bondable_advertise = bondable;
-
-    if (!stack_ready_) {
-        NimBLEDevice::init(ble_protocol::kDeviceName);
-        NimBLEDevice::setPower(ESP_PWR_LVL_P3);
-        NimBLEDevice::setSecurityAuth(true, true, true);
-        NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
-
-        g_server = NimBLEDevice::createServer();
-        g_server->setCallbacks(&g_server_callbacks);
-
-        g_service = g_server->createService(ble_protocol::kServiceUuid);
-        g_tx = g_service->createCharacteristic(
-            ble_protocol::kTxUuid, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
-        g_tx->setCallbacks(&g_tx_callbacks);
-        g_rx = g_service->createCharacteristic(
-            ble_protocol::kRxUuid,
-            NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR);
-        g_rx->setCallbacks(&g_rx_callbacks);
-        g_service->start();
-        stack_ready_ = true;
+bool BleLink::ensureStack() {
+    if (stack_ready_) {
+        return true;
     }
 
+    NimBLEDevice::init(ble_protocol::kDeviceName);
+    NimBLEDevice::setPower(ESP_PWR_LVL_P3);
+    NimBLEDevice::setSecurityAuth(true, true, true);
+    NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
+
+    g_server = NimBLEDevice::createServer();
+    g_server->setCallbacks(&g_server_callbacks);
+
+    g_service = g_server->createService(ble_protocol::kServiceUuid);
+    g_tx = g_service->createCharacteristic(
+        ble_protocol::kTxUuid, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
+    g_tx->setCallbacks(&g_tx_callbacks);
+    g_rx = g_service->createCharacteristic(
+        ble_protocol::kRxUuid, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR);
+    g_rx->setCallbacks(&g_rx_callbacks);
+    g_service->start();
+    stack_ready_ = true;
+    return true;
+}
+
+bool BleLink::startAdvertising() {
+    if (!ensureStack()) {
+        return false;
+    }
     NimBLEAdvertising* advertising = NimBLEDevice::getAdvertising();
     advertising->stop();
     advertising->reset();
@@ -217,23 +225,32 @@ void BleLink::stopAdvertising() {
     NimBLEDevice::getAdvertising()->stop();
 }
 
-void BleLink::deinitStack() {
-    stopAdvertising();
-    if (stack_ready_) {
-        NimBLEDevice::deinit(true);
-        g_server = nullptr;
-        g_tx = nullptr;
-        g_rx = nullptr;
-        g_service = nullptr;
-        stack_ready_ = false;
+bool BleLink::disconnectPeers() {
+    if (!stack_ready_ || g_server == nullptr) {
+        return false;
     }
-    state_ = State::Off;
+    const std::vector<uint16_t> peers = g_server->getPeerDevices();
+    if (peers.empty()) {
+        return false;
+    }
+    for (uint16_t conn_id : peers) {
+        g_server->disconnect(conn_id);
+    }
+    return true;
+}
+
+void BleLink::quiesceToOff() {
+    // Do not call NimBLEDevice::deinit() — it hard-resets this board.
+    stopAdvertising();
+    disconnectPeers();
     hello_ok_ = false;
+    state_ = State::Off;
 }
 
 bool BleLink::startPairing() {
-    disconnect();
-    if (!startAdvertising(true)) {
+    quiesceToOff();
+    delay(50);
+    if (!startAdvertising()) {
         return false;
     }
     state_ = State::Pairing;
@@ -249,7 +266,9 @@ bool BleLink::startConnect() {
     if (state_ == State::Connected) {
         return true;
     }
-    if (!startAdvertising(false)) {
+    quiesceToOff();
+    delay(50);
+    if (!startAdvertising()) {
         return false;
     }
     state_ = State::Advertising;
@@ -259,35 +278,24 @@ bool BleLink::startConnect() {
 }
 
 void BleLink::disconnect() {
-    if (stack_ready_ && g_server != nullptr) {
-        const std::vector<uint16_t> peers = g_server->getPeerDevices();
-        for (uint16_t conn_id : peers) {
-            g_server->disconnect(conn_id);
-        }
-    }
-    radioOff();
+    quiesceToOff();
 }
 
 void BleLink::forget() {
-    disconnect();
+    quiesceToOff();
     if (stack_ready_) {
         NimBLEDevice::deleteAllBonds();
-    } else {
-        // Ensure stack can clear bonds once.
-        NimBLEDevice::init(ble_protocol::kDeviceName);
+    } else if (ensureStack()) {
         NimBLEDevice::deleteAllBonds();
-        NimBLEDevice::deinit(true);
+        quiesceToOff();
     }
     paired_ = false;
     peer_label_[0] = '\0';
     hello_ok_ = false;
     savePersisted();
-    radioOff();
 }
 
-void BleLink::radioOff() {
-    deinitStack();
-}
+void BleLink::radioOff() { disconnect(); }
 
 void BleLink::notifyConnected(const char* peer) {
     stopAdvertising();
@@ -301,7 +309,6 @@ void BleLink::notifyConnected(const char* peer) {
     paired_ = true;
     savePersisted();
     noteTraffic();
-    // Hello is sent after TX CCCD subscribe (notifySubscribed).
 }
 
 void BleLink::notifySubscribed() {
@@ -314,8 +321,8 @@ void BleLink::notifySubscribed() {
 
 void BleLink::notifyDisconnected() {
     hello_ok_ = false;
-    // After drop, power radio fully down (M1 default).
-    deinitStack();
+    state_ = State::Off;
+    stopAdvertising();
 }
 
 void BleLink::notifyRx(const uint8_t* data, size_t len) {

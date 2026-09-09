@@ -17,13 +17,18 @@ constexpr int kLineHeight = 16;
 constexpr int kListTop = kContentTop + 4;
 constexpr uint32_t kBatteryRefreshMs = 1000;
 
+bool isBackKey(const Keyboard_Class::KeysState& status) {
+    return status.del || status.backspace;
+}
+
 }  // namespace
 
 const char* SettingsApp::name() const { return "Settings"; }
 
 void SettingsApp::onEnter() {
-    focus_ = Row::Sleep;
-    ble_action_ = BleAction::Pair;
+    screen_ = Screen::Main;
+    focus_ = MainRow::Sleep;
+    ble_focus_ = BleRow::Action;
     last_battery_ms_ = 0;
     refreshBattery();
     markDirty();
@@ -43,52 +48,56 @@ void SettingsApp::refreshBattery() {
     last_battery_ms_ = millis();
 }
 
-const char* SettingsApp::bleActionLabel() const {
-    switch (ble_action_) {
-        case BleAction::Pair:
-            return "Pair";
-        case BleAction::Connect:
-            return "Connect";
-        case BleAction::Disconnect:
+bool SettingsApp::showForgetRow() const {
+    const auto& link = BleLink::instance();
+    return link.state() == BleLink::State::Off && link.isPaired();
+}
+
+const char* SettingsApp::primaryBleActionLabel() const {
+#if defined(CARDPUTER_SIM)
+    return nullptr;
+#else
+    const auto& link = BleLink::instance();
+    switch (link.state()) {
+        case BleLink::State::Off:
+            return link.isPaired() ? "Connect" : "Pair";
+        case BleLink::State::Pairing:
+        case BleLink::State::Advertising:
+            return "Cancel";
+        case BleLink::State::Connected:
             return "Disconnect";
-        case BleAction::Forget:
-            return "Forget";
-        default:
-            return "Pair";
     }
+    return "Pair";
+#endif
 }
 
-void SettingsApp::cycleBleAction(const int delta) {
-    if (delta == 0) {
-        return;
-    }
-    const int count = static_cast<int>(BleAction::Count);
-    int next = static_cast<int>(ble_action_) + delta;
-    while (next < 0) {
-        next += count;
-    }
-    while (next >= count) {
-        next -= count;
-    }
-    ble_action_ = static_cast<BleAction>(next);
+void SettingsApp::enterBleScreen() {
+    screen_ = Screen::Ble;
+    ble_focus_ = BleRow::Action;
+    markDirty();
 }
 
-void SettingsApp::activateBleAction() {
+void SettingsApp::leaveBleScreen() {
+    screen_ = Screen::Main;
+    focus_ = MainRow::Ble;
+    ble_focus_ = BleRow::Action;
+    markDirty();
+}
+
+void SettingsApp::runPrimaryBleAction() {
     auto& link = BleLink::instance();
-    switch (ble_action_) {
-        case BleAction::Pair:
-            link.startPairing();
+    switch (link.state()) {
+        case BleLink::State::Off:
+            if (link.isPaired()) {
+                link.startConnect();
+            } else {
+                link.startPairing();
+            }
             break;
-        case BleAction::Connect:
-            link.startConnect();
-            break;
-        case BleAction::Disconnect:
+        case BleLink::State::Pairing:
+        case BleLink::State::Advertising:
+        case BleLink::State::Connected:
             link.disconnect();
-            break;
-        case BleAction::Forget:
-            link.forget();
-            break;
-        default:
             break;
     }
     markDirty();
@@ -104,10 +113,16 @@ NavRequest SettingsApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chr
         refreshBattery();
     }
 
-    static char last_ble_status[16] = {};
-    const char* ble_status = BleLink::instance().statusLabel();
+    static char last_ble_status[24] = {};
+    const char* ble_status = BleLink::instance().statusSummary();
     if (std::strncmp(last_ble_status, ble_status, sizeof(last_ble_status)) != 0) {
         std::snprintf(last_ble_status, sizeof(last_ble_status), "%s", ble_status);
+        markDirty();
+    }
+
+    // Forget row can appear/disappear when pairing state changes.
+    if (screen_ == Screen::Ble && !showForgetRow() && ble_focus_ == BleRow::Forget) {
+        ble_focus_ = BleRow::Action;
         markDirty();
     }
 
@@ -129,44 +144,112 @@ NavRequest SettingsApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chr
 }
 
 NavRequest SettingsApp::handleInput(const Keyboard_Class::KeysState& status) {
+    if (isBackKey(status)) {
+        if (screen_ == Screen::BleForgetConfirm) {
+            screen_ = Screen::Ble;
+            ble_focus_ = BleRow::Forget;
+            return NavRequest::None;
+        }
+        if (screen_ == Screen::Ble) {
+            leaveBleScreen();
+            return NavRequest::None;
+        }
+    }
+
+    switch (screen_) {
+        case Screen::Main:
+            return handleMainInput(status);
+        case Screen::Ble:
+            return handleBleInput(status);
+        case Screen::BleForgetConfirm:
+            return handleBleForgetConfirmInput(status);
+    }
+    return NavRequest::None;
+}
+
+NavRequest SettingsApp::handleMainInput(const Keyboard_Class::KeysState& status) {
     switch (detectArrowKey(status)) {
         case ArrowKey::Left:
-            if (focus_ == Row::Sleep) {
+            if (focus_ == MainRow::Sleep) {
                 SystemSettings::instance().cycleSleepOption(-1);
-            } else if (focus_ == Row::Bright) {
+            } else if (focus_ == MainRow::Bright) {
                 SystemSettings::instance().cycleBrightnessOption(-1);
-            } else if (focus_ == Row::BleAction) {
-                cycleBleAction(-1);
             }
             return NavRequest::None;
         case ArrowKey::Right:
-            if (focus_ == Row::Sleep) {
+            if (focus_ == MainRow::Sleep) {
                 SystemSettings::instance().cycleSleepOption(1);
-            } else if (focus_ == Row::Bright) {
+            } else if (focus_ == MainRow::Bright) {
                 SystemSettings::instance().cycleBrightnessOption(1);
-            } else if (focus_ == Row::BleAction) {
-                cycleBleAction(1);
             }
             return NavRequest::None;
         case ArrowKey::Up:
-            if (focus_ == Row::Sleep) {
+            if (focus_ == MainRow::Sleep) {
                 return NavRequest::FocusChrome;
             }
-            focus_ = static_cast<Row>(static_cast<uint8_t>(focus_) - 1);
+            focus_ = static_cast<MainRow>(static_cast<uint8_t>(focus_) - 1);
             return NavRequest::None;
         case ArrowKey::Down:
-            if (static_cast<uint8_t>(focus_) + 1 < static_cast<uint8_t>(Row::Count)) {
-                focus_ = static_cast<Row>(static_cast<uint8_t>(focus_) + 1);
+            if (static_cast<uint8_t>(focus_) + 1 < static_cast<uint8_t>(MainRow::Count)) {
+                focus_ = static_cast<MainRow>(static_cast<uint8_t>(focus_) + 1);
             }
             return NavRequest::None;
         default:
             break;
     }
 
-    if (status.enter && focus_ == Row::BleAction) {
-        activateBleAction();
+    if (status.enter && focus_ == MainRow::Ble) {
+        enterBleScreen();
+    }
+    return NavRequest::None;
+}
+
+NavRequest SettingsApp::handleBleInput(const Keyboard_Class::KeysState& status) {
+    switch (detectArrowKey(status)) {
+        case ArrowKey::Left:
+            leaveBleScreen();
+            return NavRequest::None;
+        case ArrowKey::Up:
+            if (ble_focus_ == BleRow::Action) {
+                leaveBleScreen();
+                return NavRequest::None;
+            }
+            ble_focus_ = BleRow::Action;
+            return NavRequest::None;
+        case ArrowKey::Down:
+            if (showForgetRow() && ble_focus_ == BleRow::Action) {
+                ble_focus_ = BleRow::Forget;
+            }
+            return NavRequest::None;
+        case ArrowKey::Right:
+            return NavRequest::None;
+        default:
+            break;
     }
 
+    if (status.enter) {
+        if (ble_focus_ == BleRow::Forget && showForgetRow()) {
+            screen_ = Screen::BleForgetConfirm;
+            return NavRequest::None;
+        }
+        if (ble_focus_ == BleRow::Action && primaryBleActionLabel() != nullptr) {
+            runPrimaryBleAction();
+        }
+    }
+    return NavRequest::None;
+}
+
+NavRequest SettingsApp::handleBleForgetConfirmInput(const Keyboard_Class::KeysState& status) {
+    if (isBackKey(status) || detectArrowKey(status) == ArrowKey::Left) {
+        screen_ = Screen::Ble;
+        ble_focus_ = BleRow::Forget;
+        return NavRequest::None;
+    }
+    if (status.enter) {
+        BleLink::instance().forget();
+        screen_ = Screen::Ble;
+        ble_focus_ = BleRow::Action;
+    }
     return NavRequest::None;
 }
 
@@ -174,10 +257,25 @@ void SettingsApp::draw() const {
     auto& display = M5Cardputer.Display;
     display.fillRect(0, kContentTop, display.width(), display.height() - kContentTop, TFT_BLACK);
 
+    switch (screen_) {
+        case Screen::Main:
+            drawMain();
+            break;
+        case Screen::Ble:
+            drawBle();
+            break;
+        case Screen::BleForgetConfirm:
+            drawBleForgetConfirm();
+            break;
+    }
+}
+
+void SettingsApp::drawMain() const {
+    auto& display = M5Cardputer.Display;
     const int width = display.width();
     int y = kListTop;
 
-    auto drawSelectable = [&](Row row, const char* text) {
+    auto drawSelectable = [&](MainRow row, const char* text) {
         const bool selected = focus_ == row && !chrome_focused_;
         const uint16_t fg = selected ? TFT_YELLOW : TFT_WHITE;
         const uint16_t bg = selected ? TFT_NAVY : TFT_BLACK;
@@ -202,29 +300,18 @@ void SettingsApp::draw() const {
     {
         char line[32];
         std::snprintf(line, sizeof(line), "Sleep  %s", SystemSettings::instance().sleepOptionLabel());
-        drawSelectable(Row::Sleep, line);
+        drawSelectable(MainRow::Sleep, line);
     }
     {
         char line[32];
         std::snprintf(line, sizeof(line), "Bright %s",
                       SystemSettings::instance().brightnessOptionLabel());
-        drawSelectable(Row::Bright, line);
+        drawSelectable(MainRow::Bright, line);
     }
     {
         char line[32];
-        std::snprintf(line, sizeof(line), "BLE %s", bleActionLabel());
-        drawSelectable(Row::BleAction, line);
-    }
-
-    {
-        char line[32];
-        const auto& link = BleLink::instance();
-        if (link.peerLabel()[0] != '\0' && link.state() != BleLink::State::Off) {
-            std::snprintf(line, sizeof(line), "St %s", link.statusLabel());
-        } else {
-            std::snprintf(line, sizeof(line), "St %s", link.statusLabel());
-        }
-        drawInfoLine(line);
+        std::snprintf(line, sizeof(line), "BLE %s", BleLink::instance().statusSummary());
+        drawSelectable(MainRow::Ble, line);
     }
 
     {
@@ -250,4 +337,69 @@ void SettingsApp::draw() const {
         std::snprintf(line, sizeof(line), "S/W Ver %s", config::kFirmwareVersion);
         drawInfoLine(line);
     }
+}
+
+void SettingsApp::drawBle() const {
+    auto& display = M5Cardputer.Display;
+    const int width = display.width();
+    int y = kListTop;
+
+    auto drawInfoLine = [&](const char* text) {
+        display.setTextColor(TFT_WHITE, TFT_BLACK);
+        display.setTextSize(2);
+        display.setCursor(8, y);
+        display.print(text);
+        y += kLineHeight;
+    };
+
+    auto drawSelectable = [&](BleRow row, const char* text) {
+        const bool selected = ble_focus_ == row && !chrome_focused_;
+        const uint16_t fg = selected ? TFT_YELLOW : TFT_WHITE;
+        const uint16_t bg = selected ? TFT_NAVY : TFT_BLACK;
+        if (selected) {
+            display.fillRect(0, y, width, kLineHeight, bg);
+        }
+        display.setTextColor(fg, bg);
+        display.setTextSize(2);
+        display.setCursor(8, y);
+        display.printf("%c %s", selected ? '>' : ' ', text);
+        y += kLineHeight;
+    };
+
+    drawInfoLine(BleLink::instance().statusSummary());
+
+    const char* peer = BleLink::instance().peerLabel();
+    if (peer[0] != '\0' && BleLink::instance().isPaired()) {
+        char line[24];
+        std::snprintf(line, sizeof(line), "peer %s", peer);
+        drawInfoLine(line);
+    }
+
+    const char* action = primaryBleActionLabel();
+    if (action != nullptr) {
+        drawSelectable(BleRow::Action, action);
+    } else {
+        drawInfoLine("(sim no BLE)");
+    }
+
+    if (showForgetRow()) {
+        drawSelectable(BleRow::Forget, "Forget");
+    }
+}
+
+void SettingsApp::drawBleForgetConfirm() const {
+    auto& display = M5Cardputer.Display;
+    int y = kListTop;
+    display.setTextColor(TFT_WHITE, TFT_BLACK);
+    display.setTextSize(2);
+    display.setCursor(8, y);
+    display.print("Forget?");
+    y += kLineHeight;
+    display.setTextColor(TFT_YELLOW, TFT_BLACK);
+    display.setCursor(8, y);
+    display.print("> Enter yes");
+    y += kLineHeight;
+    display.setTextColor(TFT_WHITE, TFT_BLACK);
+    display.setCursor(8, y);
+    display.print("  Del/BS cancel");
 }

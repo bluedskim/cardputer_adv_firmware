@@ -22,7 +22,8 @@ public:
     State state() const { return state_; }
     bool isPaired() const { return paired_; }
     bool blocksLightSleep() const;
-    const char* statusLabel() const;
+    // UI: Off Unpaired / Off Paired / Pairing / Connecting / Connected / N/A
+    const char* statusSummary() const;
     const char* peerLabel() const { return peer_label_; }
 
     bool startPairing();
@@ -31,7 +32,6 @@ public:
     void forget();
     void radioOff();
 
-    // Called from NimBLE callbacks (device build only).
     void notifyConnected(const char* peer);
     void notifyDisconnected();
     void notifySubscribed();
@@ -50,9 +50,11 @@ private:
                    uint16_t payload_len);
     void sendHello();
     void sendError(uint16_t req_id, ble_protocol::ErrorCode code);
-    bool startAdvertising(bool bondable);
+    bool ensureStack();
+    bool startAdvertising();
     void stopAdvertising();
-    void deinitStack();
+    bool disconnectPeers();
+    void quiesceToOff();
 
     State state_ = State::Off;
     bool paired_ = false;

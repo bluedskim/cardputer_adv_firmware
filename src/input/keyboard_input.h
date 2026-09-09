@@ -12,6 +12,7 @@ struct KeyboardInputTracker {
     bool arrow_right_down = false;
     bool enter_down = false;
     bool del_down = false;
+    bool backspace_down = false;
     std::vector<char> held_chars;
 };
 
@@ -102,6 +103,7 @@ inline void resetKeyboardTracker(KeyboardInputTracker& tracker) {
     tracker.arrow_right_down = false;
     tracker.enter_down = false;
     tracker.del_down = false;
+    tracker.backspace_down = false;
     tracker.held_chars.clear();
 }
 
@@ -152,6 +154,10 @@ inline KeyEvent pollAppKeyEdge(const Keyboard_Class::KeysState& status, Keyboard
     if (status.del && !tracker.del_down) {
         changed = true;
     }
+    // Cardputer key without Fn reports backspace, not del (Fn+key → del).
+    if (status.backspace && !tracker.backspace_down) {
+        changed = true;
+    }
 
     for (const char ch : status.word) {
         if (isArrowChar(ch)) {
@@ -165,6 +171,7 @@ inline KeyEvent pollAppKeyEdge(const Keyboard_Class::KeysState& status, Keyboard
 
     tracker.enter_down = status.enter;
     tracker.del_down = status.del;
+    tracker.backspace_down = status.backspace;
     tracker.held_chars = status.word;
 
     if (changed) {
