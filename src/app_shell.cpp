@@ -108,6 +108,21 @@ void AppShell::update() {
         launcher_exit::rebootToLauncher();
     }
 
+    // Wake key must not navigate chrome/apps (Left/Right would leave Settings → Torch).
+    if (ignore_keys_until_release_) {
+        if (M5Cardputer.Keyboard.isPressed()) {
+            apps_[current_index_]->onUpdate(nullptr, chrome_focused_);
+            if (chrome_dirty_) {
+                drawChrome();
+                chrome_dirty_ = false;
+            }
+            maybeSleepDisplay();
+            return;
+        }
+        ignore_keys_until_release_ = false;
+        resetKeyboardTracker(keyboard_tracker_);
+    }
+
     const auto status = M5Cardputer.Keyboard.keysState();
     const bool battery_changed = refreshBatterySnapshot();
     if (battery_changed) {
@@ -229,12 +244,17 @@ void AppShell::sleepDisplay() {
 }
 
 void AppShell::wakeDisplay() {
-    // Sleep only dims the backlight; panel GRAM still holds the last frame.
+    // Sleep only dims the backlight; panel GRAM may still be valid, but light sleep
+    // can leave a blank/white frame — always redraw the current app in place.
     const uint8_t restore = saved_brightness_ > 0 ? saved_brightness_
                                                    : SystemSettings::instance().brightness();
     M5Cardputer.Display.setBrightness(restore);
     display_asleep_ = false;
     noteUserActivity();
+    ignore_keys_until_release_ = true;
+    resetKeyboardTracker(keyboard_tracker_);
+    chrome_dirty_ = true;
+    apps_[current_index_]->onDisplayWake();
 }
 
 bool AppShell::refreshBatterySnapshot() {

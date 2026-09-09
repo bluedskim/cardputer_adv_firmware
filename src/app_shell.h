@@ -35,6 +35,7 @@ private:
     bool chrome_focused_ = false;
     bool chrome_dirty_ = true;
     bool display_asleep_ = false;
+    bool ignore_keys_until_release_ = false;
     uint8_t saved_brightness_ = 128;
     uint32_t last_activity_ms_ = 0;
     KeyboardInputTracker keyboard_tracker_;

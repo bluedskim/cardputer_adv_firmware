@@ -32,6 +32,8 @@ void SettingsApp::onEnter() {
 
 void SettingsApp::onExit() { M5Cardputer.Display.fillScreen(TFT_BLACK); }
 
+void SettingsApp::onDisplayWake() { markDirty(); }
+
 void SettingsApp::refreshBattery() {
     const BatterySnapshot next = readBatterySnapshot();
     if (next != battery_) {

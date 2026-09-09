@@ -40,6 +40,8 @@ void StopwatchApp::onEnter() {
 
 void StopwatchApp::onExit() { M5Cardputer.Display.fillScreen(TFT_BLACK); }
 
+void StopwatchApp::onDisplayWake() { markDirty(); }
+
 bool StopwatchApp::hasActiveBackgroundWork() const { return running_; }
 
 void StopwatchApp::formatDuration(char* buf, const std::size_t len, const uint32_t ms) const {

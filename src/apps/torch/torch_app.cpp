@@ -41,6 +41,14 @@ void TorchApp::onExit() {
     M5Cardputer.Display.fillScreen(TFT_BLACK);
 }
 
+void TorchApp::onDisplayWake() {
+    applyBrightness();
+    auto& display = M5Cardputer.Display;
+    display.fillRect(0, config::kContentTop, display.width(),
+                     display.height() - config::kContentTop, TFT_WHITE);
+    draw();
+}
+
 NavRequest TorchApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_focused) {
     if (auto_off_) {
         if (keys != nullptr) {

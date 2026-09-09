@@ -26,6 +26,8 @@ void TimerApp::onEnter() { enterList(); }
 
 void TimerApp::onExit() { M5Cardputer.Display.fillScreen(TFT_BLACK); }
 
+void TimerApp::onDisplayWake() { markDirty(); }
+
 bool TimerApp::isRunning(const TimerEntry& entry) const {
     return entry.end_ms != 0 && !entry.done && entry.end_ms > millis();
 }
