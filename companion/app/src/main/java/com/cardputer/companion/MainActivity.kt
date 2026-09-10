@@ -2,9 +2,14 @@ package com.cardputer.companion
 
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import android.os.IBinder
 import android.view.LayoutInflater
 import android.widget.ArrayAdapter
 import android.widget.Toast
@@ -17,17 +22,41 @@ import com.cardputer.companion.databinding.DialogPresetBinding
 
 class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
     private lateinit var binding: ActivityMainBinding
-    private lateinit var client: BleLinkClient
     private lateinit var store: PresetStore
     private val presets = mutableListOf<HttpPreset>()
     private lateinit var listAdapter: ArrayAdapter<String>
     private var resumeListenAfterBtEnable = false
+    private var forceRescanPending = false
+
+    private var bleService: BleLinkService? = null
+    private var bound = false
+
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
+            val service = (binder as BleLinkService.LocalBinder).getService()
+            bleService = service
+            bound = true
+            service.addUiListener(this@MainActivity)
+            if (forceRescanPending) {
+                forceRescanPending = false
+                service.client.startScan()
+            } else if (!service.client.isConnected()) {
+                service.client.startListening(forceRescan = false)
+            }
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            bleService?.removeUiListener(this@MainActivity)
+            bleService = null
+            bound = false
+        }
+    }
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
             val granted = result.values.all { it }
             if (granted) {
-                ensureBtAndListen(forceRescan = false)
+                ensureBtAndListen(forceRescan = forceRescanPending)
             } else {
                 binding.statusText.text = getString(R.string.permission_needed)
             }
@@ -35,16 +64,13 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
 
     private val enableBtLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-            if (client.isBluetoothEnabled()) {
-                if (resumeListenAfterBtEnable) {
-                    client.startListening(forceRescan = false)
-                } else {
-                    client.startScan()
-                }
+            if (isBluetoothEnabled()) {
+                startLinkService(forceRescan = !resumeListenAfterBtEnable && forceRescanPending)
             } else {
                 binding.statusText.text = getString(R.string.bt_off)
             }
             resumeListenAfterBtEnable = false
+            forceRescanPending = false
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -56,16 +82,14 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
         presets.clear()
         presets.addAll(store.load())
 
-        client = BleLinkClient(this, this)
-
         listAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, mutableListOf())
         binding.presetList.adapter = listAdapter
         refreshPresetList()
 
         binding.scanButton.setOnClickListener { requestPermissionsAndScan(force = true) }
         binding.disconnectButton.setOnClickListener {
-            // Explicit disconnect: do not bounce back into auto-listen until Scan / reopen.
-            client.disconnect(resumeListen = false)
+            BleLinkService.stop(this)
+            binding.statusText.text = getString(R.string.disconnected)
         }
         binding.addPresetButton.setOnClickListener {
             if (presets.size >= BleProtocol.HTTP_MAX_PRESETS) {
@@ -97,21 +121,33 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
     }
 
     override fun onStop() {
-        // Keep GATT if connected; only stop scanning while backgrounded.
-        client.stopListening()
+        if (bound) {
+            bleService?.removeUiListener(this)
+            unbindService(serviceConnection)
+            bound = false
+            bleService = null
+        }
+        // Do not stop the foreground service — keep listening while locked/background.
         super.onStop()
     }
 
     override fun onDestroy() {
-        client.disconnect(resumeListen = false)
         super.onDestroy()
     }
 
+    private fun isBluetoothEnabled(): Boolean {
+        val mgr = getSystemService(Context.BLUETOOTH_SERVICE) as android.bluetooth.BluetoothManager
+        return mgr.adapter?.isEnabled == true
+    }
+
     private fun hasBlePermissions(): Boolean {
-        val needed = arrayOf(
+        val needed = mutableListOf(
             Manifest.permission.BLUETOOTH_SCAN,
             Manifest.permission.BLUETOOTH_CONNECT
         )
+        if (Build.VERSION.SDK_INT >= 33) {
+            needed.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
         return needed.all {
             ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
         }
@@ -190,10 +226,14 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
     }
 
     private fun requestPermissionsAndScan(force: Boolean) {
-        val needed = arrayOf(
+        forceRescanPending = force
+        val needed = mutableListOf(
             Manifest.permission.BLUETOOTH_SCAN,
             Manifest.permission.BLUETOOTH_CONNECT
         )
+        if (Build.VERSION.SDK_INT >= 33) {
+            needed.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
         val missing = needed.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
@@ -205,16 +245,35 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
     }
 
     private fun ensureBtAndListen(forceRescan: Boolean) {
-        if (!client.isBluetoothEnabled()) {
+        if (!isBluetoothEnabled()) {
             binding.statusText.text = getString(R.string.bt_off)
             resumeListenAfterBtEnable = !forceRescan
+            forceRescanPending = forceRescan
             enableBtLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
             return
         }
+        startLinkService(forceRescan)
+    }
+
+    private fun startLinkService(forceRescan: Boolean) {
+        forceRescanPending = forceRescan
         if (forceRescan) {
-            client.startScan()
+            BleLinkService.startScan(this)
         } else {
-            client.startListening(forceRescan = false)
+            BleLinkService.startListening(this)
+        }
+        if (!bound) {
+            bindService(
+                Intent(this, BleLinkService::class.java),
+                serviceConnection,
+                Context.BIND_AUTO_CREATE
+            )
+        } else if (forceRescan) {
+            bleService?.client?.startScan()
+            forceRescanPending = false
+        } else {
+            bleService?.client?.startListening(forceRescan = false)
+            forceRescanPending = false
         }
     }
 
@@ -234,6 +293,6 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
     }
 
     override fun onDisconnected() {
-        // Auto-listen resumes inside BleLinkClient when listenWanted.
+        // Service keeps listening for the next advertise.
     }
 }

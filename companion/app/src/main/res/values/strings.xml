@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Cardputer Companion</string>
-    <string name="status_idle">Idle — grant Bluetooth permissions (auto-listen starts when open).</string>
+    <string name="status_idle">Idle — grant Bluetooth + notification permissions to listen in background.</string>
     <string name="scan">Scan</string>
     <string name="disconnect">Disconnect</string>
-    <string name="permission_needed">Bluetooth Scan + Connect permissions are required.</string>
+    <string name="permission_needed">Bluetooth and notification permissions are required for background link.</string>
     <string name="bt_off">Turn on Bluetooth.</string>
     <string name="scanning">Scanning for CardputerAdv…</string>
     <string name="listening">Listening for CardputerAdv…</string>
@@ -14,6 +14,9 @@
     <string name="connected_waiting_hello">Connected — waiting for Hello…</string>
     <string name="hello_ok">Hello OK — firmware %1$s</string>
     <string name="disconnected">Disconnected</string>
+    <string name="notif_channel_name">Cardputer link</string>
+    <string name="notif_channel_desc">Keeps BLE listening while the screen is locked</string>
+    <string name="notif_title">Cardputer Companion</string>
     <string name="presets_title">HTTP presets</string>
     <string name="add_preset">Add</string>
     <string name="edit_preset">Edit preset</string>
