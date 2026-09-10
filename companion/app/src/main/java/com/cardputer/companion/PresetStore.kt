@@ -19,7 +19,7 @@ class PresetStore(context: Context) {
         val raw = prefs.getString(KEY, null) ?: return defaultPresets().toMutableList()
         return try {
             val arr = JSONArray(raw)
-            MutableList(arr.length()) { i ->
+            val loaded = MutableList(arr.length()) { i ->
                 val o = arr.getJSONObject(i)
                 HttpPreset(
                     name = o.optString("name"),
@@ -28,7 +28,9 @@ class PresetStore(context: Context) {
                     headers = o.optString("headers"),
                     body = o.optString("body")
                 )
-            }
+            }.filter { it.name.isNotBlank() && it.url.isNotBlank() }
+                .toMutableList()
+            if (loaded.isEmpty()) defaultPresets().toMutableList() else loaded
         } catch (_: Exception) {
             defaultPresets().toMutableList()
         }

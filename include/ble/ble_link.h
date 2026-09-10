@@ -29,6 +29,10 @@ public:
     State state() const { return state_; }
     bool isPaired() const { return paired_; }
     bool isLinkUp() const { return state_ == State::Connected; }
+    // GATT connected — app frames (HTTP) may be sent; Hello may still be in flight.
+    bool isReady() const { return state_ == State::Connected; }
+    bool helloOk() const { return hello_ok_; }
+    void resendHello();
     bool blocksLightSleep() const;
     const char* statusSummary() const;
     const char* peerLabel() const { return peer_label_; }
@@ -71,11 +75,14 @@ private:
     void quiesceToOff();
     bool enqueueRx(ble_protocol::Type type, uint16_t req_id, const uint8_t* payload,
                    uint16_t payload_len);
+    void rejectUnexpectedPeer();
 
     State state_ = State::Off;
     bool paired_ = false;
     bool hello_ok_ = false;
     bool stack_ready_ = false;
+    // True only while Pair/Connect/Web intentionally wants inbound links.
+    bool accept_peers_ = false;
     char peer_label_[17] = {};
     uint32_t last_traffic_ms_ = 0;
     uint16_t next_req_id_ = 1;

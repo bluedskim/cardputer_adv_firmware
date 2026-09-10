@@ -321,7 +321,7 @@ Cardputer WiFi는 사용하지 않는다. 기기↔폰 링크는 **BLE**를 기�
 - [x] 시크릿은 폰 secure storage에만 보관 (Cardputer NVS에 SSH 키·토큰 저장 금지)
 - [x] sleep/배터리 정책
   - [x] **기본 BLE off** — 페어링만 해 두고 라디오는 끈 상태가 기본 (현재와 비슷한 대기 수명)
-  - [x] **커맨더 on-demand** — 앱을 열 때 연결, 나가거나 N분 유휴 시 해제 후 light sleep 복귀 *(Web/Settings Connect + 60s idle)*
+  - [x] **커맨더 on-demand** — Web(또는 SSH) 요청 시 자동 Connect, 앱 종료·유휴 시 해제 *(Settings Connect는 선택)*
   - [ ] **알림 opt-in** — Settings 토글로만 켬. 끄면 연결·라디오 완전 분리 *(M4)*
   - [ ] 알림 ON이어도 화면은 기존 sleep 유지. 새 알림은 조용히 버퍼하고, 깨어난 뒤에만 목록 갱신 (강제 점등 wake는 옵션) *(M4)*
 - [x] 비범위: iOS companion, Cardputer 자체 WiFi/SSH 스택, 풀 웹 브라우저

@@ -134,7 +134,12 @@ void AppShell::update() {
             chrome_dirty_ = true;
             noteUserActivity();
         }
-        apps_[current_index_]->onUpdate(nullptr, chrome_focused_);
+        const NavRequest req = apps_[current_index_]->onUpdate(nullptr, chrome_focused_);
+        // List may arrive over BLE while chrome is still focused.
+        if (req == NavRequest::FocusContent) {
+            chrome_focused_ = false;
+            chrome_dirty_ = true;
+        }
     } else {
         const ArrowKey arrow = pollArrowEdge(status, keyboard_tracker_);
         const KeyEvent keys = pollAppKeyEdge(status, keyboard_tracker_);
@@ -154,6 +159,9 @@ void AppShell::update() {
             apps_[current_index_]->onUpdate(has_input ? &delivered : nullptr, false);
         if (req == NavRequest::FocusChrome) {
             chrome_focused_ = true;
+            chrome_dirty_ = true;
+        } else if (req == NavRequest::FocusContent) {
+            chrome_focused_ = false;
             chrome_dirty_ = true;
         }
     }

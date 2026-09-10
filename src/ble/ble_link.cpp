@@ -68,6 +68,7 @@ void BleLink::begin() {
     state_ = State::Off;
     hello_ok_ = false;
     stack_ready_ = false;
+    accept_peers_ = false;
 }
 
 void BleLink::loadPersisted() {
@@ -139,6 +140,10 @@ void BleLink::tick() {
     return;
 #else
     maybeIdleDisconnect();
+    // NimBLE can leave advertising running after a peer drop; keep radio quiet when Off.
+    if (state_ == State::Off && stack_ready_ && !accept_peers_) {
+        stopAdvertising();
+    }
 #endif
 }
 
@@ -175,12 +180,14 @@ bool BleLink::ensureStack() { return false; }
 bool BleLink::startAdvertising() { return false; }
 void BleLink::stopAdvertising() {}
 bool BleLink::disconnectPeers() { return false; }
-void BleLink::quiesceToOff() { state_ = State::Off; }
+void BleLink::quiesceToOff() { state_ = State::Off; accept_peers_ = false; }
 bool BleLink::enqueueRx(ble_protocol::Type, uint16_t, const uint8_t*, uint16_t) { return false; }
 bool BleLink::takeRxFrame(BleRxFrame*) { return false; }
 void BleLink::clearRxQueue() {}
 uint16_t BleLink::allocReqId() { return 1; }
 bool BleLink::send(ble_protocol::Type, uint16_t, const uint8_t*, uint16_t) { return false; }
+void BleLink::rejectUnexpectedPeer() { state_ = State::Off; accept_peers_ = false; }
+void BleLink::resendHello() {}
 
 #else
 
@@ -246,6 +253,7 @@ bool BleLink::disconnectPeers() {
 
 void BleLink::quiesceToOff() {
     // Do not call NimBLEDevice::deinit() — it hard-resets this board.
+    accept_peers_ = false;
     stopAdvertising();
     disconnectPeers();
     hello_ok_ = false;
@@ -255,7 +263,9 @@ void BleLink::quiesceToOff() {
 bool BleLink::startPairing() {
     quiesceToOff();
     delay(50);
+    accept_peers_ = true;
     if (!startAdvertising()) {
+        accept_peers_ = false;
         return false;
     }
     state_ = State::Pairing;
@@ -269,17 +279,39 @@ bool BleLink::startConnect() {
         return startPairing();
     }
     if (state_ == State::Connected) {
+        accept_peers_ = true;
+        // CCCD may already be on; re-Hello so companion is definitely ready for HTTP.
+        if (!hello_ok_) {
+            sendHello();
+        }
+        noteTraffic();
+        return true;
+    }
+    // Already advertising for connect — do not tear down (Web may call again).
+    if (state_ == State::Advertising || state_ == State::Pairing) {
+        accept_peers_ = true;
+        noteTraffic();
         return true;
     }
     quiesceToOff();
     delay(50);
+    accept_peers_ = true;
     if (!startAdvertising()) {
+        accept_peers_ = false;
         return false;
     }
     state_ = State::Advertising;
     hello_ok_ = false;
     noteTraffic();
     return true;
+}
+
+void BleLink::resendHello() {
+    if (state_ != State::Connected) {
+        return;
+    }
+    hello_ok_ = false;
+    sendHello();
 }
 
 void BleLink::disconnect() {
@@ -302,7 +334,19 @@ void BleLink::forget() {
 
 void BleLink::radioOff() { disconnect(); }
 
+void BleLink::rejectUnexpectedPeer() {
+    stopAdvertising();
+    disconnectPeers();
+    hello_ok_ = false;
+    state_ = State::Off;
+}
+
 void BleLink::notifyConnected(const char* peer) {
+    // Settings Disconnect / idle off: ignore stale ads that phone auto-listen may catch.
+    if (!accept_peers_) {
+        rejectUnexpectedPeer();
+        return;
+    }
     stopAdvertising();
     state_ = State::Connected;
     hello_ok_ = false;
@@ -326,6 +370,8 @@ void BleLink::notifySubscribed() {
 
 void BleLink::notifyDisconnected() {
     hello_ok_ = false;
+    // Do not keep advertising after a drop — Web/Settings must call startConnect again.
+    accept_peers_ = false;
     state_ = State::Off;
     stopAdvertising();
 }

@@ -16,6 +16,7 @@ import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.os.ParcelUuid
 import java.util.ArrayDeque
 import java.util.UUID
 
@@ -35,13 +36,26 @@ class BleLinkClient(
     private val bluetoothManager =
         context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     private val adapter: BluetoothAdapter? = bluetoothManager.adapter
+    private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     private var gatt: BluetoothGatt? = null
     private var txCharacteristic: BluetoothGattCharacteristic? = null
     private var rxCharacteristic: BluetoothGattCharacteristic? = null
     private var scanning = false
+    private var listenWanted = false
+    private var connecting = false
     private var writeBusy = false
     private val writeQueue: ArrayDeque<ByteArray> = ArrayDeque()
+    private val waitHintRunnable = Runnable {
+        if (scanning && gatt == null) {
+            listener.onStatus(context.getString(R.string.waiting_device_hint))
+        }
+    }
+    private val resumeListenRunnable = Runnable {
+        if (listenWanted && gatt == null && !connecting) {
+            beginScan(continuous = true)
+        }
+    }
 
     private val serviceUuid = UUID.fromString(BleProtocol.SERVICE_UUID)
     private val rxUuid = UUID.fromString(BleProtocol.RX_UUID)
@@ -50,67 +64,164 @@ class BleLinkClient(
 
     fun isBluetoothEnabled(): Boolean = adapter?.isEnabled == true
 
+    fun isConnected(): Boolean = gatt != null
+
+    /** Foreground auto-reconnect: continuous scan until CardputerAdv advertises. */
     @SuppressLint("MissingPermission")
-    fun startScan() {
+    fun startListening(forceRescan: Boolean = false) {
         val bt = adapter
         if (bt == null || !bt.isEnabled) {
             listener.onStatus(context.getString(R.string.bt_off))
             return
         }
+        listenWanted = true
+        if (!forceRescan && gatt != null) {
+            return
+        }
+        if (forceRescan) {
+            tearDownGatt()
+        }
+        beginScan(continuous = true)
+    }
+
+    /** Stop advertising scan only; keeps an existing GATT link. */
+    @SuppressLint("MissingPermission")
+    fun stopListening() {
+        listenWanted = false
+        handler.removeCallbacks(waitHintRunnable)
+        handler.removeCallbacks(resumeListenRunnable)
         stopScan()
-        disconnect()
-        scanning = true
-        listener.onStatus(context.getString(R.string.scanning))
-        listener.onDetail("")
+        if (gatt == null) {
+            listener.onStatus(context.getString(R.string.status_idle))
+        }
+    }
 
-        val filter = ScanFilter.Builder()
-            .setDeviceName(BleProtocol.DEVICE_NAME)
-            .build()
-        val settings = ScanSettings.Builder()
-            .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-            .build()
+    /** Manual Scan button: disconnect and scan again (pairing / force). */
+    @SuppressLint("MissingPermission")
+    fun startScan() {
+        listenWanted = true
+        handler.removeCallbacks(resumeListenRunnable)
+        tearDownGatt()
+        beginScan(continuous = true)
+    }
 
-        bt.bluetoothLeScanner?.startScan(listOf(filter), settings, scanCallback)
-        handler.postDelayed({
-            if (scanning) {
-                stopScan()
-                listener.onStatus(context.getString(R.string.no_device))
-            }
-        }, 12_000)
+    /**
+     * Drop the link. [resumeListen] false = stay idle until Scan / app restart
+     * (use for explicit Disconnect so Settings disconnect does not bounce back).
+     */
+    @SuppressLint("MissingPermission")
+    fun disconnect(resumeListen: Boolean = false) {
+        handler.removeCallbacks(waitHintRunnable)
+        handler.removeCallbacks(resumeListenRunnable)
+        stopScan()
+        tearDownGatt()
+        if (resumeListen && adapter?.isEnabled == true) {
+            listenWanted = true
+            handler.postDelayed(resumeListenRunnable, RESUME_LISTEN_DELAY_MS)
+            listener.onStatus(context.getString(R.string.listening))
+        } else {
+            listenWanted = false
+            listener.onStatus(context.getString(R.string.disconnected))
+        }
     }
 
     @SuppressLint("MissingPermission")
-    fun stopScan() {
+    private fun beginScan(continuous: Boolean) {
+        val bt = adapter ?: return
+        stopScan()
+        scanning = true
+        connecting = false
+        listener.onStatus(context.getString(R.string.listening))
+        listener.onDetail(rememberedAddress()?.let { "last=$it" } ?: "")
+
+        val filters = buildScanFilters()
+        val settings = ScanSettings.Builder()
+            .setScanMode(
+                if (continuous) ScanSettings.SCAN_MODE_LOW_LATENCY
+                else ScanSettings.SCAN_MODE_BALANCED
+            )
+            .build()
+
+        bt.bluetoothLeScanner?.startScan(filters, settings, scanCallback)
+        handler.removeCallbacks(waitHintRunnable)
+        handler.postDelayed(waitHintRunnable, 12_000)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun buildScanFilters(): List<ScanFilter> {
+        val filters = mutableListOf<ScanFilter>()
+        val addr = rememberedAddress()
+        if (addr != null) {
+            try {
+                filters.add(ScanFilter.Builder().setDeviceAddress(addr).build())
+            } catch (_: IllegalArgumentException) {
+                // fall through to name filter
+            }
+        }
+        filters.add(
+            ScanFilter.Builder()
+                .setDeviceName(BleProtocol.DEVICE_NAME)
+                .build()
+        )
+        filters.add(
+            ScanFilter.Builder()
+                .setServiceUuid(ParcelUuid(serviceUuid))
+                .build()
+        )
+        return filters
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun stopScan() {
         if (!scanning) return
         scanning = false
         adapter?.bluetoothLeScanner?.stopScan(scanCallback)
     }
 
     @SuppressLint("MissingPermission")
-    fun disconnect() {
-        stopScan()
+    private fun tearDownGatt() {
         writeQueue.clear()
         writeBusy = false
+        connecting = false
+        txCharacteristic = null
+        rxCharacteristic = null
         gatt?.disconnect()
         gatt?.close()
         gatt = null
-        txCharacteristic = null
-        rxCharacteristic = null
     }
 
     @SuppressLint("MissingPermission")
     private fun connect(device: BluetoothDevice) {
+        if (connecting || gatt != null) return
+        connecting = true
         stopScan()
+        handler.removeCallbacks(waitHintRunnable)
         listener.onStatus(context.getString(R.string.connecting))
         gatt = device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
+    }
+
+    private fun rememberedAddress(): String? =
+        prefs.getString(KEY_LAST_ADDR, null)?.takeIf { it.isNotBlank() }
+
+    private fun rememberAddress(address: String) {
+        prefs.edit().putString(KEY_LAST_ADDR, address).apply()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun isLikelyOurDevice(device: BluetoothDevice, result: ScanResult): Boolean {
+        val name = device.name ?: result.scanRecord?.deviceName
+        if (name == BleProtocol.DEVICE_NAME) return true
+        val addr = rememberedAddress()
+        if (addr != null && device.address.equals(addr, ignoreCase = true)) return true
+        val uuids = result.scanRecord?.serviceUuids
+        if (uuids != null && uuids.any { it.uuid == serviceUuid }) return true
+        return false
     }
 
     private val scanCallback = object : ScanCallback() {
         @SuppressLint("MissingPermission")
         override fun onScanResult(callbackType: Int, result: ScanResult) {
-            val name = result.device.name ?: result.scanRecord?.deviceName
-            if (name != BleProtocol.DEVICE_NAME) return
-            stopScan()
+            if (!isLikelyOurDevice(result.device, result)) return
             connect(result.device)
         }
 
@@ -124,20 +235,31 @@ class BleLinkClient(
         @SuppressLint("MissingPermission")
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
             if (newState == BluetoothProfile.STATE_CONNECTED) {
+                connecting = false
+                rememberAddress(gatt.device.address)
                 handler.post {
                     listener.onStatus(context.getString(R.string.connected_waiting_hello))
                 }
                 gatt.discoverServices()
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                handler.post {
-                    listener.onStatus(context.getString(R.string.disconnected))
-                    listener.onDisconnected()
-                }
+                connecting = false
                 writeQueue.clear()
                 writeBusy = false
                 gatt.close()
                 if (this@BleLinkClient.gatt === gatt) {
                     this@BleLinkClient.gatt = null
+                    txCharacteristic = null
+                    rxCharacteristic = null
+                }
+                handler.post {
+                    listener.onStatus(context.getString(R.string.disconnected))
+                    listener.onDisconnected()
+                    // Delay before re-listen so we do not catch stale advertisements
+                    // right after an intentional device Disconnect.
+                    if (listenWanted) {
+                        handler.removeCallbacks(resumeListenRunnable)
+                        handler.postDelayed(resumeListenRunnable, RESUME_LISTEN_DELAY_MS)
+                    }
                 }
             }
         }
@@ -223,11 +345,7 @@ class BleLinkClient(
                 }
                 BleProtocol.TYPE_HTTP_LIST_REQ -> handleListReq(frame.reqId)
                 BleProtocol.TYPE_HTTP_RUN_REQ -> handleRunReq(frame)
-                else -> {
-                    if (BleProtocol.isHttpType(frame.type)) {
-                        // ignore unexpected phone-bound HTTP responses echoed
-                    }
-                }
+                else -> Unit
             }
         }
     }
@@ -309,7 +427,9 @@ class BleLinkClient(
             seq++
         }
         enqueueWrite(BleProtocol.encode(BleProtocol.TYPE_HTTP_RUN_END, reqId))
-        listener.onDetail("HttpRun done status=${result.httpStatus} err=${result.errCode} bytes=${body.size}")
+        listener.onDetail(
+            "HttpRun done status=${result.httpStatus} err=${result.errCode} bytes=${body.size}"
+        )
     }
 
     private fun enqueueWrite(bytes: ByteArray) {
@@ -330,5 +450,11 @@ class BleLinkClient(
             writeBusy = false
             handler.post { listener.onDetail("BLE write failed") }
         }
+    }
+
+    companion object {
+        private const val PREFS = "ble_link"
+        private const val KEY_LAST_ADDR = "last_peer_address"
+        private const val RESUME_LISTEN_DELAY_MS = 2000L
     }
 }

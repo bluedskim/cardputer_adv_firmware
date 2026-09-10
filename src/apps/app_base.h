@@ -7,7 +7,8 @@
 // Returned by apps to participate in the shared two-level navigation model.
 enum class NavRequest {
     None,
-    FocusChrome,  // ↑ from top of app content
+    FocusChrome,   // ↑ from top of app content
+    FocusContent,  // app wants content focus (e.g. list just loaded)
 };
 
 class AppBase {
