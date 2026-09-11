@@ -14,11 +14,14 @@ import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.ParcelUuid
+import android.os.PowerManager
 import java.util.ArrayDeque
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 
 class BleLinkClient(
     private val context: Context,
@@ -37,6 +40,11 @@ class BleLinkClient(
         context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     private val adapter: BluetoothAdapter? = bluetoothManager.adapter
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private val wakeLock: PowerManager.WakeLock =
+        (context.getSystemService(Context.POWER_SERVICE) as PowerManager)
+            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "CardputerCompanion:BleLink")
+            .apply { setReferenceCounted(false) }
+    private val nextReqId = AtomicInteger(1)
 
     private var gatt: BluetoothGatt? = null
     private var txCharacteristic: BluetoothGattCharacteristic? = null
@@ -44,16 +52,51 @@ class BleLinkClient(
     private var scanning = false
     private var listenWanted = false
     private var connecting = false
+    /** When linked via Companion Device Manager, prefer OS autoConnect + presence. */
+    private var preferAutoConnect = false
     private var writeBusy = false
     private val writeQueue: ArrayDeque<ByteArray> = ArrayDeque()
     private val waitHintRunnable = Runnable {
-        if (scanning && gatt == null) {
+        if ((scanning || preferAutoConnect) && gatt == null) {
             listener.onStatus(context.getString(R.string.waiting_device_hint))
         }
     }
     private val resumeListenRunnable = Runnable {
         if (listenWanted && gatt == null && !connecting) {
-            beginScan(continuous = true)
+            startListening(forceRescan = false)
+        }
+    }
+    /** Screen-off / OEM stacks often silently stop callback scans; restart while listening. */
+    private val scanWatchdogRunnable = object : Runnable {
+        override fun run() {
+            if (!listenWanted || gatt != null) return
+            if (preferAutoConnect) {
+                val addr = peerAddress()
+                if (addr != null) {
+                    connecting = false
+                    tearDownGatt()
+                    connectToAddress(addr, autoConnect = true)
+                } else {
+                    beginScan(continuous = true)
+                }
+            } else if (!connecting) {
+                beginScan(continuous = true)
+            }
+            handler.postDelayed(this, SCAN_WATCHDOG_MS)
+        }
+    }
+    /** Firmware idle-disconnects after ~60s without traffic; keep the GATT warm. */
+    private val keepAliveRunnable = object : Runnable {
+        override fun run() {
+            if (gatt == null) return
+            if (rxCharacteristic == null) {
+                handler.postDelayed(this, KEEP_ALIVE_MS)
+                return
+            }
+            enqueueWrite(
+                BleProtocol.encode(BleProtocol.TYPE_PING, nextReqId.getAndIncrement() and 0xFFFF)
+            )
+            handler.postDelayed(this, KEEP_ALIVE_MS)
         }
     }
 
@@ -66,7 +109,10 @@ class BleLinkClient(
 
     fun isConnected(): Boolean = gatt != null
 
-    /** Foreground auto-reconnect: continuous scan until CardputerAdv advertises. */
+    /** Last known Cardputer MAC (uppercase), if any. */
+    fun lastPeerAddress(): String? = peerAddress()
+
+    /** Foreground auto-reconnect: presence/autoConnect when linked, else continuous scan. */
     @SuppressLint("MissingPermission")
     fun startListening(forceRescan: Boolean = false) {
         val bt = adapter
@@ -75,23 +121,40 @@ class BleLinkClient(
             return
         }
         listenWanted = true
+        acquireWakeLock()
+        CompanionAssociation.startObserving(context)
         if (!forceRescan && gatt != null) {
+            scheduleBackgroundJobs()
             return
         }
         if (forceRescan) {
             tearDownGatt()
         }
-        beginScan(continuous = true)
+        val linked = CompanionAssociation.primaryAddress(context) ?: rememberedAddress()
+        preferAutoConnect = linked != null && CompanionAssociation.isAssociated(context)
+        if (preferAutoConnect && linked != null && !forceRescan) {
+            listener.onStatus(context.getString(R.string.listening_linked))
+            listener.onDetail("linked=$linked")
+            connectToAddress(linked, autoConnect = true)
+            scheduleBackgroundJobs()
+            handler.removeCallbacks(waitHintRunnable)
+            handler.postDelayed(waitHintRunnable, 12_000)
+        } else {
+            preferAutoConnect = false
+            beginScan(continuous = true)
+            scheduleBackgroundJobs()
+        }
     }
 
     /** Stop advertising scan only; keeps an existing GATT link. */
     @SuppressLint("MissingPermission")
     fun stopListening() {
         listenWanted = false
-        handler.removeCallbacks(waitHintRunnable)
-        handler.removeCallbacks(resumeListenRunnable)
+        preferAutoConnect = false
+        clearBackgroundJobs()
         stopScan()
         if (gatt == null) {
+            releaseWakeLock()
             listener.onStatus(context.getString(R.string.status_idle))
         }
     }
@@ -100,30 +163,115 @@ class BleLinkClient(
     @SuppressLint("MissingPermission")
     fun startScan() {
         listenWanted = true
+        preferAutoConnect = false
+        acquireWakeLock()
+        CompanionAssociation.startObserving(context)
         handler.removeCallbacks(resumeListenRunnable)
         tearDownGatt()
         beginScan(continuous = true)
+        scheduleBackgroundJobs()
     }
 
     /**
-     * Drop the link. [resumeListen] false = stay idle until Scan / app restart
+     * System companion presence: CardputerAdv advertised nearby (lock screen / background).
+     */
+    @SuppressLint("MissingPermission")
+    fun onAssociatedDeviceAppeared(address: String) {
+        CompanionAssociation.saveAddress(context, address)
+        rememberAddress(address)
+        listenWanted = true
+        preferAutoConnect = true
+        acquireWakeLock()
+        if (gatt != null) {
+            scheduleBackgroundJobs()
+            return
+        }
+        handler.removeCallbacks(resumeListenRunnable)
+        connecting = false
+        tearDownGatt()
+        stopScan()
+        connectToAddress(address, autoConnect = false)
+        scheduleBackgroundJobs()
+    }
+
+    /**
+     * Drop the link. [resumeListen] false = stay idle until Scan / presence
      * (use for explicit Disconnect so Settings disconnect does not bounce back).
      */
     @SuppressLint("MissingPermission")
     fun disconnect(resumeListen: Boolean = false) {
-        handler.removeCallbacks(waitHintRunnable)
-        handler.removeCallbacks(resumeListenRunnable)
+        clearBackgroundJobs()
         stopScan()
         tearDownGatt()
         if (resumeListen && adapter?.isEnabled == true) {
             listenWanted = true
+            acquireWakeLock()
             handler.postDelayed(resumeListenRunnable, RESUME_LISTEN_DELAY_MS)
-            listener.onStatus(context.getString(R.string.listening))
+            listener.onStatus(
+                if (CompanionAssociation.isAssociated(context)) {
+                    context.getString(R.string.listening_linked)
+                } else {
+                    context.getString(R.string.listening)
+                }
+            )
         } else {
             listenWanted = false
+            preferAutoConnect = false
+            releaseWakeLock()
             listener.onStatus(context.getString(R.string.disconnected))
         }
     }
+
+    /** Call when screen turns on/off so OEM-throttled scans resume. */
+    fun refreshScanIfListening() {
+        if (!listenWanted || gatt != null || connecting) return
+        if (preferAutoConnect) {
+            val addr = peerAddress() ?: return
+            connectToAddress(addr, autoConnect = true)
+        } else {
+            beginScan(continuous = true)
+        }
+        scheduleBackgroundJobs()
+    }
+
+    @SuppressLint("MissingPermission")
+    fun connectToAddress(address: String, autoConnect: Boolean) {
+        val bt = adapter ?: return
+        if (gatt != null || connecting) return
+        val normalized = CompanionAssociation.normalizeBluetoothAddress(address)
+        if (normalized == null) {
+            listener.onStatus("Bad address: $address")
+            return
+        }
+        connecting = true
+        stopScan()
+        handler.removeCallbacks(waitHintRunnable)
+        listener.onStatus(context.getString(R.string.connecting))
+        try {
+            val device = if (Build.VERSION.SDK_INT >= 33) {
+                // CardputerAdv uses a random LE address; try random then public.
+                try {
+                    bt.getRemoteLeDevice(normalized, BluetoothDevice.ADDRESS_TYPE_RANDOM)
+                } catch (_: IllegalArgumentException) {
+                    bt.getRemoteLeDevice(normalized, BluetoothDevice.ADDRESS_TYPE_PUBLIC)
+                }
+            } else {
+                bt.getRemoteDevice(normalized)
+            }
+            gatt = device.connectGatt(
+                context,
+                autoConnect,
+                gattCallback,
+                BluetoothDevice.TRANSPORT_LE
+            )
+        } catch (e: IllegalArgumentException) {
+            connecting = false
+            listener.onStatus("Bad address: $normalized")
+        }
+    }
+
+    private fun peerAddress(): String? =
+        CompanionAssociation.primaryAddress(context) ?: rememberedAddress()
 
     @SuppressLint("MissingPermission")
     private fun beginScan(continuous: Boolean) {
@@ -135,16 +283,63 @@ class BleLinkClient(
         listener.onDetail(rememberedAddress()?.let { "last=$it" } ?: "")
 
         val filters = buildScanFilters()
+        // Filtered + aggressive match: required for many OEMs when the screen is off.
+        // LOW_LATENCY still helps discovery; scanWatchdog restarts if the stack stalls.
         val settings = ScanSettings.Builder()
             .setScanMode(
                 if (continuous) ScanSettings.SCAN_MODE_LOW_LATENCY
                 else ScanSettings.SCAN_MODE_BALANCED
             )
+            .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+            .setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
+            .setNumOfMatches(ScanSettings.MATCH_NUM_MAX_ADVERTISEMENT)
+            .setReportDelay(0)
             .build()
 
-        bt.bluetoothLeScanner?.startScan(filters, settings, scanCallback)
+        try {
+            bt.bluetoothLeScanner?.startScan(filters, settings, scanCallback)
+        } catch (e: IllegalStateException) {
+            scanning = false
+            listener.onStatus("Scan error: ${e.message}")
+            return
+        }
         handler.removeCallbacks(waitHintRunnable)
         handler.postDelayed(waitHintRunnable, 12_000)
+    }
+
+    private fun scheduleBackgroundJobs() {
+        acquireWakeLock()
+        handler.removeCallbacks(scanWatchdogRunnable)
+        handler.removeCallbacks(keepAliveRunnable)
+        when {
+            listenWanted && gatt == null ->
+                handler.postDelayed(scanWatchdogRunnable, SCAN_WATCHDOG_MS)
+            gatt != null ->
+                handler.postDelayed(keepAliveRunnable, KEEP_ALIVE_MS)
+        }
+    }
+
+    private fun clearBackgroundJobs() {
+        handler.removeCallbacks(waitHintRunnable)
+        handler.removeCallbacks(resumeListenRunnable)
+        handler.removeCallbacks(scanWatchdogRunnable)
+        handler.removeCallbacks(keepAliveRunnable)
+    }
+
+    private fun acquireWakeLock() {
+        try {
+            // Re-acquire extends timeout while we are still listening/connected.
+            wakeLock.acquire(WAKE_LOCK_TIMEOUT_MS)
+        } catch (_: RuntimeException) {
+            // Some devices reject wake locks under policy; BLE FGS still helps.
+        }
+    }
+
+    private fun releaseWakeLock() {
+        try {
+            if (wakeLock.isHeld) wakeLock.release()
+        } catch (_: RuntimeException) {
+        }
     }
 
     @SuppressLint("MissingPermission")
@@ -201,10 +396,12 @@ class BleLinkClient(
     }
 
     private fun rememberedAddress(): String? =
-        prefs.getString(KEY_LAST_ADDR, null)?.takeIf { it.isNotBlank() }
+        CompanionAssociation.normalizeBluetoothAddress(prefs.getString(KEY_LAST_ADDR, null))
 
     private fun rememberAddress(address: String) {
-        prefs.edit().putString(KEY_LAST_ADDR, address).apply()
+        val normalized = CompanionAssociation.normalizeBluetoothAddress(address) ?: return
+        prefs.edit().putString(KEY_LAST_ADDR, normalized).apply()
+        CompanionAssociation.saveAddress(context, normalized)
     }
 
     @SuppressLint("MissingPermission")
@@ -228,6 +425,10 @@ class BleLinkClient(
         override fun onScanFailed(errorCode: Int) {
             scanning = false
             listener.onStatus("Scan failed: $errorCode")
+            if (listenWanted && gatt == null) {
+                handler.removeCallbacks(scanWatchdogRunnable)
+                handler.postDelayed(scanWatchdogRunnable, SCAN_RETRY_AFTER_FAIL_MS)
+            }
         }
     }
 
@@ -237,8 +438,13 @@ class BleLinkClient(
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 connecting = false
                 rememberAddress(gatt.device.address)
+                try {
+                    gatt.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_HIGH)
+                } catch (_: SecurityException) {
+                }
                 handler.post {
                     listener.onStatus(context.getString(R.string.connected_waiting_hello))
+                    scheduleBackgroundJobs()
                 }
                 gatt.discoverServices()
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
@@ -257,8 +463,11 @@ class BleLinkClient(
                     // Delay before re-listen so we do not catch stale advertisements
                     // right after an intentional device Disconnect.
                     if (listenWanted) {
+                        acquireWakeLock()
                         handler.removeCallbacks(resumeListenRunnable)
                         handler.postDelayed(resumeListenRunnable, RESUME_LISTEN_DELAY_MS)
+                    } else {
+                        releaseWakeLock()
                     }
                 }
             }
@@ -288,6 +497,7 @@ class BleLinkClient(
                 cccd.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
                 gatt.writeDescriptor(cccd)
             }
+            handler.post { scheduleBackgroundJobs() }
         }
 
         @Deprecated("Deprecated in Java")
@@ -337,7 +547,7 @@ class BleLinkClient(
                     }
                 }
                 BleProtocol.TYPE_PONG -> {
-                    handler.post { listener.onDetail("Pong req=${frame.reqId}") }
+                    // Keep-alive ack; quiet in UI to avoid noise while locked.
                 }
                 BleProtocol.TYPE_ERROR -> {
                     val code = frame.payload.firstOrNull()?.toInt()?.and(0xFF) ?: -1
@@ -456,5 +666,10 @@ class BleLinkClient(
         private const val PREFS = "ble_link"
         private const val KEY_LAST_ADDR = "last_peer_address"
         private const val RESUME_LISTEN_DELAY_MS = 2000L
+        private const val SCAN_WATCHDOG_MS = 25_000L
+        private const val SCAN_RETRY_AFTER_FAIL_MS = 5_000L
+        private const val KEEP_ALIVE_MS = 25_000L
+        /** Renewed while listening/connected; release on full stop. */
+        private const val WAKE_LOCK_TIMEOUT_MS = 60 * 60 * 1000L
     }
 }

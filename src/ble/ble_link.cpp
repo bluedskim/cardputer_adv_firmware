@@ -223,8 +223,19 @@ bool BleLink::startAdvertising() {
     NimBLEAdvertising* advertising = NimBLEDevice::getAdvertising();
     advertising->stop();
     advertising->reset();
-    advertising->setName(ble_protocol::kDeviceName);
-    advertising->addServiceUUID(ble_protocol::kServiceUuid);
+
+    // Primary ADV must carry the local name: Companion Device Manager often does
+    // passive scans (no scan-response). 128-bit UUID + name does not fit in 31 B,
+    // so put the name in ADV and the service UUID only in the scan response.
+    NimBLEAdvertisementData adv;
+    adv.setFlags(BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP);
+    adv.setName(ble_protocol::kDeviceName);
+    advertising->setAdvertisementData(adv);
+
+    NimBLEAdvertisementData scan_rsp;
+    scan_rsp.setCompleteServices(NimBLEUUID(ble_protocol::kServiceUuid));
+    advertising->setScanResponseData(scan_rsp);
+
     advertising->setScanResponse(true);
     advertising->start();
     return true;

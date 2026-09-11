@@ -27,15 +27,27 @@
         app:layout_constraintTop_toBottomOf="@id/statusText" />
 
     <com.google.android.material.button.MaterialButton
-        android:id="@+id/scanButton"
+        android:id="@+id/linkButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
-        android:text="@string/scan"
-        app:layout_constraintEnd_toStartOf="@id/disconnectButton"
+        android:text="@string/link_device"
+        app:layout_constraintEnd_toStartOf="@id/scanButton"
         app:layout_constraintHorizontal_weight="1"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/detailText" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/scanButton"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:text="@string/scan"
+        app:layout_constraintEnd_toStartOf="@id/disconnectButton"
+        app:layout_constraintHorizontal_weight="1"
+        app:layout_constraintStart_toEndOf="@id/linkButton"
+        app:layout_constraintTop_toTopOf="@id/linkButton" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/disconnectButton"
@@ -47,7 +59,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_weight="1"
         app:layout_constraintStart_toEndOf="@id/scanButton"
-        app:layout_constraintTop_toTopOf="@id/scanButton" />
+        app:layout_constraintTop_toTopOf="@id/linkButton" />
 
     <TextView
         android:id="@+id/presetsTitle"
@@ -59,7 +71,7 @@
         android:textSize="15sp"
         app:layout_constraintEnd_toStartOf="@id/addPresetButton"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/scanButton" />
+        app:layout_constraintTop_toBottomOf="@id/linkButton" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/addPresetButton"

@@ -2,59 +2,54 @@
 
 BLE central for [cardputer_adv_firmware](../README.md): M1 link + **HTTP Web commander** presets.
 
-- Foreground service keeps **Listening** while the screen is locked or the UI is backgrounded (ongoing notification)
-- Remembers last peer address for faster reconnect; **Scan** forces a fresh search
-- HTTP presets on phone (name, URL, method, headers, body)
-- Serves `HttpList*` / `HttpRun*` when the Cardputer **Web** app requests them
-- No notification mirror or SSH yet (M3/M4)
+Designed like a **smartwatch companion** (Mi Band–style):
+
+1. **Link** once via Android Companion Device Manager
+2. System **device presence** wakes the app when CardputerAdv advertises (lock screen / background)
+3. Foreground service + GATT Ping keep the session alive while connected
+
+Also: HTTP presets on phone; serves `HttpList*` / `HttpRun*` for the Cardputer **Web** app. No notification mirror or SSH yet (M3/M4).
 
 Protocol: [docs/ble_link.md](../docs/ble_link.md). UUIDs must match `include/ble/ble_protocol.h` and `BleProtocol.kt`.
 
 ## Requirements
 
 - Android Studio Ladybug+ (AGP 8.7)
-- Device/emulator with BLE (physical device recommended)
-- minSdk **31** (Android 12) for `BLUETOOTH_SCAN` / `BLUETOOTH_CONNECT`
-- `INTERNET` for preset HTTP execution
-- `POST_NOTIFICATIONS` (Android 13+) for the link foreground service
+- Physical BLE device (emulator is weak for companion presence)
+- minSdk **31** (Android 12)
+- Location services **on** (required by Companion Device Manager association UI)
+- Unrestricted battery recommended on OEM phones
 
 ## Build
 
 ```bash
 cd companion
-# Prefer Android Studio: Open this folder → Sync → Run 'app'
-./gradlew :app:assembleDebug   # requires Android SDK (ANDROID_HOME or local.properties sdk.dir)
+./gradlew :app:assembleDebug
 ```
 
-`local.properties` is gitignored. Example:
+`local.properties` example: `sdk.dir=/home/YOU/Android/Sdk`
 
-```
-sdk.dir=/home/YOU/Android/Sdk
-```
+## Watch-style setup
 
-If the Gradle wrapper jar is missing, use Android Studio’s Gradle sync or install Gradle 8.9 and run `gradle wrapper`.
-
-## Pairing / reconnect flow
-
-1. Open Companion → allow Bluetooth **and notification** permissions → status **Listening…** (notification appears).
-2. On Cardputer: **Settings → BLE → Pair** (first time) or **Connect** / open **Web**.
-3. Phone connects when it sees advertising; `Hello OK — firmware …`
-4. Screen lock / leave the app: service keeps listening (swipe notification **Disconnect** or in-app Disconnect to stop).
-5. Device or phone **Disconnect** stops the link; tap **Scan** or reopen Companion to listen again.
-6. **Forget** on device clears bond; use **Scan** if needed after re-pair.
+1. On Cardputer: **Settings → BLE → Pair** (first time), then leave advertising (Pair/Connect or open **Web**).
+2. Open Companion → grant Bluetooth + notifications → tap **Link**.
+3. System chooser: select **CardputerAdv** → association created → status **Linked — waiting…**
+4. Allow **unrestricted battery** when prompted.
+5. Lock the phone. Open **Web** on Cardputer — phone should wake via presence and connect.
+6. **Stop** ends the foreground session but **keeps the link** (presence can wake again). Long-press **Stop** → **Unlink** to remove association.
+7. **Scan** is a manual force-rescan fallback (no new association).
 
 ## Web commander
 
 1. Edit presets in the Companion list (defaults included).
-2. Companion listening (UI or lock screen) → open **Web** on Cardputer.
-3. Phone performs HTTPS; truncated body (≤512 B) is chunked over BLE to the device.
-4. Leaving **Web** disconnects BLE on device; Companion resumes listening while the service runs.
+2. Linked Companion (UI, lock screen, or presence-woken) → open **Web** on Cardputer.
+3. Phone performs HTTPS; body ≤512 B chunked over BLE.
+4. Leaving **Web** disconnects on device; phone waits again via presence/autoConnect.
 
 See [docs/m2_verify.md](../docs/m2_verify.md).
 
-## Permissions
+## Permissions / OEM notes
 
-- Denied Bluetooth / notification permissions → status explains what is needed.
-- Bluetooth off → prompts to enable.
-- Internet required to execute HTTP presets.
-- Some OEMs still restrict background BLE; allow unrestricted battery for Companion if needed.
+- Companion permissions: run/use-data/start-FGS-from-background + observe presence
+- Battery: Settings → Apps → Companion → Battery → Unrestricted
+- Samsung/Xiaomi: also check Sleeping apps / Autostart if presence never fires

@@ -1,24 +1,31 @@
 package com.cardputer.companion
 
 import android.Manifest
+import android.app.Activity
 import android.bluetooth.BluetoothAdapter
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.IntentSender
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.os.PowerManager
+import android.provider.Settings
 import android.view.LayoutInflater
 import android.widget.ArrayAdapter
 import android.widget.Toast
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.cardputer.companion.databinding.ActivityMainBinding
 import com.cardputer.companion.databinding.DialogPresetBinding
+import java.util.concurrent.Executor
 
 class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
     private lateinit var binding: ActivityMainBinding
@@ -27,9 +34,11 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
     private lateinit var listAdapter: ArrayAdapter<String>
     private var resumeListenAfterBtEnable = false
     private var forceRescanPending = false
+    private var associateAfterBt = false
 
     private var bleService: BleLinkService? = null
     private var bound = false
+    private val mainExecutor: Executor = Executor { it.run() }
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
@@ -56,7 +65,12 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
             val granted = result.values.all { it }
             if (granted) {
-                ensureBtAndListen(forceRescan = forceRescanPending)
+                if (associateAfterBt) {
+                    associateAfterBt = false
+                    ensureBtAndAssociate()
+                } else {
+                    ensureBtAndListen(forceRescan = forceRescanPending)
+                }
             } else {
                 binding.statusText.text = getString(R.string.permission_needed)
             }
@@ -65,12 +79,36 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
     private val enableBtLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             if (isBluetoothEnabled()) {
-                startLinkService(forceRescan = !resumeListenAfterBtEnable && forceRescanPending)
+                if (associateAfterBt) {
+                    associateAfterBt = false
+                    beginAssociate()
+                } else {
+                    startLinkService(forceRescan = !resumeListenAfterBtEnable && forceRescanPending)
+                }
             } else {
                 binding.statusText.text = getString(R.string.bt_off)
             }
             resumeListenAfterBtEnable = false
             forceRescanPending = false
+        }
+
+    private val associateChooserLauncher =
+        registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+            if (result.resultCode != Activity.RESULT_OK) {
+                binding.statusText.text = getString(R.string.associate_failed, "cancelled")
+                return@registerForActivityResult
+            }
+            val addr = CompanionAssociation.addressFromChooserResult(result.data)
+            if (addr != null) {
+                onAssociated(addr)
+            } else if (CompanionAssociation.isAssociated(this)) {
+                val linked = CompanionAssociation.primaryAddress(this)
+                if (linked != null) onAssociated(linked)
+                else startLinkService(forceRescan = false)
+            } else {
+                // API 33+ may deliver address only via onAssociationCreated.
+                startLinkService(forceRescan = false)
+            }
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -86,10 +124,15 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
         binding.presetList.adapter = listAdapter
         refreshPresetList()
 
+        binding.linkButton.setOnClickListener { requestPermissionsAndAssociate() }
         binding.scanButton.setOnClickListener { requestPermissionsAndScan(force = true) }
         binding.disconnectButton.setOnClickListener {
             BleLinkService.stop(this)
             binding.statusText.text = getString(R.string.disconnected)
+        }
+        binding.disconnectButton.setOnLongClickListener {
+            confirmUnlink()
+            true
         }
         binding.addPresetButton.setOnClickListener {
             if (presets.size >= BleProtocol.HTTP_MAX_PRESETS) {
@@ -114,7 +157,12 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
     override fun onStart() {
         super.onStart()
         if (hasBlePermissions()) {
-            ensureBtAndListen(forceRescan = false)
+            if (CompanionAssociation.isAssociated(this)) {
+                CompanionAssociation.startObserving(this)
+                ensureBtAndListen(forceRescan = false)
+            } else {
+                binding.statusText.text = getString(R.string.status_idle)
+            }
         } else {
             binding.statusText.text = getString(R.string.status_idle)
         }
@@ -129,10 +177,6 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
         }
         // Do not stop the foreground service — keep listening while locked/background.
         super.onStop()
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
     }
 
     private fun isBluetoothEnabled(): Boolean {
@@ -225,8 +269,41 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
             .show()
     }
 
+    private fun confirmUnlink() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.unlink)
+            .setMessage(R.string.unlink_confirm)
+            .setPositiveButton(R.string.unlink) { _, _ ->
+                BleLinkService.unlink(this)
+                binding.statusText.text = getString(R.string.status_idle)
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
     private fun requestPermissionsAndScan(force: Boolean) {
         forceRescanPending = force
+        associateAfterBt = false
+        val missing = missingBlePermissions()
+        if (missing.isEmpty()) {
+            ensureBtAndListen(forceRescan = force)
+        } else {
+            permissionLauncher.launch(missing.toTypedArray())
+        }
+    }
+
+    private fun requestPermissionsAndAssociate() {
+        associateAfterBt = true
+        forceRescanPending = false
+        val missing = missingBlePermissions()
+        if (missing.isEmpty()) {
+            ensureBtAndAssociate()
+        } else {
+            permissionLauncher.launch(missing.toTypedArray())
+        }
+    }
+
+    private fun missingBlePermissions(): List<String> {
         val needed = mutableListOf(
             Manifest.permission.BLUETOOTH_SCAN,
             Manifest.permission.BLUETOOTH_CONNECT
@@ -234,13 +311,8 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
         if (Build.VERSION.SDK_INT >= 33) {
             needed.add(Manifest.permission.POST_NOTIFICATIONS)
         }
-        val missing = needed.filter {
+        return needed.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
-        }
-        if (missing.isEmpty()) {
-            ensureBtAndListen(forceRescan = force)
-        } else {
-            permissionLauncher.launch(missing.toTypedArray())
         }
     }
 
@@ -253,6 +325,76 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
             return
         }
         startLinkService(forceRescan)
+    }
+
+    private fun ensureBtAndAssociate() {
+        if (!isBluetoothEnabled()) {
+            binding.statusText.text = getString(R.string.bt_off)
+            associateAfterBt = true
+            enableBtLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+            return
+        }
+        beginAssociate()
+    }
+
+    private fun beginAssociate() {
+        val lm = getSystemService(Context.LOCATION_SERVICE) as? android.location.LocationManager
+        val locationOn = lm != null && (
+            lm.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER) ||
+                lm.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
+            )
+        if (!locationOn) {
+            binding.statusText.text = getString(R.string.associate_need_location)
+            Toast.makeText(this, R.string.associate_need_location, Toast.LENGTH_LONG).show()
+            try {
+                startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+            } catch (_: Exception) {
+            }
+            return
+        }
+
+        // Connected GATT ⇒ device stopped advertising ⇒ CDM list stays empty forever.
+        if (bleService?.client?.isConnected() == true) {
+            AlertDialog.Builder(this)
+                .setTitle(R.string.associate_while_connected_title)
+                .setMessage(R.string.associate_while_connected)
+                .setPositiveButton(R.string.associate_stop_now) { _, _ ->
+                    BleLinkService.stop(this)
+                    binding.statusText.text = getString(R.string.disconnected)
+                    Toast.makeText(this, R.string.associate_hint, Toast.LENGTH_LONG).show()
+                }
+                .setNegativeButton(R.string.cancel, null)
+                .show()
+            return
+        }
+
+        Toast.makeText(this, R.string.associate_hint, Toast.LENGTH_LONG).show()
+        val preferred = bleService?.client?.lastPeerAddress()
+            ?: CompanionAssociation.primaryAddress(this)
+            ?: CompanionAssociation.rememberedAddress(this)
+
+        CompanionAssociation.associate(
+            context = this,
+            executor = mainExecutor,
+            onPending = { sender: IntentSender ->
+                associateChooserLauncher.launch(IntentSenderRequest.Builder(sender).build())
+            },
+            onCreated = { addr -> onAssociated(addr) },
+            onFailure = { err ->
+                binding.statusText.text =
+                    getString(R.string.associate_failed, err?.toString() ?: "unknown")
+                Toast.makeText(this, R.string.associate_try_scan_first, Toast.LENGTH_LONG).show()
+            },
+            preferredAddress = preferred
+        )
+    }
+
+    private fun onAssociated(address: String) {
+        CompanionAssociation.saveAddress(this, address)
+        CompanionAssociation.startObserving(this)
+        Toast.makeText(this, getString(R.string.associate_ok, address), Toast.LENGTH_SHORT).show()
+        startLinkService(forceRescan = false)
+        maybePromptBatteryExemption()
     }
 
     private fun startLinkService(forceRescan: Boolean) {
@@ -275,6 +417,35 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
             bleService?.client?.startListening(forceRescan = false)
             forceRescanPending = false
         }
+        maybePromptBatteryExemption()
+    }
+
+    /**
+     * OEM Doze / battery savers freeze BLE even with companion presence on some phones.
+     * Ask once for unrestricted battery use.
+     */
+    private fun maybePromptBatteryExemption() {
+        val pm = getSystemService(PowerManager::class.java) ?: return
+        if (pm.isIgnoringBatteryOptimizations(packageName)) return
+        val prefs = getSharedPreferences("companion_ui", MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_BATTERY_PROMPT_SHOWN, false)) return
+        prefs.edit().putBoolean(KEY_BATTERY_PROMPT_SHOWN, true).apply()
+        AlertDialog.Builder(this)
+            .setTitle(R.string.battery_title)
+            .setMessage(R.string.battery_message)
+            .setPositiveButton(R.string.battery_allow) { _, _ ->
+                try {
+                    startActivity(
+                        Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                            data = Uri.parse("package:$packageName")
+                        }
+                    )
+                } catch (_: Exception) {
+                    startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                }
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
     }
 
     override fun presets(): List<HttpPreset> = presets.toList()
@@ -293,6 +464,10 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
     }
 
     override fun onDisconnected() {
-        // Service keeps listening for the next advertise.
+        // Presence / autoConnect resumes when Cardputer advertises again.
+    }
+
+    companion object {
+        private const val KEY_BATTERY_PROMPT_SHOWN = "battery_opt_prompt_shown"
     }
 }

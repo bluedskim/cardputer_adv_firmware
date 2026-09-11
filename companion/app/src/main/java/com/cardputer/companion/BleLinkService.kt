@@ -5,8 +5,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.os.Binder
 import android.os.Build
@@ -36,12 +38,33 @@ class BleLinkService : Service(), BleLinkClient.Listener {
     var lastDetail: String = ""
         private set
 
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_SCREEN_ON,
+                Intent.ACTION_SCREEN_OFF,
+                Intent.ACTION_USER_PRESENT -> client.refreshScanIfListening()
+            }
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         instance = this
         store = PresetStore(this)
         client = BleLinkClient(applicationContext, this)
         startInForeground(getString(R.string.listening))
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_USER_PRESENT)
+        }
+        ContextCompat.registerReceiver(
+            this,
+            screenReceiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -53,6 +76,14 @@ class BleLinkService : Service(), BleLinkClient.Listener {
             }
             ACTION_SCAN -> client.startScan()
             ACTION_LISTEN -> client.startListening(forceRescan = false)
+            ACTION_APPEAR -> {
+                val addr = intent.getStringExtra(EXTRA_ADDRESS)
+                if (!addr.isNullOrBlank()) {
+                    client.onAssociatedDeviceAppeared(addr)
+                } else {
+                    client.startListening(forceRescan = false)
+                }
+            }
             else -> {
                 if (!client.isConnected()) {
                     client.startListening(forceRescan = false)
@@ -65,6 +96,10 @@ class BleLinkService : Service(), BleLinkClient.Listener {
     override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onDestroy() {
+        try {
+            unregisterReceiver(screenReceiver)
+        } catch (_: IllegalArgumentException) {
+        }
         client.disconnect(resumeListen = false)
         if (instance === this) {
             instance = null
@@ -134,6 +169,7 @@ class BleLinkService : Service(), BleLinkClient.Listener {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .addAction(0, getString(R.string.disconnect), stop)
             .build()
     }
@@ -170,18 +206,31 @@ class BleLinkService : Service(), BleLinkClient.Listener {
         const val ACTION_STOP = "com.cardputer.companion.action.STOP"
         const val ACTION_LISTEN = "com.cardputer.companion.action.LISTEN"
         const val ACTION_SCAN = "com.cardputer.companion.action.SCAN"
+        const val ACTION_APPEAR = "com.cardputer.companion.action.APPEAR"
+        const val EXTRA_ADDRESS = "address"
 
         @Volatile
         var instance: BleLinkService? = null
             private set
 
         fun startListening(context: Context) {
+            CompanionAssociation.startObserving(context)
             val intent = Intent(context, BleLinkService::class.java).setAction(ACTION_LISTEN)
             ContextCompat.startForegroundService(context, intent)
         }
 
         fun startScan(context: Context) {
             val intent = Intent(context, BleLinkService::class.java).setAction(ACTION_SCAN)
+            ContextCompat.startForegroundService(context, intent)
+        }
+
+        /** Called from CompanionDeviceService when linked CardputerAdv is nearby. */
+        fun onAssociatedDeviceAppeared(context: Context, address: String) {
+            CompanionAssociation.saveAddress(context, address)
+            CompanionAssociation.startObserving(context)
+            val intent = Intent(context, BleLinkService::class.java)
+                .setAction(ACTION_APPEAR)
+                .putExtra(EXTRA_ADDRESS, address)
             ContextCompat.startForegroundService(context, intent)
         }
 
@@ -193,6 +242,12 @@ class BleLinkService : Service(), BleLinkClient.Listener {
             } else {
                 context.stopService(Intent(context, BleLinkService::class.java))
             }
+            // Keep CDM association + presence (watch stays linked).
+        }
+
+        fun unlink(context: Context) {
+            stop(context)
+            CompanionAssociation.disassociateAll(context)
         }
     }
 }
