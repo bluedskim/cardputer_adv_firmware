@@ -17,7 +17,7 @@
     <string name="connecting">Connecting…</string>
     <string name="connected_waiting_hello">Connected — waiting for Hello…</string>
     <string name="hello_ok">Hello OK — firmware %1$s</string>
-    <string name="disconnected">Stopped (still linked if previously associated)</string>
+    <string name="disconnected">Stopped — linked standby (Web site select still works)</string>
     <string name="associate_hint">On Cardputer open Settings→BLE→Connect (or Web), keep it advertising, then pick CardputerAdv. Phone Location must be ON.</string>
     <string name="associate_need_location">Turn on Location (GPS) — required for the Link device list.</string>
     <string name="associate_while_connected_title">Stop connection first</string>

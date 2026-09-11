@@ -1,6 +1,6 @@
 # M2 verify — Web commander (HTTP templates)
 
-Prerequisites: M1 pairing works ([m1_verify.md](m1_verify.md)). Companion build ≥ `0.4.0-m2`. Firmware ≥ `0.5.3-dev` with **Web** app.
+Prerequisites: M1 pairing works ([m1_verify.md](m1_verify.md)). Companion build ≥ `0.4.4-m2`. Firmware ≥ `0.5.5-dev` with **Web** app.
 
 ## Companion presets
 
@@ -19,7 +19,7 @@ Prerequisites: M1 pairing works ([m1_verify.md](m1_verify.md)). Companion build 
 6. **Stop** ends FGS only; long-press **Stop** → **Unlink** clears companion association.
 7. **Scan** = manual force search (fallback if presence is slow).
 
-Companion ≥ `0.4.0-m2`: Companion Device Manager + `CompanionDeviceService` presence, `autoConnect` when linked, Ping keep-alive, wake lock.
+Companion ≥ `0.4.4-m2`: while **Linked**, **Stop** keeps standby listening (session drop only) so Web site-select still works. Firmware ≥ `0.5.5-dev` uses a stable public BLE address.
 
 ## Device flow
 

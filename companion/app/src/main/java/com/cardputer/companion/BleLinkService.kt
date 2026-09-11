@@ -70,6 +70,13 @@ class BleLinkService : Service(), BleLinkClient.Listener {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
+                // Linked (watch-style): drop the session but keep waiting so Web → site
+                // works without reopening the phone app. Presence alone is too slow/flaky.
+                if (CompanionAssociation.isAssociated(this)) {
+                    CompanionAssociation.startObserving(this)
+                    client.disconnect(resumeListen = true)
+                    return START_STICKY
+                }
                 client.disconnect(resumeListen = false)
                 stopSelf()
                 return START_NOT_STICKY
@@ -235,6 +242,16 @@ class BleLinkService : Service(), BleLinkClient.Listener {
         }
 
         fun stop(context: Context) {
+            if (CompanionAssociation.isAssociated(context)) {
+                CompanionAssociation.startObserving(context)
+                val running = instance
+                if (running != null) {
+                    running.client.disconnect(resumeListen = true)
+                } else {
+                    startListening(context)
+                }
+                return
+            }
             val running = instance
             if (running != null) {
                 running.client.disconnect(resumeListen = false)
@@ -242,7 +259,6 @@ class BleLinkService : Service(), BleLinkClient.Listener {
             } else {
                 context.stopService(Intent(context, BleLinkService::class.java))
             }
-            // Keep CDM association + presence (watch stays linked).
         }
 
         fun unlink(context: Context) {

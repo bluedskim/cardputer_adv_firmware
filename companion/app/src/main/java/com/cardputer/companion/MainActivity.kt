@@ -128,7 +128,7 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
         binding.scanButton.setOnClickListener { requestPermissionsAndScan(force = true) }
         binding.disconnectButton.setOnClickListener {
             BleLinkService.stop(this)
-            binding.statusText.text = getString(R.string.disconnected)
+            // Status comes from service (linked standby → Listening…).
         }
         binding.disconnectButton.setOnLongClickListener {
             confirmUnlink()

@@ -439,6 +439,12 @@ class BleLinkClient(
                 connecting = false
                 rememberAddress(gatt.device.address)
                 try {
+                    if (gatt.device.bondState == BluetoothDevice.BOND_NONE) {
+                        gatt.device.createBond()
+                    }
+                } catch (_: SecurityException) {
+                }
+                try {
                     gatt.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_HIGH)
                 } catch (_: SecurityException) {
                 }

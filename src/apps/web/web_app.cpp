@@ -16,7 +16,7 @@ constexpr int kContentTop = config::kContentTop;
 constexpr int kLineHeight = 16;
 constexpr int kListTop = kContentTop + 4;
 constexpr int kFooterH = config::kFooterHeight;
-constexpr uint32_t kConnectWaitMs = 15000;
+constexpr uint32_t kConnectWaitMs = 30000;
 constexpr int kResultCols = 18;
 
 bool isBackKey(const Keyboard_Class::KeysState& status) {

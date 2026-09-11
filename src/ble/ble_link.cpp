@@ -197,6 +197,9 @@ bool BleLink::ensureStack() {
     }
 
     NimBLEDevice::init(ble_protocol::kDeviceName);
+    // Stable public MAC so Android Companion presence / Link address keeps matching
+    // across advertise sessions (RPA changes break Stop → Web site-select).
+    NimBLEDevice::setOwnAddrType(BLE_OWN_ADDR_PUBLIC);
     NimBLEDevice::setPower(ESP_PWR_LVL_P3);
     NimBLEDevice::setSecurityAuth(true, true, true);
     NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
