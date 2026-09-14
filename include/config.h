@@ -4,7 +4,7 @@
 
 namespace config {
 
-    constexpr const char* kFirmwareVersion = "0.5.5-dev";
+    constexpr const char* kFirmwareVersion = "0.5.9-dev";
 
 constexpr uint32_t kTorchDefaultTimeoutSec = 600;
 constexpr uint32_t kTorchMaxTimeoutSec = 3600;
@@ -18,7 +18,7 @@ constexpr uint8_t kMaxTimers = 8;
 constexpr uint8_t kTimerMaxHours = 23;
 
 constexpr uint8_t kMaxStopwatchHistory = 10;
-constexpr uint8_t kDefaultSleepOptionIndex = 2;
+constexpr uint8_t kDefaultSleepOptionIndex = 3;  // 5 min (Immediate, 30s, 1m, 5m, …)
 constexpr uint8_t kDefaultBrightnessOptionIndex = 2;  // 128
 constexpr const char* kTimerStorageNamespace = "card_adv_tm";
 constexpr const char* kStopwatchStorageNamespace = "card_adv_sw";

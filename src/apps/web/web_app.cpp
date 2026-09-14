@@ -195,11 +195,25 @@ bool WebApp::ensureBle(Pending pending) {
     pending_ = pending;
     connect_failed_ = false;
 
-    // Settings may already show Connected — request list immediately on GATT up.
+    // Settings may already show Connected — still wait for Hello before HTTP.
     if (link.isLinkUp()) {
         link.startConnect();  // refresh accept_peers_ / Hello if needed
-        flushPending();
-        return true;
+        if (link.isReady()) {
+            flushPending();
+            return true;
+        }
+        // Connected but Hello in flight — keep pending_ until onUpdate sees ready.
+        connect_started_ms_ = millis();
+        setFooter("Connecting…");
+        if (pending == Pending::Run) {
+            if (pending_run_index_ < preset_count_) {
+                setActiveSite(presets_[pending_run_index_]);
+            }
+            screen_ = Screen::Running;
+            awaiting_run_ = true;
+        }
+        markDirty();
+        return false;
     }
 
     connect_started_ms_ = millis();

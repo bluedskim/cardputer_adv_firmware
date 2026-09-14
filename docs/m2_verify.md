@@ -1,6 +1,6 @@
 # M2 verify — Web commander (HTTP templates)
 
-Prerequisites: M1 pairing works ([m1_verify.md](m1_verify.md)). Companion build ≥ `0.4.4-m2`. Firmware ≥ `0.5.5-dev` with **Web** app.
+Prerequisites: M1 pairing works ([m1_verify.md](m1_verify.md)). Companion build ≥ `0.4.4-m2`. Firmware ≥ `0.5.6-dev` with **Web** app.
 
 ## Companion presets
 

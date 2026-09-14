@@ -14,6 +14,8 @@ public:
     const char* sleepOptionLabel(uint8_t index) const;
     uint8_t sleepOptionCount() const;
     void cycleSleepOption(int delta);
+    /** If Sleep is Immediate, switch to 30 sec after wake so the screen stays usable. */
+    bool promoteImmediateToThirtySec();
 
     uint8_t brightnessOptionIndex() const { return brightness_option_index_; }
     uint8_t brightness() const;
@@ -30,6 +32,6 @@ private:
     bool save() const;
     void clampIndices();
 
-    uint8_t sleep_option_index_ = 2;
+    uint8_t sleep_option_index_ = 3;
     uint8_t brightness_option_index_ = 2;
 };

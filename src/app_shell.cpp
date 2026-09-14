@@ -258,6 +258,8 @@ void AppShell::wakeDisplay() {
                                                    : SystemSettings::instance().brightness();
     M5Cardputer.Display.setBrightness(restore);
     display_asleep_ = false;
+    // Immediate is "sleep soon once"; after wake, fall back to 30 sec.
+    SystemSettings::instance().promoteImmediateToThirtySec();
     noteUserActivity();
     ignore_keys_until_release_ = true;
     resetKeyboardTracker(keyboard_tracker_);

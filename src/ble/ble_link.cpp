@@ -215,6 +215,8 @@ bool BleLink::ensureStack() {
         ble_protocol::kRxUuid, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR);
     g_rx->setCallbacks(&g_rx_callbacks);
     g_service->start();
+    // Cold boot: give the controller a beat before the first advertise.
+    delay(100);
     stack_ready_ = true;
     return true;
 }

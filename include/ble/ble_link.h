@@ -29,8 +29,8 @@ public:
     State state() const { return state_; }
     bool isPaired() const { return paired_; }
     bool isLinkUp() const { return state_ == State::Connected; }
-    // GATT connected — app frames (HTTP) may be sent; Hello may still be in flight.
-    bool isReady() const { return state_ == State::Connected; }
+    // Phone CCCD + HelloAck done — safe to send HTTP frames (notifies are not dropped).
+    bool isReady() const { return state_ == State::Connected && hello_ok_; }
     bool helloOk() const { return hello_ok_; }
     void resendHello();
     bool blocksLightSleep() const;

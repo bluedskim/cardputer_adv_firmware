@@ -163,7 +163,8 @@ pio device list
 화면 순서상 **맨 마지막** 앱입니다. Sleep·밝기·BLE 링크를 다루고, 배터리·펌웨어 정보를 표시합니다.
 
 - `↑` `↓` — Sleep / Bright / BLE 이동 · Sleep에서 `↑` → 크롬
-- `←` `→` — Sleep: 30초 / 1분 / **5분** / 10분 · Bright: 32 / 64 / **128** / 192 / 255
+- `←` `→` — Sleep: **Immediate** / 30초 / 1분 / **5분** / 10분 / **Never** · Bright: 32 / 64 / **128** / 192 / 255
+  - Immediate: 곧 화면 OFF. 키로 깨면 Sleep이 자동으로 **30 sec**로 바뀜 (다시 쓰려면 Immediate 재선택)
 - **BLE 행:** 상태 요약 표시 (`Off Unpaired` / `Off Paired` / `Pairing` / `Connecting` / `Connected` · sim은 `N/A`). `Enter` → BLE 서브화면
 - **BLE 서브화면**
   - 상태·peer(있을 때) 표시
@@ -284,7 +285,7 @@ pio device monitor
 | `kMaxTimers` | 8 | 저장 가능한 타이머 수 |
 | `kTimerMaxHours` | 23 | 타이머 시간 상한 |
 | `kMaxStopwatchHistory` | 10 | 스톱워치 이력 최대 건수 |
-| `kDefaultSleepOptionIndex` | 2 | Sleep 기본값 (5분) |
+| `kDefaultSleepOptionIndex`      | 3    | Sleep 기본값 (5분; Immediate·Never 포함) |
 | `kDefaultBrightnessOptionIndex` | 2 | Bright 기본값 (128) |
 | `kBleIdleDisconnectSec` | 60 | BLE 연결/광고 무트래픽 후 radio off (초) |
 

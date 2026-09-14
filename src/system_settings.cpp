@@ -11,8 +11,11 @@
 
 namespace {
 
-constexpr uint32_t kSleepTimeoutsSec[] = {30, 60, 300, 600};
-constexpr const char* kSleepLabels[] = {"30 sec", "1 min", "5 min", "10 min"};
+// 0 timeout = never sleep (see AppShell::maybeSleepDisplay).
+constexpr uint32_t kSleepTimeoutsSec[] = {1, 30, 60, 300, 600, 0};
+constexpr const char* kSleepLabels[] = {
+    "Immediate", "30 sec", "1 min", "5 min", "10 min", "Never"};
+constexpr uint8_t kSleepOptionsVer = 1;
 
 constexpr uint8_t kBrightnessLevels[] = {32, 64, 128, 192, 255};
 
@@ -42,7 +45,14 @@ void SystemSettings::load() {
     sleep_option_index_ = prefs.getUChar("sleep_idx", config::kDefaultSleepOptionIndex);
     brightness_option_index_ =
         prefs.getUChar("bright_idx", config::kDefaultBrightnessOptionIndex);
+    const uint8_t sleep_ver = prefs.getUChar("sleep_ver", 0);
     prefs.end();
+
+    // v0: 30s/1m/5m/10m at indices 0..3 → v1 inserts Immediate at 0.
+    if (sleep_ver < kSleepOptionsVer && sleep_option_index_ <= 3) {
+        sleep_option_index_ = static_cast<uint8_t>(sleep_option_index_ + 1);
+    }
+
     clampIndices();
 }
 
@@ -53,6 +63,7 @@ bool SystemSettings::save() const {
     }
 
     prefs.putUChar("sleep_idx", sleep_option_index_);
+    prefs.putUChar("sleep_ver", kSleepOptionsVer);
     prefs.putUChar("bright_idx", brightness_option_index_);
     prefs.end();
     return true;
@@ -100,6 +111,21 @@ void SystemSettings::cycleSleepOption(const int delta) {
 
     sleep_option_index_ = static_cast<uint8_t>(next);
     save();
+}
+
+bool SystemSettings::promoteImmediateToThirtySec() {
+    // Immediate is the only 1-second option.
+    if (sleepTimeoutSec() != 1) {
+        return false;
+    }
+    for (uint8_t i = 0; i < sleepOptionCount(); ++i) {
+        if (kSleepTimeoutsSec[i] == 30) {
+            sleep_option_index_ = i;
+            save();
+            return true;
+        }
+    }
+    return false;
 }
 
 uint8_t SystemSettings::brightness() const {
