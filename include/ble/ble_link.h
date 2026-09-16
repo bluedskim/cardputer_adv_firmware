@@ -29,8 +29,8 @@ public:
     State state() const { return state_; }
     bool isPaired() const { return paired_; }
     bool isLinkUp() const { return state_ == State::Connected; }
-    // Phone CCCD + HelloAck done — safe to send HTTP frames (notifies are not dropped).
-    bool isReady() const { return state_ == State::Connected && hello_ok_; }
+    // Phone CCCD + HelloAck + short settle — first notifies after power-cycle are flaky.
+    bool isReady() const;
     bool helloOk() const { return hello_ok_; }
     void resendHello();
     bool blocksLightSleep() const;
@@ -80,6 +80,7 @@ private:
     State state_ = State::Off;
     bool paired_ = false;
     bool hello_ok_ = false;
+    uint32_t hello_ok_ms_ = 0;
     bool stack_ready_ = false;
     // True only while Pair/Connect/Web intentionally wants inbound links.
     bool accept_peers_ = false;

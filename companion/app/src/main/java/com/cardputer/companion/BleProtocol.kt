@@ -40,7 +40,7 @@ object BleProtocol {
     const val ERR_BLE_NOT_READY: Int = 0x12
     const val ERR_NO_PRESETS: Int = 0x13
 
-    const val APP_VERSION = "0.4.4-m2"
+    const val APP_VERSION = "0.4.9-m2"
 
     data class Frame(
         val type: Byte,

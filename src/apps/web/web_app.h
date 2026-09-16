@@ -54,11 +54,13 @@ private:
     void ensureCursorVisible();
     void onConnectFailed();
     void onListFailed(const char* footer_msg);
+    void onRunFailed(const char* footer_msg);
+    void retryRunOrFail();
 
     Screen screen_ = Screen::List;
     Pending pending_ = Pending::None;
     uint8_t pending_run_index_ = 0;
-    char footer_[28] = {};
+    char footer_[40] = {};
     char presets_[config::kHttpMaxPresets][config::kHttpNameMax + 1] = {};
     char active_site_[config::kHttpNameMax + 1] = {};
     uint8_t preset_count_ = 0;
@@ -73,12 +75,17 @@ private:
     uint16_t result_scroll_ = 0;
     bool awaiting_list_ = false;
     bool awaiting_run_ = false;
+    bool run_got_meta_ = false;
     bool dirty_ = true;
     bool pending_chrome_focus_ = false;
     bool pending_content_focus_ = false;
     bool chrome_focused_ = false;
     bool was_ready_ = false;
     bool connect_failed_ = false;
+    uint8_t connect_retries_ = 0;
+    uint8_t list_retries_ = 0;
+    uint8_t run_retries_ = 0;
     uint32_t connect_started_ms_ = 0;
     uint32_t list_started_ms_ = 0;
+    uint32_t run_started_ms_ = 0;
 };

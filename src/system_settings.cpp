@@ -49,11 +49,18 @@ void SystemSettings::load() {
     prefs.end();
 
     // v0: 30s/1m/5m/10m at indices 0..3 → v1 inserts Immediate at 0.
-    if (sleep_ver < kSleepOptionsVer && sleep_option_index_ <= 3) {
-        sleep_option_index_ = static_cast<uint8_t>(sleep_option_index_ + 1);
+    bool migrated = false;
+    if (sleep_ver < kSleepOptionsVer) {
+        if (sleep_option_index_ <= 3) {
+            sleep_option_index_ = static_cast<uint8_t>(sleep_option_index_ + 1);
+        }
+        migrated = true;
     }
 
     clampIndices();
+    if (migrated) {
+        save();
+    }
 }
 
 bool SystemSettings::save() const {
@@ -113,13 +120,20 @@ void SystemSettings::cycleSleepOption(const int delta) {
     save();
 }
 
+bool SystemSettings::isImmediateSleep() const {
+    return sleep_option_index_ == 0 || sleepTimeoutSec() == 1;
+}
+
 bool SystemSettings::promoteImmediateToThirtySec() {
-    // Immediate is the only 1-second option.
-    if (sleepTimeoutSec() != 1) {
+    if (!isImmediateSleep()) {
         return false;
     }
+    // Prefer matching 30s by value so option order stays flexible.
     for (uint8_t i = 0; i < sleepOptionCount(); ++i) {
         if (kSleepTimeoutsSec[i] == 30) {
+            if (sleep_option_index_ == i) {
+                return false;
+            }
             sleep_option_index_ = i;
             save();
             return true;

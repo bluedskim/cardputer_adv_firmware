@@ -16,7 +16,11 @@ constexpr int kContentTop = config::kContentTop;
 constexpr int kLineHeight = 16;
 constexpr int kListTop = kContentTop + 4;
 constexpr int kFooterH = config::kFooterHeight;
-constexpr uint32_t kConnectWaitMs = 30000;
+constexpr uint32_t kConnectWaitMs = 35000;
+constexpr uint32_t kRunWaitMs = 12000;
+constexpr uint8_t kBleConnectRetries = 2;
+constexpr uint8_t kBleListRetries = 1;
+constexpr uint8_t kBleRunRetries = 2;
 constexpr int kResultCols = 18;
 
 bool isBackKey(const Keyboard_Class::KeysState& status) {
@@ -47,6 +51,10 @@ void WebApp::onEnter() {
     scroll_ = 0;
     was_ready_ = false;
     connect_failed_ = false;
+    connect_retries_ = 0;
+    list_retries_ = 0;
+    run_retries_ = 0;
+    run_got_meta_ = false;
     pending_content_focus_ = false;
     BleLink::instance().clearRxQueue();
 
@@ -60,30 +68,21 @@ void WebApp::onEnter() {
     }
     clearFooter();
     markDirty();
-    requestContentFocus();
+    // Stay on chrome — do not auto-select the first site.
     return;
 #endif
 
     // Keep last downloaded names even if BLE is down.
     loadPresetCache();
-    if (preset_count_ > 0) {
-        requestContentFocus();
-    }
 
     if (!BleLink::instance().isPaired()) {
-        setFooter(preset_count_ > 0 ? "Offline" : "Pair in Settings");
+        setFooter(preset_count_ > 0 ? "Phone offline - cached list" : "Pair phone in Settings");
         markDirty();
-        if (preset_count_ == 0) {
-            requestChromeFocus();
-        }
         return;
     }
 
     ensureBle(Pending::List);
     markDirty();
-    if (preset_count_ == 0) {
-        requestChromeFocus();
-    }
 }
 
 void WebApp::onExit() {
@@ -170,7 +169,7 @@ void WebApp::onConnectFailed() {
     BleLink::instance().disconnect();
     screen_ = Screen::List;
     // Do not clear preset_count_ — keep last downloaded site names.
-    setFooter(preset_count_ > 0 ? "No phone · Enter" : "No phone · Enter");
+    setFooter("No phone - Enter to retry");
     markDirty();
 }
 
@@ -182,11 +181,47 @@ void WebApp::onListFailed(const char* footer_msg) {
     markDirty();
 }
 
+void WebApp::onRunFailed(const char* footer_msg) {
+    awaiting_run_ = false;
+    pending_ = Pending::None;
+    run_got_meta_ = false;
+    screen_ = Screen::List;
+    setFooter(footer_msg);
+    markDirty();
+}
+
+void WebApp::retryRunOrFail() {
+    if (run_retries_ < kBleRunRetries) {
+        ++run_retries_;
+        setFooter("Retrying request...");
+        markDirty();
+        auto& link = BleLink::instance();
+        if (link.isReady()) {
+            // Fresh Hello settle after bounce improves first-notify delivery.
+            if (run_retries_ >= 2) {
+                link.resendHello();
+                pending_ = Pending::Run;
+                was_ready_ = false;
+                connect_started_ms_ = millis();
+                return;
+            }
+            sendRunReq(pending_run_index_);
+            return;
+        }
+        if (link.isPaired()) {
+            pending_ = Pending::Run;
+            ensureBle(Pending::Run);
+            return;
+        }
+    }
+    onRunFailed("Run timeout - Enter to retry");
+}
+
 bool WebApp::ensureBle(Pending pending) {
     auto& link = BleLink::instance();
     if (!link.isPaired()) {
         pending_ = Pending::None;
-        setFooter("Pair in Settings");
+        setFooter("Pair phone in Settings");
         screen_ = Screen::List;
         markDirty();
         return false;
@@ -194,6 +229,10 @@ bool WebApp::ensureBle(Pending pending) {
 
     pending_ = pending;
     connect_failed_ = false;
+    connect_retries_ = 0;
+    if (pending == Pending::List) {
+        list_retries_ = 0;
+    }
 
     // Settings may already show Connected — still wait for Hello before HTTP.
     if (link.isLinkUp()) {
@@ -204,7 +243,7 @@ bool WebApp::ensureBle(Pending pending) {
         }
         // Connected but Hello in flight — keep pending_ until onUpdate sees ready.
         connect_started_ms_ = millis();
-        setFooter("Connecting…");
+        setFooter("Connecting to phone...");
         if (pending == Pending::Run) {
             if (pending_run_index_ < preset_count_) {
                 setActiveSite(presets_[pending_run_index_]);
@@ -217,7 +256,7 @@ bool WebApp::ensureBle(Pending pending) {
     }
 
     connect_started_ms_ = millis();
-    setFooter("Connecting…");
+    setFooter("Connecting to phone...");
     if (pending == Pending::Run) {
         if (pending_run_index_ < preset_count_) {
             setActiveSite(presets_[pending_run_index_]);
@@ -229,7 +268,7 @@ bool WebApp::ensureBle(Pending pending) {
     }
     if (!link.startConnect()) {
         onConnectFailed();
-        setFooter("BLE start fail");
+        setFooter("BLE start failed");
         return false;
     }
     markDirty();
@@ -255,12 +294,13 @@ void WebApp::sendListReq() {
     awaiting_list_ = true;
     list_started_ms_ = millis();
     screen_ = Screen::List;
-    setFooter("Loading…");
+    setFooter("Loading site list...");
     list_req_id_ = BleLink::instance().allocReqId();
     const bool sent =
         BleLink::instance().send(ble_protocol::Type::HttpListReq, list_req_id_);
     if (!sent) {
-        onListFailed(preset_count_ > 0 ? "Cached · Enter" : "Send fail · Enter");
+        onListFailed(preset_count_ > 0 ? "List failed - Enter to retry"
+                                       : "Send failed - Enter to retry");
     }
     markDirty();
 }
@@ -268,12 +308,14 @@ void WebApp::sendListReq() {
 void WebApp::sendRunReq(uint8_t index) {
     clearResult();
     awaiting_run_ = true;
+    run_got_meta_ = false;
+    run_started_ms_ = millis();
     screen_ = Screen::Running;
     cursor_ = index;
     if (index < preset_count_) {
         setActiveSite(presets_[index]);
     }
-    setFooter("Running…");
+    setFooter(run_retries_ > 0 ? "Retrying request..." : "Running request...");
 
 #if defined(CARDPUTER_SIM)
     awaiting_run_ = false;
@@ -292,7 +334,13 @@ void WebApp::sendRunReq(uint8_t index) {
 #endif
 
     run_req_id_ = BleLink::instance().allocReqId();
-    BleLink::instance().send(ble_protocol::Type::HttpRunReq, run_req_id_, &index, 1);
+    const bool sent =
+        BleLink::instance().send(ble_protocol::Type::HttpRunReq, run_req_id_, &index, 1);
+    if (!sent) {
+        // Force a quick retry on the next onUpdate pass.
+        run_started_ms_ = millis() - kRunWaitMs;
+        setFooter("Retrying request...");
+    }
     markDirty();
 }
 
@@ -342,23 +390,24 @@ void WebApp::processBleFrames() {
                 if (preset_count_ == 0) {
                     // Phone sent empty list — restore last good download if any.
                     loadPresetCache();
-                    setFooter(preset_count_ > 0 ? "Cached" : "No presets");
+                    setFooter(preset_count_ > 0 ? "Using cached site list" : "No sites on phone");
                 } else {
                     savePresetCache();
                     clearFooter();
                     cursor_ = std::min(cursor_, static_cast<uint8_t>(preset_count_ - 1));
                     ensureCursorVisible();
-                    requestContentFocus();
+                    // Keep chrome focus after refresh — user Down/Enter to pick a site.
                 }
                 markDirty();
                 break;
             case ble_protocol::Type::HttpRunMeta: {
                 if (frame.len >= 4) {
+                    run_got_meta_ = true;
                     result_http_status_ =
                         static_cast<uint16_t>(frame.payload[0] | (frame.payload[1] << 8));
                     result_err_ = frame.payload[2];
                     if (result_err_ != 0) {
-                        std::snprintf(footer_, sizeof(footer_), "err %u",
+                        std::snprintf(footer_, sizeof(footer_), "HTTP err %u",
                                       static_cast<unsigned>(result_err_));
                     } else {
                         std::snprintf(footer_, sizeof(footer_), "HTTP %u",
@@ -384,6 +433,8 @@ void WebApp::processBleFrames() {
             }
             case ble_protocol::Type::HttpRunEnd:
                 awaiting_run_ = false;
+                run_got_meta_ = false;
+                run_retries_ = 0;
                 screen_ = Screen::Result;
                 result_scroll_ = 0;
                 if (footer_[0] == '\0') {
@@ -401,17 +452,17 @@ void WebApp::processBleFrames() {
                 if (frame.len >= 1) {
                     const uint8_t code = frame.payload[0];
                     if (code == static_cast<uint8_t>(ble_protocol::ErrorCode::NoPresets)) {
-                        setFooter("No presets");
+                        setFooter("No sites on phone");
                     } else if (code == static_cast<uint8_t>(ble_protocol::ErrorCode::HttpTimeout)) {
-                        setFooter("HTTP timeout");
+                        setFooter("Phone HTTP timed out");
                     } else if (code == static_cast<uint8_t>(ble_protocol::ErrorCode::HttpFailed)) {
-                        setFooter("HTTP failed");
+                        setFooter("Phone HTTP failed");
                     } else {
-                        std::snprintf(footer_, sizeof(footer_), "Err %u",
+                        std::snprintf(footer_, sizeof(footer_), "Link err %u",
                                       static_cast<unsigned>(code));
                     }
                 } else {
-                    setFooter("Error");
+                    setFooter("Link error");
                 }
                 markDirty();
                 break;
@@ -435,6 +486,9 @@ NavRequest WebApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_f
         connect_failed_ = false;
         if (pending_ != Pending::None) {
             flushPending();
+        } else if (!awaiting_list_ && !awaiting_run_) {
+            setFooter("Connected to Phone");
+            markDirty();
         }
     }
     if (!ready && was_ready_ && link.isPaired()) {
@@ -451,14 +505,46 @@ NavRequest WebApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_f
 
     if (pending_ != Pending::None && link.isPaired() && !ready && !connect_failed_) {
         if (millis() - connect_started_ms_ > kConnectWaitMs) {
-            onConnectFailed();
+            // After long display sleep the phone autoConnect/scan is often stale —
+            // bounce advertising once before giving up.
+            if (connect_retries_ < kBleConnectRetries) {
+                ++connect_retries_;
+                connect_started_ms_ = millis();
+                was_ready_ = false;
+                setFooter("Retrying BLE connect...");
+                link.disconnect();
+                if (!link.startConnect()) {
+                    onConnectFailed();
+                }
+                markDirty();
+            } else {
+                onConnectFailed();
+            }
         }
     }
 
     // Connected but phone never answered HttpListReq — keep cached names.
     if (awaiting_list_ && !connect_failed_ &&
         millis() - list_started_ms_ > kConnectWaitMs) {
-        onListFailed(preset_count_ > 0 ? "Cached · Enter" : "List timeout · Enter");
+        if (list_retries_ < kBleListRetries && link.isReady()) {
+            ++list_retries_;
+            setFooter("Retrying site list...");
+            sendListReq();
+        } else if (list_retries_ < kBleListRetries && link.isPaired()) {
+            ++list_retries_;
+            awaiting_list_ = false;
+            ensureBle(Pending::List);
+        } else {
+            onListFailed(preset_count_ > 0 ? "List failed - Enter to retry"
+                                           : "List timeout - Enter to retry");
+        }
+    }
+
+    // HttpRunReq notify often drops on the first attempt after Cardputer power-cycle.
+    // Retry before the phone HTTP window (≤25s) so we do not double-fire in-flight work.
+    if (awaiting_run_ && !run_got_meta_ && !connect_failed_ &&
+        millis() - run_started_ms_ >= kRunWaitMs) {
+        retryRunOrFail();
     }
 
     NavRequest req = NavRequest::None;
@@ -537,6 +623,7 @@ NavRequest WebApp::handleInput(const Keyboard_Class::KeysState& status) {
         if (screen_ == Screen::List && preset_count_ > 0) {
             // Run (reconnects on demand). Cached names stay visible offline.
             pending_run_index_ = cursor_;
+            run_retries_ = 0;
             ensureBle(Pending::Run);
         } else if (screen_ == Screen::List) {
             connect_failed_ = false;

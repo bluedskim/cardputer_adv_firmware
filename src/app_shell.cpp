@@ -249,6 +249,10 @@ void AppShell::sleepDisplay() {
     }
     M5Cardputer.Display.setBrightness(0);
     display_asleep_ = true;
+    // Immediate = one-shot: flip to 30 sec as soon as we sleep so wake shows 30 sec.
+    if (SystemSettings::instance().promoteImmediateToThirtySec()) {
+        chrome_dirty_ = true;
+    }
 }
 
 void AppShell::wakeDisplay() {
@@ -258,8 +262,10 @@ void AppShell::wakeDisplay() {
                                                    : SystemSettings::instance().brightness();
     M5Cardputer.Display.setBrightness(restore);
     display_asleep_ = false;
-    // Immediate is "sleep soon once"; after wake, fall back to 30 sec.
-    SystemSettings::instance().promoteImmediateToThirtySec();
+    // Backup if sleep path missed promote (older builds / odd wake).
+    if (SystemSettings::instance().promoteImmediateToThirtySec()) {
+        chrome_dirty_ = true;
+    }
     noteUserActivity();
     ignore_keys_until_release_ = true;
     resetKeyboardTracker(keyboard_tracker_);

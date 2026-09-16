@@ -164,7 +164,7 @@ pio device list
 
 - `↑` `↓` — Sleep / Bright / BLE 이동 · Sleep에서 `↑` → 크롬
 - `←` `→` — Sleep: **Immediate** / 30초 / 1분 / **5분** / 10분 / **Never** · Bright: 32 / 64 / **128** / 192 / 255
-  - Immediate: 곧 화면 OFF. 키로 깨면 Sleep이 자동으로 **30 sec**로 바뀜 (다시 쓰려면 Immediate 재선택)
+  - Immediate: 곧 화면 OFF. **잠드는 순간** Sleep이 **30 sec**로 바뀌어 저장됨 (다시 Immediate 쓰려면 재선택)
 - **BLE 행:** 상태 요약 표시 (`Off Unpaired` / `Off Paired` / `Pairing` / `Connecting` / `Connected` · sim은 `N/A`). `Enter` → BLE 서브화면
 - **BLE 서브화면**
   - 상태·peer(있을 때) 표시

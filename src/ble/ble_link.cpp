@@ -69,6 +69,12 @@ void BleLink::begin() {
     hello_ok_ = false;
     stack_ready_ = false;
     accept_peers_ = false;
+#if !defined(CARDPUTER_SIM)
+    // Warm NimBLE while paired so the first Web open after power-on is not a cold init.
+    if (paired_) {
+        ensureStack();
+    }
+#endif
 }
 
 void BleLink::loadPersisted() {
@@ -133,6 +139,16 @@ const char* BleLink::statusSummary() const {
 
 void BleLink::noteTraffic() {
     last_traffic_ms_ = millis();
+}
+
+bool BleLink::isReady() const {
+    if (state_ != State::Connected || !hello_ok_) {
+        return false;
+    }
+    // First peripheral notifies right after CCCD/HelloAck are often dropped on Android
+    // after a Cardputer power-cycle; wait briefly before apps send HTTP.
+    constexpr uint32_t kHelloSettleMs = 250;
+    return (millis() - hello_ok_ms_) >= kHelloSettleMs;
 }
 
 void BleLink::tick() {
@@ -215,8 +231,8 @@ bool BleLink::ensureStack() {
         ble_protocol::kRxUuid, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR);
     g_rx->setCallbacks(&g_rx_callbacks);
     g_service->start();
-    // Cold boot: give the controller a beat before the first advertise.
-    delay(100);
+    // Cold boot / after power-cycle: give the controller time before first advertise.
+    delay(200);
     stack_ready_ = true;
     return true;
 }
@@ -310,7 +326,8 @@ bool BleLink::startConnect() {
         return true;
     }
     quiesceToOff();
-    delay(50);
+    // Stack may have been idle after long display sleep — settle before ADV.
+    delay(stack_ready_ ? 120 : 50);
     accept_peers_ = true;
     if (!startAdvertising()) {
         accept_peers_ = false;
@@ -462,6 +479,7 @@ void BleLink::handleRx(const uint8_t* data, size_t len) {
     switch (type) {
         case ble_protocol::Type::HelloAck:
             hello_ok_ = true;
+            hello_ok_ms_ = millis();
             if (payload_len > 0) {
                 char label[17];
                 const size_t copy = payload_len < 16 ? payload_len : 16;
