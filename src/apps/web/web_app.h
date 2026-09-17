@@ -51,6 +51,8 @@ private:
     void clearResult();
     void setActiveSite(const char* name);
     int listVisibleRows() const;
+    uint8_t listRowCount() const;
+    bool cursorOnRefresh() const;
     void ensureCursorVisible();
     void onConnectFailed();
     void onListFailed(const char* footer_msg);
@@ -81,6 +83,7 @@ private:
     bool pending_content_focus_ = false;
     bool chrome_focused_ = false;
     bool was_ready_ = false;
+    bool was_hello_ok_ = false;
     bool connect_failed_ = false;
     uint8_t connect_retries_ = 0;
     uint8_t list_retries_ = 0;

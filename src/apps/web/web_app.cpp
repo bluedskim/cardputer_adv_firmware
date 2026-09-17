@@ -50,6 +50,7 @@ void WebApp::onEnter() {
     cursor_ = 0;
     scroll_ = 0;
     was_ready_ = false;
+    was_hello_ok_ = false;
     connect_failed_ = false;
     connect_retries_ = 0;
     list_retries_ = 0;
@@ -81,7 +82,13 @@ void WebApp::onEnter() {
         return;
     }
 
-    ensureBle(Pending::List);
+    // Cache-first: only auto-sync when there are no site names yet.
+    // With a cache, user can select + Enter (Run) immediately; empty list Enter still loads.
+    if (preset_count_ == 0) {
+        ensureBle(Pending::List);
+    } else {
+        clearFooter();
+    }
     markDirty();
 }
 
@@ -349,8 +356,19 @@ int WebApp::listVisibleRows() const {
     return std::max(1, h / kLineHeight);
 }
 
+uint8_t WebApp::listRowCount() const {
+    // Trailing manual sync row: "Refresh sites..."
+    return static_cast<uint8_t>(preset_count_ + 1);
+}
+
+bool WebApp::cursorOnRefresh() const { return cursor_ >= preset_count_; }
+
 void WebApp::ensureCursorVisible() {
     const int vis = listVisibleRows();
+    const uint8_t rows = listRowCount();
+    if (cursor_ >= rows && rows > 0) {
+        cursor_ = static_cast<uint8_t>(rows - 1);
+    }
     if (cursor_ < scroll_) {
         scroll_ = cursor_;
     } else if (cursor_ >= scroll_ + vis) {
@@ -394,7 +412,7 @@ void WebApp::processBleFrames() {
                 } else {
                     savePresetCache();
                     clearFooter();
-                    cursor_ = std::min(cursor_, static_cast<uint8_t>(preset_count_ - 1));
+                    cursor_ = std::min(cursor_, static_cast<uint8_t>(listRowCount() - 1));
                     ensureCursorVisible();
                     // Keep chrome focus after refresh — user Down/Enter to pick a site.
                 }
@@ -481,6 +499,16 @@ NavRequest WebApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_f
     processBleFrames();
 
     auto& link = BleLink::instance();
+    const bool hello_ok = link.isLinkUp() && link.helloOk();
+    // HelloAck arrived (Companion already shows Hello) — leave Connecting… immediately.
+    // HTTP still waits for isReady() settle before flushPending.
+    if (hello_ok && !was_hello_ok_) {
+        connect_failed_ = false;
+        setFooter("Connected to Phone");
+        markDirty();
+    }
+    was_hello_ok_ = hello_ok;
+
     const bool ready = link.isReady();
     if (ready && !was_ready_) {
         connect_failed_ = false;
@@ -511,6 +539,7 @@ NavRequest WebApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_f
                 ++connect_retries_;
                 connect_started_ms_ = millis();
                 was_ready_ = false;
+                was_hello_ok_ = false;
                 setFooter("Retrying BLE connect...");
                 link.disconnect();
                 if (!link.startConnect()) {
@@ -541,8 +570,8 @@ NavRequest WebApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_f
     }
 
     // HttpRunReq notify often drops on the first attempt after Cardputer power-cycle.
-    // Retry before the phone HTTP window (≤25s) so we do not double-fire in-flight work.
-    if (awaiting_run_ && !run_got_meta_ && !connect_failed_ &&
+    // Only time out after a Run was actually sent (not while still Connecting…).
+    if (awaiting_run_ && !run_got_meta_ && !connect_failed_ && pending_ != Pending::Run &&
         millis() - run_started_ms_ >= kRunWaitMs) {
         retryRunOrFail();
     }
@@ -589,7 +618,7 @@ NavRequest WebApp::handleInput(const Keyboard_Class::KeysState& status) {
     switch (arrow) {
         case ArrowKey::Up:
             if (screen_ == Screen::List) {
-                if (cursor_ == 0 || preset_count_ == 0) {
+                if (cursor_ == 0) {
                     return NavRequest::FocusChrome;
                 }
                 --cursor_;
@@ -608,7 +637,7 @@ NavRequest WebApp::handleInput(const Keyboard_Class::KeysState& status) {
             }
             return NavRequest::None;
         case ArrowKey::Down:
-            if (screen_ == Screen::List && preset_count_ > 0 && cursor_ + 1 < preset_count_) {
+            if (screen_ == Screen::List && cursor_ + 1 < listRowCount()) {
                 ++cursor_;
                 ensureCursorVisible();
             } else if (screen_ == Screen::Result) {
@@ -620,7 +649,11 @@ NavRequest WebApp::handleInput(const Keyboard_Class::KeysState& status) {
     }
 
     if (status.enter) {
-        if (screen_ == Screen::List && preset_count_ > 0) {
+        if (screen_ == Screen::List && cursorOnRefresh()) {
+            connect_failed_ = false;
+            list_retries_ = 0;
+            ensureBle(Pending::List);
+        } else if (screen_ == Screen::List && preset_count_ > 0) {
             // Run (reconnects on demand). Cached names stay visible offline.
             pending_run_index_ = cursor_;
             run_retries_ = 0;
@@ -682,24 +715,17 @@ void WebApp::drawList() const {
     auto& display = M5Cardputer.Display;
     const int width = display.width();
     const int vis = listVisibleRows();
+    const uint8_t rows = listRowCount();
     int y = kListTop;
-
-    if (preset_count_ == 0) {
-        // Placeholder only — not a link-status string in the site slot.
-        display.setTextSize(2);
-        display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        display.setCursor(8, y);
-        display.print("(no sites)");
-        return;
-    }
 
     for (int i = 0; i < vis; ++i) {
         const uint8_t idx = static_cast<uint8_t>(scroll_ + i);
-        if (idx >= preset_count_) {
+        if (idx >= rows) {
             break;
         }
         const bool selected = idx == cursor_ && !chrome_focused_;
-        const uint16_t fg = selected ? TFT_YELLOW : TFT_WHITE;
+        const bool refresh_row = idx >= preset_count_;
+        const uint16_t fg = selected ? TFT_YELLOW : (refresh_row ? TFT_CYAN : TFT_WHITE);
         const uint16_t bg = selected ? TFT_NAVY : TFT_BLACK;
         if (selected) {
             display.fillRect(0, y, width, kLineHeight, bg);
@@ -707,7 +733,11 @@ void WebApp::drawList() const {
         display.setTextColor(fg, bg);
         display.setTextSize(2);
         display.setCursor(8, y);
-        display.printf("%c %s", selected ? '>' : ' ', presets_[idx]);
+        if (refresh_row) {
+            display.printf("%c Refresh sites...", selected ? '>' : ' ');
+        } else {
+            display.printf("%c %s", selected ? '>' : ' ', presets_[idx]);
+        }
         y += kLineHeight;
     }
 }

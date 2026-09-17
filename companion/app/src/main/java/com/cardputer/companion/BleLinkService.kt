@@ -70,12 +70,17 @@ class BleLinkService : Service(), BleLinkClient.Listener {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
-                // Linked (watch-style): drop the session but keep waiting so Web → site
-                // works without reopening the phone app. Presence alone is too slow/flaky.
-                if (CompanionAssociation.isAssociated(this)) {
+                if (CompanionAssociation.isAssociated(this) &&
+                    !CompanionPrefs.isBatterySaverEnabled(this)
+                ) {
+                    // Reliable mode: keep FGS in linked standby for fast Web reconnect.
                     CompanionAssociation.startObserving(this)
                     client.disconnect(resumeListen = true)
                     return START_STICKY
+                }
+                // Battery saver (or unlinked): end FGS; presence can wake again if linked.
+                if (CompanionAssociation.isAssociated(this)) {
+                    CompanionAssociation.startObserving(this)
                 }
                 client.disconnect(resumeListen = false)
                 stopSelf()
@@ -242,7 +247,9 @@ class BleLinkService : Service(), BleLinkClient.Listener {
         }
 
         fun stop(context: Context) {
-            if (CompanionAssociation.isAssociated(context)) {
+            if (CompanionAssociation.isAssociated(context) &&
+                !CompanionPrefs.isBatterySaverEnabled(context)
+            ) {
                 CompanionAssociation.startObserving(context)
                 val running = instance
                 if (running != null) {
@@ -251,6 +258,9 @@ class BleLinkService : Service(), BleLinkClient.Listener {
                     startListening(context)
                 }
                 return
+            }
+            if (CompanionAssociation.isAssociated(context)) {
+                CompanionAssociation.startObserving(context)
             }
             val running = instance
             if (running != null) {

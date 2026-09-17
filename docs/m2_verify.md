@@ -24,7 +24,7 @@ Companion ≥ `0.4.4-m2`: while **Linked**, **Stop** keeps standby listening (se
 ## Device flow
 
 1. Settings → BLE → **Pair** once if needed. **Settings → Connect is not required** for Web.
-2. Open **Web**. Footer shows link status; site names stay in the list (cached offline after first successful list).
+2. Open **Web**. If a site list was cached, it shows immediately (no auto BLE sync). Empty cache triggers list download. Last row **Refresh sites...** forces a manual sync. Enter on a site runs it (connects on demand).
 3. Enter on a preset → run → site name + HTTP status in footer + body.
 4. Del / Left from result → list. Leave Web → device disconnects; phone waits via presence while linked.
 

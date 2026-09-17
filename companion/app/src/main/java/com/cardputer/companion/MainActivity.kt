@@ -134,6 +134,19 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
             confirmUnlink()
             true
         }
+        binding.batterySaverSwitch.isChecked = CompanionPrefs.isBatterySaverEnabled(this)
+        binding.batterySaverSwitch.setOnCheckedChangeListener { _, checked ->
+            CompanionPrefs.setBatterySaverEnabled(this, checked)
+            bleService?.client?.setBatterySaverEnabled(checked)
+                ?: run {
+                    // Service not bound yet — preference is stored; next listen picks it up.
+                    Toast.makeText(
+                        this,
+                        if (checked) R.string.battery_saver_on_toast else R.string.battery_saver_off_toast,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+        }
         binding.addPresetButton.setOnClickListener {
             if (presets.size >= BleProtocol.HTTP_MAX_PRESETS) {
                 Toast.makeText(

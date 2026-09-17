@@ -72,6 +72,12 @@ class BleLinkClient(
         if (!listenWanted || device == null || gatt != null) return@Runnable
         startConnectAttempt(device)
     }
+    /** After CCCD, Hello notify is often dropped; reconnect if it never arrives. */
+    private val helloWatchdogRunnable = Runnable {
+        if (gatt == null || sessionReady) return@Runnable
+        listener.onDetail("Hello timeout after CCCD — reconnect")
+        forceRescanFromStale("hello timeout")
+    }
     private val waitHintRunnable = Runnable {
         if ((scanning || preferAutoConnect) && gatt == null) {
             listener.onStatus(context.getString(R.string.waiting_device_hint))
@@ -82,21 +88,25 @@ class BleLinkClient(
             startListening(forceRescan = false)
         }
     }
-    /** Screen-off / OEM stacks often silently stop callback scans; restart while listening. */
+    /**
+     * Battery-saver linked idle: continuous LOW_POWER scan (no wake lock).
+     * Presence-only + 90s windows missed Web advertise within connect timeout.
+     */
     private val scanWatchdogRunnable = object : Runnable {
         override fun run() {
             if (!listenWanted || gatt != null) return
-            // Linked or not: active scan is more reliable than autoConnect after long idle.
             if (!connecting) {
-                beginScan(continuous = true)
+                // Saver+linked → LOW_POWER; reliable → LOW_LATENCY continuous.
+                beginScan(continuous = !batterySaverEnabled())
             }
-            handler.postDelayed(this, SCAN_WATCHDOG_MS)
+            handler.postDelayed(this, scanWatchdogMs())
         }
     }
     /** Firmware idle-disconnects after ~60s without traffic; keep the GATT warm. */
     private val keepAliveRunnable = object : Runnable {
         override fun run() {
             if (gatt == null) return
+            updateWakeLockForState()
             val now = SystemClock.elapsedRealtime()
             if (rxCharacteristic == null) {
                 // Stuck discovering after a phantom connect (peer powered off/on).
@@ -104,7 +114,7 @@ class BleLinkClient(
                     forceRescanFromStale("discovery timeout")
                     return
                 }
-                handler.postDelayed(this, KEEP_ALIVE_MS)
+                handler.postDelayed(this, keepAliveMs())
                 return
             }
             if (pongOutstanding && now - pingSentElapsed > pongTimeoutMs) {
@@ -116,7 +126,7 @@ class BleLinkClient(
             enqueueWrite(
                 BleProtocol.encode(BleProtocol.TYPE_PING, nextReqId.getAndIncrement() and 0xFFFF)
             )
-            handler.postDelayed(this, KEEP_ALIVE_MS)
+            handler.postDelayed(this, keepAliveMs())
         }
     }
 
@@ -129,10 +139,37 @@ class BleLinkClient(
 
     fun isConnected(): Boolean = gatt != null
 
+    fun isBatterySaverEnabled(): Boolean = CompanionPrefs.isBatterySaverEnabled(context)
+
+    /** Apply Battery saver toggle; restarts idle listen policy if active. */
+    fun setBatterySaverEnabled(enabled: Boolean) {
+        CompanionPrefs.setBatterySaverEnabled(context, enabled)
+        listener.onDetail(if (enabled) "battery saver on" else "battery saver off")
+        if (listenWanted && gatt == null) {
+            startListening(forceRescan = false)
+        } else {
+            scheduleBackgroundJobs()
+        }
+    }
+
+    private fun batterySaverEnabled(): Boolean = CompanionPrefs.isBatterySaverEnabled(context)
+
+    private fun linkedStatusText(): String =
+        context.getString(
+            if (batterySaverEnabled()) R.string.listening_linked_saver
+            else R.string.listening_linked
+        )
+
+    private fun keepAliveMs(): Long =
+        if (batterySaverEnabled()) KEEP_ALIVE_SAVER_MS else KEEP_ALIVE_RELIABLE_MS
+
+    private fun scanWatchdogMs(): Long =
+        if (batterySaverEnabled()) SCAN_WATCHDOG_SAVER_MS else SCAN_WATCHDOG_RELIABLE_MS
+
     /** Last known Cardputer MAC (uppercase), if any. */
     fun lastPeerAddress(): String? = peerAddress()
 
-    /** Foreground auto-reconnect: presence/autoConnect when linked, else continuous scan. */
+    /** Idle wait: Linked presence/scan policy depends on Battery saver. */
     @SuppressLint("MissingPermission")
     fun startListening(forceRescan: Boolean = false) {
         val bt = adapter
@@ -141,7 +178,6 @@ class BleLinkClient(
             return
         }
         listenWanted = true
-        acquireWakeLock()
         CompanionAssociation.startObserving(context)
         if (!forceRescan && gatt != null && !isLinkStale()) {
             scheduleBackgroundJobs()
@@ -153,17 +189,23 @@ class BleLinkClient(
         val linked = CompanionAssociation.primaryAddress(context) ?: rememberedAddress()
         preferAutoConnect = linked != null && CompanionAssociation.isAssociated(context)
         if (preferAutoConnect && linked != null && !forceRescan) {
-            listener.onStatus(context.getString(R.string.listening_linked))
-            listener.onDetail("linked=$linked")
-            // Active scan (not autoConnect-only): after long phone/device idle,
-            // autoConnect often misses the first advertise window (~30s Web timeout).
-            beginScan(continuous = true)
-            scheduleBackgroundJobs()
+            listener.onStatus(linkedStatusText())
+            if (batterySaverEnabled()) {
+                // LOW_POWER scan without wake lock — catches Web ADV; cheaper than reliable mode.
+                listener.onDetail("linked=$linked · low-power scan")
+                releaseWakeLock()
+                beginScan(continuous = false)
+                scheduleBackgroundJobs()
+            } else {
+                listener.onDetail("linked=$linked · active scan")
+                beginScan(continuous = true)
+                scheduleBackgroundJobs()
+            }
             handler.removeCallbacks(waitHintRunnable)
             handler.postDelayed(waitHintRunnable, 12_000)
         } else {
             preferAutoConnect = false
-            beginScan(continuous = true)
+            beginScan(continuous = !batterySaverEnabled() || forceRescan)
             scheduleBackgroundJobs()
         }
     }
@@ -186,7 +228,6 @@ class BleLinkClient(
     fun startScan() {
         listenWanted = true
         preferAutoConnect = false
-        acquireWakeLock()
         CompanionAssociation.startObserving(context)
         handler.removeCallbacks(resumeListenRunnable)
         tearDownGatt()
@@ -203,7 +244,6 @@ class BleLinkClient(
         rememberAddress(address)
         listenWanted = true
         preferAutoConnect = true
-        acquireWakeLock()
         if (gatt != null && !isLinkStale()) {
             scheduleBackgroundJobs()
             return
@@ -229,11 +269,15 @@ class BleLinkClient(
         tearDownGatt()
         if (resumeListen && adapter?.isEnabled == true) {
             listenWanted = true
-            acquireWakeLock()
+            if (batterySaverEnabled()) {
+                releaseWakeLock()
+            } else {
+                acquireWakeLock()
+            }
             handler.postDelayed(resumeListenRunnable, RESUME_LISTEN_DELAY_MS)
             listener.onStatus(
                 if (CompanionAssociation.isAssociated(context)) {
-                    context.getString(R.string.listening_linked)
+                    linkedStatusText()
                 } else {
                     context.getString(R.string.listening)
                 }
@@ -242,14 +286,20 @@ class BleLinkClient(
             listenWanted = false
             preferAutoConnect = false
             releaseWakeLock()
-            listener.onStatus(context.getString(R.string.disconnected))
+            listener.onStatus(
+                if (CompanionAssociation.isAssociated(context) && batterySaverEnabled()) {
+                    context.getString(R.string.disconnected_presence)
+                } else {
+                    context.getString(R.string.disconnected)
+                }
+            )
         }
     }
 
     /** Call when screen turns on/off so OEM-throttled scans resume. */
     fun refreshScanIfListening() {
         if (!listenWanted || gatt != null || connecting) return
-        beginScan(continuous = true)
+        beginScan(continuous = !batterySaverEnabled())
         scheduleBackgroundJobs()
     }
 
@@ -296,16 +346,24 @@ class BleLinkClient(
         stopScan()
         scanning = true
         connecting = false
-        listener.onStatus(context.getString(R.string.listening))
+        listener.onStatus(
+            if (preferAutoConnect) {
+                linkedStatusText()
+            } else {
+                context.getString(R.string.listening)
+            }
+        )
         listener.onDetail(rememberedAddress()?.let { "last=$it" } ?: "")
 
         val filters = buildScanFilters()
-        // Filtered + aggressive match: required for many OEMs when the screen is off.
-        // LOW_LATENCY still helps discovery; scanWatchdog restarts if the stack stalls.
         val settings = ScanSettings.Builder()
             .setScanMode(
-                if (continuous) ScanSettings.SCAN_MODE_LOW_LATENCY
-                else ScanSettings.SCAN_MODE_BALANCED
+                when {
+                    continuous -> ScanSettings.SCAN_MODE_LOW_LATENCY
+                    // Battery saver linked/unlinked idle: low-power continuous discovery.
+                    batterySaverEnabled() -> ScanSettings.SCAN_MODE_LOW_POWER
+                    else -> ScanSettings.SCAN_MODE_LOW_LATENCY
+                }
             )
             .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
             .setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
@@ -325,14 +383,14 @@ class BleLinkClient(
     }
 
     private fun scheduleBackgroundJobs() {
-        acquireWakeLock()
+        updateWakeLockForState()
         handler.removeCallbacks(scanWatchdogRunnable)
         handler.removeCallbacks(keepAliveRunnable)
         when {
-            listenWanted && gatt == null ->
-                handler.postDelayed(scanWatchdogRunnable, SCAN_WATCHDOG_MS)
             gatt != null ->
-                handler.postDelayed(keepAliveRunnable, KEEP_ALIVE_MS)
+                handler.postDelayed(keepAliveRunnable, keepAliveMs())
+            listenWanted ->
+                handler.postDelayed(scanWatchdogRunnable, scanWatchdogMs())
         }
     }
 
@@ -342,11 +400,25 @@ class BleLinkClient(
         handler.removeCallbacks(scanWatchdogRunnable)
         handler.removeCallbacks(keepAliveRunnable)
         handler.removeCallbacks(retryConnectRunnable)
+        handler.removeCallbacks(helloWatchdogRunnable)
+    }
+
+    private fun updateWakeLockForState() {
+        if (batterySaverEnabled()) {
+            if (gatt != null || connecting) {
+                acquireWakeLock()
+            } else {
+                releaseWakeLock()
+            }
+        } else if (listenWanted || gatt != null || connecting) {
+            acquireWakeLock()
+        } else {
+            releaseWakeLock()
+        }
     }
 
     private fun acquireWakeLock() {
         try {
-            // Re-acquire extends timeout while we are still listening/connected.
             wakeLock.acquire(WAKE_LOCK_TIMEOUT_MS)
         } catch (_: RuntimeException) {
             // Some devices reject wake locks under policy; BLE FGS still helps.
@@ -425,6 +497,7 @@ class BleLinkClient(
         connecting = true
         connectAttempts++
         stopScan()
+        updateWakeLockForState()
         handler.removeCallbacks(waitHintRunnable)
         listener.onStatus(context.getString(R.string.connecting))
         listener.onDetail("connect try=$connectAttempts")
@@ -549,7 +622,11 @@ class BleLinkClient(
                     listener.onStatus(context.getString(R.string.disconnected))
                     listener.onDisconnected()
                     if (listenWanted) {
-                        acquireWakeLock()
+                        if (!CompanionPrefs.isBatterySaverEnabled(this@BleLinkClient.context)) {
+                            acquireWakeLock()
+                        } else {
+                            releaseWakeLock()
+                        }
                         handler.removeCallbacks(resumeListenRunnable)
                         handler.postDelayed(resumeListenRunnable, RESUME_LISTEN_DELAY_MS)
                     } else {
@@ -608,10 +685,14 @@ class BleLinkClient(
             status: Int
         ) {
             handler.post {
-                listener.onDetail(
-                    if (status == BluetoothGatt.GATT_SUCCESS) "CCCD ok"
-                    else "CCCD write status=$status"
-                )
+                if (status == BluetoothGatt.GATT_SUCCESS) {
+                    listener.onDetail("CCCD ok — waiting Hello")
+                    listener.onStatus(context.getString(R.string.connected_waiting_hello))
+                    handler.removeCallbacks(helloWatchdogRunnable)
+                    handler.postDelayed(helloWatchdogRunnable, HELLO_WATCHDOG_MS)
+                } else {
+                    listener.onDetail("CCCD write status=$status")
+                }
             }
         }
 
@@ -655,6 +736,7 @@ class BleLinkClient(
                     val version = frame.payload.toString(Charsets.UTF_8)
                     sessionReady = true
                     connectAttempts = 0
+                    handler.removeCallbacks(helloWatchdogRunnable)
                     enqueueWrite(
                         BleProtocol.encode(
                             BleProtocol.TYPE_HELLO_ACK,
@@ -792,10 +874,13 @@ class BleLinkClient(
         private const val RESUME_LISTEN_DELAY_MS = 400L
         private const val CONNECT_RETRY_DELAY_MS = 350L
         private const val MAX_CONNECT_ATTEMPTS = 4
-        private const val SCAN_WATCHDOG_MS = 10_000L
+        private const val SCAN_WATCHDOG_RELIABLE_MS = 10_000L
+        private const val SCAN_WATCHDOG_SAVER_MS = 30_000L
         private const val SCAN_RETRY_AFTER_FAIL_MS = 5_000L
-        private const val KEEP_ALIVE_MS = 10_000L
-        /** Renewed while listening/connected; release on full stop. */
-        private const val WAKE_LOCK_TIMEOUT_MS = 60 * 60 * 1000L
+        private const val KEEP_ALIVE_RELIABLE_MS = 10_000L
+        /** Must stay under firmware idle disconnect (~60s). */
+        private const val KEEP_ALIVE_SAVER_MS = 40_000L
+        private const val HELLO_WATCHDOG_MS = 3_000L
+        private const val WAKE_LOCK_TIMEOUT_MS = 10 * 60 * 1000L
     }
 }

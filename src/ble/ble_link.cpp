@@ -66,7 +66,7 @@ BleLink& BleLink::instance() {
 void BleLink::begin() {
     loadPersisted();
     state_ = State::Off;
-    hello_ok_ = false;
+    resetHelloState();
     stack_ready_ = false;
     accept_peers_ = false;
 #if !defined(CARDPUTER_SIM)
@@ -151,10 +151,20 @@ bool BleLink::isReady() const {
     return (millis() - hello_ok_ms_) >= kHelloSettleMs;
 }
 
+void BleLink::resetHelloState() {
+    hello_ok_ = false;
+    subscribed_ = false;
+    hello_ok_ms_ = 0;
+    subscribed_ms_ = 0;
+    hello_sent_ms_ = 0;
+    hello_attempts_ = 0;
+}
+
 void BleLink::tick() {
 #if defined(CARDPUTER_SIM)
     return;
 #else
+    maybeRetryHello();
     maybeIdleDisconnect();
     // NimBLE can leave advertising running after a peer drop; keep radio quiet when Off.
     if (state_ == State::Off && stack_ready_ && !accept_peers_) {
@@ -204,6 +214,7 @@ uint16_t BleLink::allocReqId() { return 1; }
 bool BleLink::send(ble_protocol::Type, uint16_t, const uint8_t*, uint16_t) { return false; }
 void BleLink::rejectUnexpectedPeer() { state_ = State::Off; accept_peers_ = false; }
 void BleLink::resendHello() {}
+void BleLink::maybeRetryHello() {}
 
 #else
 
@@ -288,7 +299,7 @@ void BleLink::quiesceToOff() {
     accept_peers_ = false;
     stopAdvertising();
     disconnectPeers();
-    hello_ok_ = false;
+    resetHelloState();
     state_ = State::Off;
 }
 
@@ -301,7 +312,7 @@ bool BleLink::startPairing() {
         return false;
     }
     state_ = State::Pairing;
-    hello_ok_ = false;
+    resetHelloState();
     noteTraffic();
     return true;
 }
@@ -312,9 +323,14 @@ bool BleLink::startConnect() {
     }
     if (state_ == State::Connected) {
         accept_peers_ = true;
-        // CCCD may already be on; re-Hello so companion is definitely ready for HTTP.
+        // CCCD may already be on; nudge Hello retry if Ack never arrived.
         if (!hello_ok_) {
-            sendHello();
+            if (!subscribed_) {
+                subscribed_ = true;
+                subscribed_ms_ = millis();
+            }
+            hello_sent_ms_ = 0;
+            hello_attempts_ = 0;
         }
         noteTraffic();
         return true;
@@ -334,7 +350,7 @@ bool BleLink::startConnect() {
         return false;
     }
     state_ = State::Advertising;
-    hello_ok_ = false;
+    resetHelloState();
     noteTraffic();
     return true;
 }
@@ -344,7 +360,12 @@ void BleLink::resendHello() {
         return;
     }
     hello_ok_ = false;
-    sendHello();
+    hello_sent_ms_ = 0;
+    hello_attempts_ = 0;
+    if (!subscribed_) {
+        subscribed_ = true;
+        subscribed_ms_ = millis();
+    }
 }
 
 void BleLink::disconnect() {
@@ -361,7 +382,7 @@ void BleLink::forget() {
     }
     paired_ = false;
     peer_label_[0] = '\0';
-    hello_ok_ = false;
+    resetHelloState();
     savePersisted();
 }
 
@@ -370,7 +391,7 @@ void BleLink::radioOff() { disconnect(); }
 void BleLink::rejectUnexpectedPeer() {
     stopAdvertising();
     disconnectPeers();
-    hello_ok_ = false;
+    resetHelloState();
     state_ = State::Off;
 }
 
@@ -382,7 +403,7 @@ void BleLink::notifyConnected(const char* peer) {
     }
     stopAdvertising();
     state_ = State::Connected;
-    hello_ok_ = false;
+    resetHelloState();
     if (peer != nullptr && peer[0] != '\0') {
         setPeerLabel(peer);
     } else if (peer_label_[0] == '\0') {
@@ -397,12 +418,40 @@ void BleLink::notifySubscribed() {
     if (state_ != State::Connected || hello_ok_) {
         return;
     }
+    // Do not Hello immediately — Android often drops the first notify until CCCD
+    // write fully completes (Companion sits on "CCCD ok" with no Hello).
+    subscribed_ = true;
+    subscribed_ms_ = millis();
+    hello_sent_ms_ = 0;
+    hello_attempts_ = 0;
     noteTraffic();
+}
+
+void BleLink::maybeRetryHello() {
+    if (state_ != State::Connected || hello_ok_ || !subscribed_) {
+        return;
+    }
+    constexpr uint32_t kFirstHelloDelayMs = 120;
+    constexpr uint32_t kHelloRetryMs = 400;
+    constexpr uint8_t kHelloMaxAttempts = 15;
+    const uint32_t now = millis();
+    if (hello_attempts_ >= kHelloMaxAttempts) {
+        return;
+    }
+    if (hello_sent_ms_ == 0) {
+        if (now - subscribed_ms_ < kFirstHelloDelayMs) {
+            return;
+        }
+    } else if (now - hello_sent_ms_ < kHelloRetryMs) {
+        return;
+    }
     sendHello();
+    hello_sent_ms_ = now;
+    ++hello_attempts_;
 }
 
 void BleLink::notifyDisconnected() {
-    hello_ok_ = false;
+    resetHelloState();
     // Do not keep advertising after a drop — Web/Settings must call startConnect again.
     accept_peers_ = false;
     state_ = State::Off;
@@ -480,6 +529,7 @@ void BleLink::handleRx(const uint8_t* data, size_t len) {
         case ble_protocol::Type::HelloAck:
             hello_ok_ = true;
             hello_ok_ms_ = millis();
+            hello_attempts_ = 0;
             if (payload_len > 0) {
                 char label[17];
                 const size_t copy = payload_len < 16 ? payload_len : 16;

@@ -68,6 +68,7 @@ private:
                    uint16_t payload_len);
     void sendHello();
     void sendError(uint16_t req_id, ble_protocol::ErrorCode code);
+    void maybeRetryHello();
     bool ensureStack();
     bool startAdvertising();
     void stopAdvertising();
@@ -76,11 +77,16 @@ private:
     bool enqueueRx(ble_protocol::Type type, uint16_t req_id, const uint8_t* payload,
                    uint16_t payload_len);
     void rejectUnexpectedPeer();
+    void resetHelloState();
 
     State state_ = State::Off;
     bool paired_ = false;
     bool hello_ok_ = false;
+    bool subscribed_ = false;
     uint32_t hello_ok_ms_ = 0;
+    uint32_t subscribed_ms_ = 0;
+    uint32_t hello_sent_ms_ = 0;
+    uint8_t hello_attempts_ = 0;
     bool stack_ready_ = false;
     // True only while Pair/Connect/Web intentionally wants inbound links.
     bool accept_peers_ = false;
