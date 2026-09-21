@@ -66,6 +66,7 @@ class BleLinkClient(
     private val pongTimeoutMs = 5_000L
     private val discoveryStaleMs = 15_000L
     private val linkStaleMs = 20_000L
+    private val writeLock = Any()
     private val writeQueue: ArrayDeque<ByteArray> = ArrayDeque()
     private val retryConnectRunnable = Runnable {
         val device = pendingConnectDevice
@@ -252,7 +253,7 @@ class BleLinkClient(
         connecting = false
         tearDownGatt()
         stopScan()
-        connectToAddress(address, autoConnect = false)
+        connectToAddress(address)
         scheduleBackgroundJobs()
     }
 
@@ -303,8 +304,13 @@ class BleLinkClient(
         scheduleBackgroundJobs()
     }
 
+    /**
+     * Always uses the retrying direct-connect path: after a Cardputer power-cycle
+     * the OS autoConnect is too slow/flaky, and the scan watchdog keeps looking
+     * if the direct attempt fails.
+     */
     @SuppressLint("MissingPermission")
-    fun connectToAddress(address: String, autoConnect: Boolean) {
+    fun connectToAddress(address: String) {
         val bt = adapter ?: return
         val normalized = CompanionAssociation.normalizeBluetoothAddress(address)
         if (normalized == null) {
@@ -325,10 +331,6 @@ class BleLinkClient(
                 }
             } else {
                 bt.getRemoteDevice(normalized)
-            }
-            // Prefer direct connect after power-cycle; autoConnect is too slow/flaky.
-            if (autoConnect) {
-                // Still use the retrying direct path — scan continues via watchdog if this fails.
             }
             connect(device)
         } catch (e: IllegalArgumentException) {
@@ -465,8 +467,7 @@ class BleLinkClient(
 
     @SuppressLint("MissingPermission")
     private fun tearDownGatt() {
-        writeQueue.clear()
-        writeBusy = false
+        clearWriteQueue()
         connecting = false
         sessionReady = false
         pongOutstanding = false
@@ -592,8 +593,7 @@ class BleLinkClient(
                 gatt.discoverServices()
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 connecting = false
-                writeQueue.clear()
-                writeBusy = false
+                clearWriteQueue()
                 val retryDevice = pendingConnectDevice
                 val canRetry = listenWanted &&
                     !sessionReady &&
@@ -724,8 +724,7 @@ class BleLinkClient(
             characteristic: BluetoothGattCharacteristic,
             status: Int
         ) {
-            writeBusy = false
-            pumpWriteQueue()
+            onWriteCompleted()
         }
 
         private fun handleNotify(value: ByteArray) {
@@ -848,22 +847,46 @@ class BleLinkClient(
         )
     }
 
+    /**
+     * Writers run on both the main looper (keep-alive, HTTP results) and the
+     * GATT binder thread (Hello/List replies, write completions), so the queue
+     * and the busy flag are guarded by [writeLock].
+     */
     private fun enqueueWrite(bytes: ByteArray) {
-        writeQueue.addLast(bytes)
+        synchronized(writeLock) {
+            writeQueue.addLast(bytes)
+        }
+        pumpWriteQueue()
+    }
+
+    private fun clearWriteQueue() {
+        synchronized(writeLock) {
+            writeQueue.clear()
+            writeBusy = false
+        }
+    }
+
+    private fun onWriteCompleted() {
+        synchronized(writeLock) {
+            writeBusy = false
+        }
         pumpWriteQueue()
     }
 
     @SuppressLint("MissingPermission")
     private fun pumpWriteQueue() {
-        if (writeBusy) return
         val characteristic = rxCharacteristic ?: return
         val g = gatt ?: return
-        val next = writeQueue.pollFirst() ?: return
-        writeBusy = true
+        val next = synchronized(writeLock) {
+            if (writeBusy) return
+            val frame = writeQueue.pollFirst() ?: return
+            writeBusy = true
+            frame
+        }
         characteristic.value = next
         characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
         if (!g.writeCharacteristic(characteristic)) {
-            writeBusy = false
+            synchronized(writeLock) { writeBusy = false }
             handler.post { listener.onDetail("BLE write failed") }
         }
     }
