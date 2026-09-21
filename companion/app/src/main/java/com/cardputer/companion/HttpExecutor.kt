@@ -11,7 +11,8 @@ import java.util.concurrent.Executors
 data class HttpExecResult(
     val httpStatus: Int,
     val errCode: Int,
-    val body: ByteArray
+    val body: ByteArray,
+    val log: String = ""
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -20,6 +21,7 @@ data class HttpExecResult(
         if (httpStatus != other.httpStatus) return false
         if (errCode != other.errCode) return false
         if (!body.contentEquals(other.body)) return false
+        if (log != other.log) return false
         return true
     }
 
@@ -27,6 +29,7 @@ data class HttpExecResult(
         var result = httpStatus
         result = 31 * result + errCode
         result = 31 * result + body.contentHashCode()
+        result = 31 * result + log.hashCode()
         return result
     }
 }
@@ -41,19 +44,26 @@ object HttpExecutor {
     }
 
     fun execute(preset: HttpPreset): HttpExecResult {
+        val log = StringBuilder()
+        fun line(msg: String) {
+            log.append(msg).append('\n')
+        }
         var conn: HttpURLConnection? = null
         return try {
+            val method = preset.method.uppercase().ifBlank { "GET" }
+            line("HTTP $method ${preset.url}")
             val url = URL(preset.url)
             conn = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = preset.method.uppercase().ifBlank { "GET" }
+                requestMethod = method
                 connectTimeout = 10_000
                 readTimeout = 15_000
                 doInput = true
                 instanceFollowRedirects = true
                 setRequestProperty("User-Agent", "CardputerCompanion/${BleProtocol.APP_VERSION}")
             }
-            for (line in preset.headers.lineSequence()) {
-                val trimmed = line.trim()
+            var headerCount = 0
+            for (headerLine in preset.headers.lineSequence()) {
+                val trimmed = headerLine.trim()
                 if (trimmed.isEmpty()) continue
                 val colon = trimmed.indexOf(':')
                 if (colon <= 0) continue
@@ -61,30 +71,43 @@ object HttpExecutor {
                 val value = trimmed.substring(colon + 1).trim()
                 if (key.isNotEmpty()) {
                     conn.setRequestProperty(key, value)
+                    headerCount++
                 }
             }
-            val method = conn.requestMethod
+            line("headers=$headerCount connectTimeout=10s readTimeout=15s")
             if (method == "POST" || method == "PUT" || method == "PATCH") {
                 conn.doOutput = true
+                line("writing body ${preset.body.length} chars")
                 OutputStreamWriter(conn.outputStream, StandardCharsets.UTF_8).use { w ->
                     w.write(preset.body)
                 }
             }
+            line("connecting…")
             val status = conn.responseCode
+            line("response status=$status")
             val stream = if (status in 200..299) conn.inputStream else conn.errorStream
             val text = if (stream != null) {
                 BufferedReader(InputStreamReader(stream, StandardCharsets.UTF_8)).use { it.readText() }
             } else {
                 ""
             }
+            val fullLen = text.toByteArray(StandardCharsets.UTF_8).size
             val bytes = text.toByteArray(StandardCharsets.UTF_8)
                 .take(BleProtocol.HTTP_BODY_MAX)
                 .toByteArray()
-            HttpExecResult(status, 0, bytes)
-        } catch (_: java.net.SocketTimeoutException) {
-            HttpExecResult(0, BleProtocol.ERR_HTTP_TIMEOUT, ByteArray(0))
-        } catch (_: Exception) {
-            HttpExecResult(0, BleProtocol.ERR_HTTP_FAILED, ByteArray(0))
+            if (fullLen > BleProtocol.HTTP_BODY_MAX) {
+                line("body truncated $fullLen → ${BleProtocol.HTTP_BODY_MAX} bytes")
+            } else {
+                line("body ${bytes.size} bytes")
+            }
+            line("ok")
+            HttpExecResult(status, 0, bytes, log.toString().trimEnd())
+        } catch (e: java.net.SocketTimeoutException) {
+            line("timeout: ${e.message ?: e.javaClass.simpleName}")
+            HttpExecResult(0, BleProtocol.ERR_HTTP_TIMEOUT, ByteArray(0), log.toString().trimEnd())
+        } catch (e: Exception) {
+            line("error ${e.javaClass.simpleName}: ${e.message ?: "(no message)"}")
+            HttpExecResult(0, BleProtocol.ERR_HTTP_FAILED, ByteArray(0), log.toString().trimEnd())
         } finally {
             conn?.disconnect()
         }

@@ -59,4 +59,24 @@
     <string name="ssh_command">Command</string>
     <string name="ssh_password">Password</string>
     <string name="ssh_fields_required">Name, host, user, and command required</string>
+    <string name="test_run">Test run</string>
+    <string name="test_run_running">Running…</string>
+    <string name="test_run_http_title">HTTP test — status %1$d</string>
+    <string name="test_run_http_err_title">HTTP test — error</string>
+    <string name="test_run_ssh_title">SSH test — exit %1$d</string>
+    <string name="test_run_ssh_err_title">SSH test — error</string>
+    <string name="test_run_empty_body">(no body)</string>
+    <string name="test_run_section_body">— body —</string>
+    <string name="test_run_section_log">— log —</string>
+    <string name="test_run_copy_log">Copy log</string>
+    <string name="test_run_log_copied">Log copied</string>
+    <string name="test_run_http_url_required">URL required for test run</string>
+    <string name="test_run_ssh_required">Host, user, and command required for test run</string>
+    <string name="http_err_timeout">Timeout</string>
+    <string name="http_err_failed">Request failed</string>
+    <string name="ssh_err_failed">SSH failed</string>
+    <string name="ssh_err_timeout">SSH timed out</string>
+    <string name="ssh_err_auth">SSH auth failed</string>
+    <string name="ssh_err_host_key">SSH host key error</string>
+    <string name="ok">OK</string>
 </resources>

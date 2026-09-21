@@ -17,6 +17,8 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.view.LayoutInflater
 import android.widget.ArrayAdapter
+import android.widget.ScrollView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -26,6 +28,7 @@ import androidx.core.content.ContextCompat
 import com.cardputer.companion.databinding.ActivityMainBinding
 import com.cardputer.companion.databinding.DialogPresetBinding
 import com.cardputer.companion.databinding.DialogSshPresetBinding
+import java.nio.charset.StandardCharsets
 import java.util.UUID
 import java.util.concurrent.Executor
 
@@ -33,6 +36,7 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
     private lateinit var binding: ActivityMainBinding
     private lateinit var store: PresetStore
     private lateinit var sshStore: SshPresetStore
+    private lateinit var sshHostKeys: SshHostKeyStore
     private val presets = mutableListOf<HttpPreset>()
     private val sshPresets = mutableListOf<SshPreset>()
     private lateinit var listAdapter: ArrayAdapter<String>
@@ -40,6 +44,7 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
     private var resumeListenAfterBtEnable = false
     private var forceRescanPending = false
     private var associateAfterBt = false
+    private var testRunInFlight = false
 
     private var bleService: BleLinkService? = null
     private var bound = false
@@ -123,6 +128,7 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
 
         store = PresetStore(this)
         sshStore = SshPresetStore(this)
+        sshHostKeys = SshHostKeyStore(this)
         presets.clear()
         presets.addAll(store.load())
         sshPresets.clear()
@@ -288,6 +294,22 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
         }
         val dialog = builder.create()
         dialog.setOnShowListener {
+            dialogBinding.testRunButton.setOnClickListener {
+                val url = dialogBinding.editUrl.text?.toString()?.trim().orEmpty()
+                if (url.isEmpty()) {
+                    Toast.makeText(this, R.string.test_run_http_url_required, Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                val preset = HttpPreset(
+                    name = dialogBinding.editName.text?.toString()?.trim().orEmpty().ifBlank { "test" },
+                    url = url,
+                    method = dialogBinding.editMethod.text?.toString()?.trim()?.uppercase().orEmpty()
+                        .ifBlank { "GET" },
+                    headers = dialogBinding.editHeaders.text?.toString().orEmpty(),
+                    body = dialogBinding.editBody.text?.toString().orEmpty()
+                )
+                runHttpTest(preset, dialogBinding.testRunButton)
+            }
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 val name = dialogBinding.editName.text?.toString()?.trim().orEmpty()
                 val url = dialogBinding.editUrl.text?.toString()?.trim().orEmpty()
@@ -336,6 +358,26 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
         }
         val dialog = builder.create()
         dialog.setOnShowListener {
+            dialogBinding.testRunButton.setOnClickListener {
+                val host = dialogBinding.editHost.text?.toString()?.trim().orEmpty()
+                val user = dialogBinding.editUser.text?.toString()?.trim().orEmpty()
+                val command = dialogBinding.editCommand.text?.toString()?.trim().orEmpty()
+                if (host.isEmpty() || user.isEmpty() || command.isEmpty()) {
+                    Toast.makeText(this, R.string.test_run_ssh_required, Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                val port = dialogBinding.editPort.text?.toString()?.trim()?.toIntOrNull() ?: 22
+                val preset = SshPreset(
+                    id = existing?.id ?: "test-run",
+                    name = dialogBinding.editName.text?.toString()?.trim().orEmpty().ifBlank { "test" },
+                    host = host,
+                    port = port.coerceIn(1, 65535),
+                    user = user,
+                    command = command,
+                    password = dialogBinding.editPassword.text?.toString().orEmpty()
+                )
+                runSshTest(preset, dialogBinding.testRunButton)
+            }
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 val name = dialogBinding.editName.text?.toString()?.trim().orEmpty()
                 val host = dialogBinding.editHost.text?.toString()?.trim().orEmpty()
@@ -366,6 +408,113 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
             }
         }
         dialog.show()
+    }
+
+    private fun runHttpTest(preset: HttpPreset, button: android.widget.Button) {
+        if (testRunInFlight) return
+        testRunInFlight = true
+        val label = button.text
+        button.isEnabled = false
+        button.setText(R.string.test_run_running)
+        HttpExecutor.executeAsync(preset) { result ->
+            runOnUiThread {
+                testRunInFlight = false
+                button.isEnabled = true
+                button.text = label
+                val bodyText = decodeBody(result.body)
+                val title = if (result.errCode != 0) {
+                    getString(R.string.test_run_http_err_title)
+                } else {
+                    getString(R.string.test_run_http_title, result.httpStatus)
+                }
+                val summary = if (result.errCode != 0) httpErrLabel(result.errCode) else null
+                showTestResult(title, summary, bodyText, result.log)
+            }
+        }
+    }
+
+    private fun runSshTest(preset: SshPreset, button: android.widget.Button) {
+        if (testRunInFlight) return
+        testRunInFlight = true
+        val label = button.text
+        button.isEnabled = false
+        button.setText(R.string.test_run_running)
+        SshExecutor.executeAsync(preset, sshHostKeys) { result ->
+            runOnUiThread {
+                testRunInFlight = false
+                button.isEnabled = true
+                button.text = label
+                val bodyText = decodeBody(result.body)
+                val title = if (result.errCode != 0) {
+                    getString(R.string.test_run_ssh_err_title)
+                } else {
+                    getString(R.string.test_run_ssh_title, result.exitStatus)
+                }
+                val summary = if (result.errCode != 0) sshErrLabel(result.errCode) else null
+                showTestResult(title, summary, bodyText, result.log)
+            }
+        }
+    }
+
+    private fun decodeBody(body: ByteArray): String {
+        if (body.isEmpty()) return getString(R.string.test_run_empty_body)
+        return String(body, StandardCharsets.UTF_8)
+    }
+
+    private fun httpErrLabel(code: Int): String = when (code) {
+        BleProtocol.ERR_HTTP_TIMEOUT -> getString(R.string.http_err_timeout)
+        BleProtocol.ERR_HTTP_FAILED -> getString(R.string.http_err_failed)
+        else -> "err $code"
+    }
+
+    private fun sshErrLabel(code: Int): String = when (code) {
+        BleProtocol.ERR_SSH_TIMEOUT -> getString(R.string.ssh_err_timeout)
+        BleProtocol.ERR_SSH_AUTH_FAILED -> getString(R.string.ssh_err_auth)
+        BleProtocol.ERR_SSH_HOST_KEY -> getString(R.string.ssh_err_host_key)
+        BleProtocol.ERR_SSH_FAILED -> getString(R.string.ssh_err_failed)
+        else -> "err $code"
+    }
+
+    private fun showTestResult(title: String, summary: String?, body: String, log: String) {
+        val pad = (16 * resources.displayMetrics.density).toInt()
+        val text = buildString {
+            if (!summary.isNullOrBlank()) {
+                append(summary)
+                append("\n\n")
+            }
+            append(getString(R.string.test_run_section_body))
+            append('\n')
+            append(body)
+            append("\n\n")
+            append(getString(R.string.test_run_section_log))
+            append('\n')
+            append(log.ifBlank { "(no log)" })
+        }
+        val textView = TextView(this).apply {
+            this.text = text
+            typeface = android.graphics.Typeface.MONOSPACE
+            textSize = 13f
+            setPadding(pad, pad, pad, pad)
+            setTextIsSelectable(true)
+        }
+        val scroll = ScrollView(this).apply {
+            addView(textView)
+            layoutParams = android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                (resources.displayMetrics.heightPixels * 0.55f).toInt()
+            )
+        }
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setView(scroll)
+            .setPositiveButton(R.string.ok, null)
+            .setNeutralButton(R.string.test_run_copy_log) { _, _ ->
+                val clip = android.content.ClipData.newPlainText("test-run-log", log.ifBlank { text })
+                (getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+                    .setPrimaryClip(clip)
+                Toast.makeText(this, R.string.test_run_log_copied, Toast.LENGTH_SHORT).show()
+            }
+            .show()
     }
 
     private fun confirmDelete(index: Int) {
