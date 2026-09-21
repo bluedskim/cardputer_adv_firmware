@@ -6,6 +6,32 @@ Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like t
 
 Primary development target is **Fedora**; setup and flash steps below prefer Fedora, with notes for other platforms.
 
+## Screenshots
+
+### Cardputer firmware
+
+<p align="center">
+  <img src="docs/images/firmware-torch.png" alt="Torch app on Cardputer" width="320" />
+  <img src="docs/images/firmware-web.png" alt="Web commander list on Cardputer" width="320" />
+  <img src="docs/images/firmware-ssh.png" alt="SSH command result on Cardputer" width="320" />
+</p>
+
+| Torch | Web list | SSH result |
+| :---: | :---: | :---: |
+| Brightness / timeout flashlight | Pick an HTTP preset | Exit status + stdout paging |
+
+### Android Companion
+
+<p align="center">
+  <img src="docs/images/companion-main.png" alt="Companion main screen with HTTP and SSH presets" width="240" />
+  &nbsp;&nbsp;
+  <img src="docs/images/companion-ssh-dialog.png" alt="Companion SSH preset editor with Test run" width="240" />
+</p>
+
+| Main | SSH preset |
+| :---: | :---: |
+| Link / Scan / Stop, HTTP & SSH lists | Edit host + **Test run** before flash |
+
 ## Development environment (Fedora)
 
 ### 1. System packages
@@ -271,7 +297,7 @@ M5Cardputer is declared in `platformio.ini`.
 ├── platformio.ini
 ├── scripts/export_launcher_bin.py
 ├── dist/                     # M5Launcher .bin (after build)
-├── docs/                     # ble_link.md · m1/m2/m3 verify
+├── docs/                     # ble_link.md · m1/m2/m3 verify · images/
 ├── companion/                # Android companion (M1–M3)
 ├── sim/                      # Desktop simulator (SDL2, Arduino/M5 stubs)
 ├── include/
