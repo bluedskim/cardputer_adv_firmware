@@ -23,10 +23,6 @@ constexpr uint8_t kBleListRetries = 1;
 constexpr uint8_t kBleRunRetries = 2;
 constexpr int kResultCols = 18;
 
-bool isBackKey(const Keyboard_Class::KeysState& status) {
-    return status.del || status.backspace;
-}
-
 }  // namespace
 
 const char* SshApp::name() const { return "SSH"; }
