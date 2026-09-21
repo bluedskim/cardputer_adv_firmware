@@ -40,7 +40,12 @@ private:
     void drawRunning() const;
     void drawResult() const;
     NavRequest handleInput(const Keyboard_Class::KeysState& status);
+    bool acceptsFrame(const BleRxFrame& frame) const;
     void processBleFrames();
+    template <typename Visitor>
+    uint16_t forEachResultRow(Visitor visitor) const;
+    uint16_t resultRowCount() const;
+    uint16_t resultBodyRows() const;
     bool ensureBle(Pending pending);
     void flushPending();
     void sendListReq();
