@@ -294,20 +294,26 @@ pio device monitor
 ├── platformio.ini
 ├── scripts/export_launcher_bin.py
 ├── dist/                     # M5Launcher용 .bin (빌드 후 생성)
-├── docs/ble_link.md          # BLE 링크 프로토콜
-├── companion/                # Android companion (M1)
+├── docs/                     # ble_link.md(프로토콜) · m1/m2 검증 절차
+├── companion/                # Android companion (M1/M2)
+├── sim/                      # 데스크탑 시뮬레이터 (SDL2, Arduino/M5 스텁)
 ├── include/
 │   ├── config.h
+│   ├── system_settings.h     # Sleep/Bright 설정 (NVS)
 │   └── ble/                  # 프로토콜 상수 · BleLink API
 ├── src/
 │   ├── main.cpp
-│   ├── app_shell.*           # 앱 전환 셸
+│   ├── app_shell.*           # 앱 전환 셸 · sleep/wake
+│   ├── system_settings.cpp
 │   ├── launcher_exit.*       # M5Launcher 복귀
-│   ├── ble/ble_link.*        # NimBLE 링크 (sim stub)
+│   ├── ble/ble_link.cpp      # NimBLE 링크 (sim stub)
+│   ├── input/                # 키 edge 감지 · 방향키 매핑
+│   ├── ui/                   # 배터리 아이콘
 │   └── apps/
 │       ├── torch/
 │       ├── timer/
 │       ├── stopwatch/
+│       ├── web/              # HTTP commander (M2)
 │       └── settings/
 └── README.md
 ```

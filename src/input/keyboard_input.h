@@ -64,6 +64,12 @@ inline bool arrowHeld(const Keyboard_Class::KeysState& status, ArrowKey arrow) {
     }
 }
 
+// "Back" / "erase" key. Cardputer-Adv reports the plain Backspace keycap as
+// `backspace`; `del` is only set for Fn+Backspace, so apps must accept both.
+inline bool isBackKey(const Keyboard_Class::KeysState& status) {
+    return status.del || status.backspace;
+}
+
 inline bool isArrowChar(const char key) {
     switch (key) {
         case ';':

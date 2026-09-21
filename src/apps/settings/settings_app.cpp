@@ -17,10 +17,6 @@ constexpr int kLineHeight = 16;
 constexpr int kListTop = kContentTop + 4;
 constexpr uint32_t kBatteryRefreshMs = 1000;
 
-bool isBackKey(const Keyboard_Class::KeysState& status) {
-    return status.del || status.backspace;
-}
-
 }  // namespace
 
 const char* SettingsApp::name() const { return "Settings"; }

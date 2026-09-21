@@ -42,6 +42,9 @@ void SystemSettings::load() {
         return;
     }
 
+    // The namespace is shared with BleLink, so it can exist without any sleep
+    // keys; only a stored v0 index needs migrating, never the compiled default.
+    const bool has_sleep_idx = prefs.isKey("sleep_idx");
     sleep_option_index_ = prefs.getUChar("sleep_idx", config::kDefaultSleepOptionIndex);
     brightness_option_index_ =
         prefs.getUChar("bright_idx", config::kDefaultBrightnessOptionIndex);
@@ -50,7 +53,7 @@ void SystemSettings::load() {
 
     // v0: 30s/1m/5m/10m at indices 0..3 → v1 inserts Immediate at 0.
     bool migrated = false;
-    if (sleep_ver < kSleepOptionsVer) {
+    if (has_sleep_idx && sleep_ver < kSleepOptionsVer) {
         if (sleep_option_index_ <= 3) {
             sleep_option_index_ = static_cast<uint8_t>(sleep_option_index_ + 1);
         }

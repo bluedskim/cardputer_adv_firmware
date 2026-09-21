@@ -23,10 +23,6 @@ constexpr uint8_t kBleListRetries = 1;
 constexpr uint8_t kBleRunRetries = 2;
 constexpr int kResultCols = 18;
 
-bool isBackKey(const Keyboard_Class::KeysState& status) {
-    return status.del || status.backspace;
-}
-
 }  // namespace
 
 const char* WebApp::name() const { return "Web"; }
@@ -376,9 +372,31 @@ void WebApp::ensureCursorVisible() {
     }
 }
 
+bool WebApp::acceptsFrame(const BleRxFrame& frame) const {
+    switch (frame.type) {
+        case ble_protocol::Type::HttpListItem:
+        case ble_protocol::Type::HttpListEnd:
+            return awaiting_list_ && frame.req_id == list_req_id_;
+        case ble_protocol::Type::HttpRunMeta:
+        case ble_protocol::Type::HttpRunChunk:
+        case ble_protocol::Type::HttpRunEnd:
+            return awaiting_run_ && frame.req_id == run_req_id_;
+        case ble_protocol::Type::Error:
+            return (awaiting_list_ && frame.req_id == list_req_id_) ||
+                   (awaiting_run_ && frame.req_id == run_req_id_);
+        default:
+            return false;
+    }
+}
+
 void WebApp::processBleFrames() {
     BleRxFrame frame;
     while (BleLink::instance().takeRxFrame(&frame)) {
+        // Late replies to a retried/abandoned request must not mutate the current
+        // screen (e.g. flip back to Result after the user already left).
+        if (!acceptsFrame(frame)) {
+            continue;
+        }
         switch (frame.type) {
             case ble_protocol::Type::HttpListItem: {
                 if (frame.len < 2) {
@@ -386,7 +404,7 @@ void WebApp::processBleFrames() {
                 }
                 const uint8_t index = frame.payload[0];
                 const uint8_t total = frame.payload[1];
-                if (total > config::kHttpMaxPresets || index >= config::kHttpMaxPresets) {
+                if (total > config::kHttpMaxPresets || index >= total) {
                     break;
                 }
                 // New list size from phone — replace in place; keep cache if refresh aborts.
@@ -465,8 +483,8 @@ void WebApp::processBleFrames() {
                 awaiting_list_ = false;
                 awaiting_run_ = false;
                 pending_ = Pending::None;
-                screen_ = (active_site_[0] != '\0' && preset_count_ > 0) ? Screen::List
-                                                                         : Screen::List;
+                run_got_meta_ = false;
+                screen_ = Screen::List;
                 if (frame.len >= 1) {
                     const uint8_t code = frame.payload[0];
                     if (code == static_cast<uint8_t>(ble_protocol::ErrorCode::NoPresets)) {
@@ -641,7 +659,12 @@ NavRequest WebApp::handleInput(const Keyboard_Class::KeysState& status) {
                 ++cursor_;
                 ensureCursorVisible();
             } else if (screen_ == Screen::Result) {
-                ++result_scroll_;
+                const uint16_t rows = resultRowCount();
+                const uint16_t body_rows = resultBodyRows();
+                const uint16_t max_scroll = rows > body_rows ? rows - body_rows : 0;
+                if (result_scroll_ < max_scroll) {
+                    ++result_scroll_;
+                }
             }
             return NavRequest::None;
         default:
@@ -751,22 +774,14 @@ void WebApp::drawRunning() const {
     display.print(active_site_[0] != '\0' ? active_site_ : "(site)");
 }
 
-void WebApp::drawResult() const {
-    auto& display = M5Cardputer.Display;
-    display.setTextSize(2);
-
-    // Row 0: site name only (never HTTP/timeout text).
-    display.setTextColor(chrome_focused_ ? TFT_WHITE : TFT_YELLOW, TFT_BLACK);
-    display.setCursor(8, kListTop);
-    display.print(active_site_[0] != '\0' ? active_site_ : "(site)");
-
-    display.setTextColor(TFT_WHITE, TFT_BLACK);
-    const int body_rows = std::max(1, listVisibleRows() - 1);
+// Splits the body into display rows (wrap at kResultCols, break on '\n', drop '\r').
+// Returns the number of rows; when `visitor` is set it is called for each row.
+template <typename Visitor>
+uint16_t WebApp::forEachResultRow(Visitor visitor) const {
     uint16_t line = 0;
-    uint16_t drawn = 0;
     size_t i = 0;
     const size_t n = result_len_;
-    while (i < n && drawn < static_cast<uint16_t>(body_rows)) {
+    while (i < n) {
         char row[kResultCols + 1];
         size_t col = 0;
         while (i < n && col < static_cast<size_t>(kResultCols)) {
@@ -780,14 +795,41 @@ void WebApp::drawResult() const {
             row[col++] = ch;
         }
         row[col] = '\0';
-        if (line >= result_scroll_) {
-            display.setCursor(8, kListTop + kLineHeight * (1 + drawn));
-            display.print(row);
-            ++drawn;
+        if (!visitor(line, row)) {
+            return line;
         }
         ++line;
-        if (i >= n) {
-            break;
-        }
     }
+    return line;
+}
+
+uint16_t WebApp::resultRowCount() const {
+    return forEachResultRow([](uint16_t, const char*) { return true; });
+}
+
+uint16_t WebApp::resultBodyRows() const {
+    return static_cast<uint16_t>(std::max(1, listVisibleRows() - 1));
+}
+
+void WebApp::drawResult() const {
+    auto& display = M5Cardputer.Display;
+    display.setTextSize(2);
+
+    // Row 0: site name only (never HTTP/timeout text).
+    display.setTextColor(chrome_focused_ ? TFT_WHITE : TFT_YELLOW, TFT_BLACK);
+    display.setCursor(8, kListTop);
+    display.print(active_site_[0] != '\0' ? active_site_ : "(site)");
+
+    display.setTextColor(TFT_WHITE, TFT_BLACK);
+    const uint16_t body_rows = resultBodyRows();
+    uint16_t drawn = 0;
+    forEachResultRow([&](uint16_t line, const char* row) {
+        if (line < result_scroll_) {
+            return true;
+        }
+        display.setCursor(8, kListTop + kLineHeight * (1 + drawn));
+        display.print(row);
+        ++drawn;
+        return drawn < body_rows;
+    });
 }

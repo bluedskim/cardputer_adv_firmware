@@ -9,6 +9,8 @@
 
 #if !defined(CARDPUTER_SIM)
 #include <NimBLEDevice.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/portmacro.h>
 #endif
 
 namespace {
@@ -17,6 +19,17 @@ constexpr const char* kNvsPairedKey = "ble_paired";
 constexpr const char* kNvsPeerKey = "ble_peer";
 
 #if !defined(CARDPUTER_SIM)
+// RX frames are produced on the NimBLE host task (onWrite) and consumed on the
+// Arduino loop task; the queue indices need a critical section.
+portMUX_TYPE g_rx_queue_mux = portMUX_INITIALIZER_UNLOCKED;
+
+struct RxQueueLock {
+    RxQueueLock() { portENTER_CRITICAL(&g_rx_queue_mux); }
+    ~RxQueueLock() { portEXIT_CRITICAL(&g_rx_queue_mux); }
+    RxQueueLock(const RxQueueLock&) = delete;
+    RxQueueLock& operator=(const RxQueueLock&) = delete;
+};
+
 NimBLEServer* g_server = nullptr;
 NimBLECharacteristic* g_tx = nullptr;
 NimBLECharacteristic* g_rx = nullptr;
@@ -554,6 +567,10 @@ void BleLink::handleRx(const uint8_t* data, size_t len) {
 
 bool BleLink::enqueueRx(ble_protocol::Type type, uint16_t req_id, const uint8_t* payload,
                         uint16_t payload_len) {
+    if (payload_len > ble_protocol::kMaxPayload) {
+        return false;
+    }
+    RxQueueLock lock;
     if (rx_count_ >= kRxQueueSize) {
         return false;
     }
@@ -570,7 +587,11 @@ bool BleLink::enqueueRx(ble_protocol::Type type, uint16_t req_id, const uint8_t*
 }
 
 bool BleLink::takeRxFrame(BleRxFrame* out) {
-    if (out == nullptr || rx_count_ == 0) {
+    if (out == nullptr) {
+        return false;
+    }
+    RxQueueLock lock;
+    if (rx_count_ == 0) {
         return false;
     }
     *out = rx_queue_[rx_head_];
@@ -580,6 +601,7 @@ bool BleLink::takeRxFrame(BleRxFrame* out) {
 }
 
 void BleLink::clearRxQueue() {
+    RxQueueLock lock;
     rx_head_ = 0;
     rx_tail_ = 0;
     rx_count_ = 0;

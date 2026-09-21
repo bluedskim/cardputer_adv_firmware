@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "apps/app_base.h"
 #include "apps/stopwatch/stopwatch_storage.h"
@@ -51,6 +52,8 @@ private:
     std::size_t history_cursor_ = 0;
     std::size_t history_scroll_ = 0;
     std::string input_buffer_;
+    // Printable chars held at the previous text-input edge (see handleInput).
+    std::vector<char> held_text_chars_;
     bool running_ = false;
     uint32_t start_ms_ = 0;
     uint32_t elapsed_ms_ = 0;
