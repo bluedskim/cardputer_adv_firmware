@@ -17,16 +17,21 @@ public:
 
     void end() {}
 
-    void clear() { storage_[namespace_].clear(); }
+    void clear() { storage()[namespace_].clear(); }
+
+    bool isKey(const char* key) {
+        const auto ns_it = storage().find(namespace_);
+        return ns_it != storage().end() && ns_it->second.count(key) != 0;
+    }
 
     bool putString(const char* key, const char* value) {
-        storage_[namespace_][key] = value;
+        storage()[namespace_][key] = value;
         return true;
     }
 
     String getString(const char* key, const char* default_value = "") {
-        const auto ns_it = storage_.find(namespace_);
-        if (ns_it == storage_.end()) {
+        const auto ns_it = storage().find(namespace_);
+        if (ns_it == storage().end()) {
             return String(default_value);
         }
         const auto key_it = ns_it->second.find(key);
@@ -57,6 +62,14 @@ public:
     }
 
 private:
+    using Storage = std::map<std::string, std::map<std::string, std::string>>;
+
+    // Shared across instances so save()/load() round-trip within a sim run,
+    // like NVS does on the device (still not persisted across runs).
+    static Storage& storage() {
+        static Storage instance;
+        return instance;
+    }
+
     std::string namespace_;
-    std::map<std::string, std::map<std::string, std::string>> storage_;
 };
