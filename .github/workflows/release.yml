@@ -34,9 +34,21 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew :app:assembleRelease
-          mkdir -p ../dist
-          cp app/build/outputs/apk/release/app-release.apk \
-            ../dist/CardputerCompanion.apk
+
+      - name: Stage versioned release assets
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          VER="${TAG#v}"
+          mkdir -p dist
+          test -f dist/cardputer_adv_firmware.bin
+          test -f companion/app/build/outputs/apk/release/app-release.apk
+          cp -f dist/cardputer_adv_firmware.bin \
+            "dist/cardputer_adv_firmware-${VER}.bin"
+          cp -f companion/app/build/outputs/apk/release/app-release.apk \
+            "dist/CardputerCompanion-${VER}.apk"
+          ls -la "dist/cardputer_adv_firmware-${VER}.bin" \
+            "dist/CardputerCompanion-${VER}.apk"
 
       - name: Create or update GitHub Release
         env:
@@ -44,10 +56,11 @@ jobs:
         run: |
           set -euo pipefail
           TAG="${GITHUB_REF_NAME}"
+          VER="${TAG#v}"
           NOTES_FILE=".github/RELEASE_NOTES/${TAG}.md"
           ASSETS=(
-            dist/cardputer_adv_firmware.bin
-            dist/CardputerCompanion.apk
+            "dist/cardputer_adv_firmware-${VER}.bin"
+            "dist/CardputerCompanion-${VER}.apk"
           )
           for f in "${ASSETS[@]}"; do
             test -f "$f" || { echo "missing asset: $f"; exit 1; }
@@ -60,9 +73,6 @@ jobs:
             EDIT_ARGS=(--draft=false --latest)
             if [ -f "$NOTES_FILE" ]; then
               EDIT_ARGS+=(--notes-file "$NOTES_FILE")
-            fi
-            # Prefer release-notes title when present.
-            if [ -f "$NOTES_FILE" ]; then
               TITLE=$(head -n1 "$NOTES_FILE" | sed 's/^#* *//')
               if [ -n "$TITLE" ]; then
                 EDIT_ARGS+=(--title "$TITLE")

@@ -2,7 +2,7 @@
 
 Current release: **[v0.6.0](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.6.0)** · Companion `0.6.2-m3` (M3 SSH)
 
-Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like the stock UI. Includes **Torch**, **Timer**, **Stopwatch**, **Web**, **SSH**, and **Settings**.
+Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like the stock UI. Includes **Torch**, **Timer**, **Stopwatch**, **Web** (HTTP presets — not a browser), **SSH** (one-shot exec — not an interactive shell), and **Settings**.
 
 Primary development target is **Fedora**; setup and flash steps below prefer Fedora, with notes for other platforms.
 
@@ -184,15 +184,19 @@ Named timing sessions stored in NVS (max **10**).
 - `↑` `↓` — move · top `↑` → chrome
 - History: `↑` `↓` scroll · `←` / `Del` back
 
-### Web
+### Web (HTTP commander)
 
-HTTP commander over BLE (phone executes presets). Cache-first name list; trailing **Refresh sites...** forces a sync. Enter runs a preset; result shows status + body paging.
+Phone-backed **HTTP presets** over BLE — pick a saved request and view the response body. **Not a web browser** (no arbitrary URL entry or page rendering on the device).
+
+Cache-first name list; trailing **Refresh sites...** forces a sync. Enter runs a preset; result shows status + body paging.
 
 See [docs/m2_verify.md](docs/m2_verify.md) · [docs/ble_link.md](docs/ble_link.md).
 
-### SSH
+### SSH (exec-only)
 
-SSH exec-only commander over BLE (phone holds host/user/password/command). Cache-first list; **Refresh hosts...**; result shows exit status + stdout/stderr paging.
+Phone-backed **one-shot SSH exec** over BLE — pick a saved host/command and view stdout/stderr. **Not an interactive SSH client** (no PTY, no typing commands on the Cardputer).
+
+Cache-first list; **Refresh hosts...**; result shows exit status + stdout/stderr paging.
 
 See [docs/m3_verify.md](docs/m3_verify.md) · [docs/ble_link.md](docs/ble_link.md).
 
@@ -239,7 +243,8 @@ Outputs:
 
 | File | Purpose |
 | ------------------------------------ | --------------------- |
-| `dist/cardputer_adv_firmware.bin` | App image for M5Launcher |
+| `dist/cardputer_adv_firmware.bin` | App image for M5Launcher (local build) |
+| `dist/cardputer_adv_firmware-<ver>.bin` | Same image on GitHub Releases (versioned) |
 | `.pio/build/m5launcher/firmware.bin` | Same file (build path) |
 
 **Install**
@@ -254,7 +259,7 @@ Outputs:
 
 > Flashing `firmware.bin` to `0x0` with `esptool` erases M5Launcher. Always use M5Launcher Install.
 
-GitHub Release assets also include **`CardputerCompanion.apk`** (sideload; debug-signed until a store keystore is added).
+GitHub Release assets are versioned, e.g. **`cardputer_adv_firmware-0.6.0.bin`** and **`CardputerCompanion-0.6.0.apk`** (sideload; debug-signed until a store keystore is added).
 
 ### Device test checklist
 
