@@ -1,56 +1,52 @@
 # cardputer_adv_firmware
 
-현재 릴리스: **[v0.6.0](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.6.0)** · Companion `0.6.2-m3` (M3 SSH)
+Current release: **[v0.6.0](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.6.0)** · Companion `0.6.2-m3` (M3 SSH)
 
-M5Stack **Cardputer-Adv** 전용 커스텀 펌웨어입니다. 기본 탑재 UI처럼 기능별로 좌우 전환하며, **Torch(손전등)**, **Timer**, **Stopwatch**, **Settings** 기능을 제공합니다.
+Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like the stock UI. Includes **Torch**, **Timer**, **Stopwatch**, **Web**, **SSH**, and **Settings**.
 
-주 개발 환경은 **Fedora** 기준이며, 아래 설치·업로드 절차도 Fedora를 우선으로 적어 두었습니다.
+Primary development target is **Fedora**; setup and flash steps below prefer Fedora, with notes for other platforms.
 
-## 개발 환경 (Fedora)
+## Development environment (Fedora)
 
-### 1. 시스템 패키지
+### 1. System packages
 
 ```bash
 sudo dnf install git python3-pip gcc-c++ make SDL2-devel pkg-config
 ```
 
-
-| 패키지                        | 용도                 |
+| Package | Purpose |
 | -------------------------- | ------------------ |
-| `git`, `python3-pip`       | PlatformIO, 소스 클론  |
-| `gcc-c++`, `make`          | 네이티브/sim 빌드        |
-| `SDL2-devel`, `pkg-config` | 데스크탑 시뮬레이터 (`sim`) |
-
-
-
+| `git`, `python3-pip` | PlatformIO, cloning |
+| `gcc-c++`, `make` | Native / sim builds |
+| `SDL2-devel`, `pkg-config` | Desktop simulator (`sim`) |
 
 ### 2. PlatformIO
 
-**Cursor / VS Code 확장** (권장): [PlatformIO IDE](https://platformio.org/install/ide?install=vscode) 설치 후 저장소를 열면 `platformio.ini` 의존성을 자동으로 받습니다.
+**Cursor / VS Code extension** (recommended): install [PlatformIO IDE](https://platformio.org/install/ide?install=vscode), open the repo, and let it fetch dependencies from `platformio.ini`.
 
-**CLI**만 쓸 때:
+**CLI only:**
 
 ```bash
 pip install --user platformio
-# ~/.local/bin 이 PATH에 없으면 추가 (예: ~/.bashrc)
+# Add ~/.local/bin to PATH if needed (e.g. ~/.bashrc)
 export PATH="$HOME/.local/bin:$PATH"
 pio --version
 ```
 
-저장소 루트에서 첫 빌드 시 ESP32 툴체인·라이브러리가 `~/.platformio` 아래로 내려받아집니다.
+On the first build from the repo root, the ESP32 toolchain and libraries download under `~/.platformio`.
 
-### 3. USB 업로드 · 시리얼 모니터
+### 3. USB upload and serial monitor
 
-Cardputer-Adv(ESP32-S3)는 USB CDC로 `/dev/ttyACM*` 에 잡힙니다. 권한이 없으면 `pio run -t upload` 또는 `pio device monitor`가 실패합니다.
+Cardputer-Adv (ESP32-S3) appears as USB CDC on `/dev/ttyACM*`. Without permission, `pio run -t upload` or `pio device monitor` fails.
 
-**방법 A —** `dialout` **그룹 (일반적)**
+**Option A —** `dialout` **group (typical)**
 
 ```bash
 sudo usermod -aG dialout "$USER"
-# 로그아웃 후 다시 로그인 (또는 재부팅)
+# Log out and back in (or reboot)
 ```
 
-**방법 B — udev 규칙 (Espressif)**
+**Option B — udev rule (Espressif)**
 
 `/etc/udev/rules.d/99-espressif.rules`:
 
@@ -58,218 +54,199 @@ sudo usermod -aG dialout "$USER"
 SUBSYSTEM=="usb", ATTR{idVendor}=="303a", MODE="0666", GROUP="dialout"
 ```
 
-적용:
+Apply:
 
 ```bash
 sudo udevadm control --reload-rules
 sudo udevadm trigger
-# USB 케이블 재연결
+# Replug the USB cable
 ```
 
-연결 확인:
+Check the port:
 
 ```bash
 pio device list
 ```
 
+### 4. Other Linux / macOS / Windows
 
-
-### 4. 다른 Linux / macOS / Windows
-
-
-| OS            | 참고                                                                                                                                        |
+| OS | Notes |
 | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Debian/Ubuntu | `sudo apt install build-essential git python3-pip libsdl2-dev pkg-config` · 시리얼 그룹 `dialout`                                              |
-| macOS         | [PlatformIO IDE](https://platformio.org/install/ide?install=vscode) · 시뮬: `brew install sdl2 pkg-config` ([sim/README.md](sim/README.md)) |
-| Windows       | PlatformIO IDE · 시뮬: MSYS2 + SDL2 ([sim/README.md](sim/README.md))                                                                        |
-
-
-
+| Debian/Ubuntu | `sudo apt install build-essential git python3-pip libsdl2-dev pkg-config` · serial group `dialout` |
+| macOS | [PlatformIO IDE](https://platformio.org/install/ide?install=vscode) · sim: `brew install sdl2 pkg-config` ([sim/README.md](sim/README.md)) |
+| Windows | PlatformIO IDE · sim: MSYS2 + SDL2 ([sim/README.md](sim/README.md)) |
 
 ## UI
 
-공통 **2단 방향키 내비**를 사용합니다. 문자 단축키 대신 화살표·Enter·Del 위주로 조작합니다.
+Shared **two-level arrow navigation**. Prefer arrows, Enter, and Del over letter shortcuts.
 
-- 상단 크롬 바: 앱 이름·페이지 점·배터리
-- **G0** 버튼으로 M5Launcher로 돌아갑니다.
+- Top chrome bar: app name, page dots, battery
+- **G0** returns to M5Launcher
 
+### Arrow keys
 
+Use the arrow glyphs printed on the keycaps. **Fn + arrow** works the same way.
 
-### 방향키
-
-키캡에 인쇄된 화살표 키를 그대로 사용합니다. **Fn + 화살표**도 동일하게 동작합니다.
-
-
-| 키             | 방향  |
+| Key | Direction |
 | ------------- | --- |
-| `;` 또는 Fn+`;` | 위   |
-| `,` 또는 Fn+`,` | 왼쪽  |
-| `.` 또는 Fn+`.` | 아래  |
-| `/` 또는 Fn+`/` | 오른쪽 |
+| `;` or Fn+`;` | Up |
+| `,` or Fn+`,` | Left |
+| `.` or Fn+`.` | Down |
+| `/` or Fn+`/` | Right |
 
+### Common controls
 
-
-
-### 공통 조작
-
-
-| 동작           | 키                                   |
+| Action | Keys |
 | ------------ | ----------------------------------- |
-| 항목 이동        | `↑` `↓`                             |
-| 값 조절 / 하위 없음 | `←` `→` (앱에 따라)                     |
-| 선택·실행        | `Enter`                             |
-| 뒤로           | `←` 또는 `Del`                        |
-| 앱 전환         | 목록 **맨 위**에서 `↑` → 크롬 포커스 → `←` `→` |
-| 앱으로 복귀       | 크롬에서 `↓` 또는 `Enter`                 |
+| Move selection | `↑` `↓` |
+| Adjust value / no submenu | `←` `→` (app-dependent) |
+| Select / run | `Enter` |
+| Back | `←` or `Del` |
+| Switch apps | From the **top** of a list, `↑` → chrome focus → `←` `→` |
+| Return to app | From chrome, `↓` or `Enter` |
 
+When chrome is focused, the bar turns navy and the title yellow.
 
-크롬이 포커스되면 바가 남색·제목이 노란색으로 강조됩니다.
-
-## 기능
-
-
+## Features
 
 ### Torch
 
-액정을 최대한 밝게 켜 전등처럼 사용합니다.
+Full-brightness backlight as a flashlight.
 
-
-| 동작                        | 키                 |
+| Action | Keys |
 | ------------------------- | ----------------- |
-| Bright / Time / Blink 포커스 | `↑` `↓`           |
-| 밝기·타임아웃 조절, Blink 토글      | `←` `→`           |
-| Blink 토글 (포커스 시)          | `Enter`           |
-| 앱 전환                      | Bright에서 `↑` → 크롬 |
+| Focus Bright / Time / Blink | `↑` `↓` |
+| Adjust brightness or timeout; toggle Blink | `←` `→` |
+| Toggle Blink (when focused) | `Enter` |
+| Switch apps | From Bright, `↑` → chrome |
 
-
-- 타임아웃 조절 단위: **60초** (최대 **60분**)
-- 기본 타임아웃: **10분(600초)**
-- 타임아웃이 지나면 자동으로 꺼졌다가 다시 켜집니다 (키를 누르면 바로 재시작).
-- 장시간 고휘도 유지는 패널에 부담을 줄 수 있으니 타임아웃을 꼭 활용하세요.
-
-
+- Timeout step: **60 s** (max **60 min**)
+- Default timeout: **10 min (600 s)**
+- When the timeout expires, the light turns off and can turn on again (any key restarts the timer)
+- Long high-brightness use stresses the panel — keep a timeout set
 
 ### Timer
 
-여러 개의 카운트다운 타이머를 NVS에 저장합니다. **시간·분** 단위로만 설정합니다.
+Multiple countdown timers stored in NVS. Set **hours and minutes** only.
 
-**목록**
+**List**
 
-- `↑` `↓` — 타이머 / `+ New`
-- `Enter` — 타이머 열기·시작·완료 해제 / New 추가
-- 실행 중 `Enter` — 취소
-- 맨 위 `↑` — 크롬(앱 전환)
+- `↑` `↓` — timer / `+ New`
+- `Enter` — open / start / clear done / add New
+- While running, `Enter` — cancel
+- Top row `↑` — chrome (app switch)
 
-**설정**
+**Edit**
 
 - `↑` `↓` — Hours / Minutes / `> Start` / `x Remove`
-- `←` `→` — 시간·분 조절 (0–23h, 0–59m)
-- `Enter` — Start 또는 Remove(확인)
-- `←` / `Del` — 목록으로
+- `←` `→` — adjust hours/minutes (0–23 h, 0–59 m)
+- `Enter` — Start or Remove (confirm)
+- `←` / `Del` — back to list
 
-완료된 타이머는 목록에 `DONE`으로 표시됩니다.
+Finished timers show `DONE` in the list.
 
 ### Stopwatch
 
-이름을 지정하고 측정한 기록을 NVS에 저장합니다 (최대 **10**건).
+Named timing sessions stored in NVS (max **10**).
 
-
-| 항목           | `Enter`                 |
+| Item | `Enter` |
 | ------------ | ----------------------- |
-| Name         | 이름 입력                   |
-| Start / Stop | 측정 시작·종료 (Stop 시 이력 저장) |
-| History      | 저장된 기록 목록               |
+| Name | Edit name |
+| Start / Stop | Start or stop (Stop saves history) |
+| History | Saved runs |
 
+- `↑` `↓` — move · top `↑` → chrome
+- History: `↑` `↓` scroll · `←` / `Del` back
 
-- `↑` `↓` — 항목 이동 · 맨 위 `↑` → 크롬
-- History 화면: `↑` `↓` 스크롤 · `←` / `Del` 복귀
+### Web
 
+HTTP commander over BLE (phone executes presets). Cache-first name list; trailing **Refresh sites...** forces a sync. Enter runs a preset; result shows status + body paging.
 
+See [docs/m2_verify.md](docs/m2_verify.md) · [docs/ble_link.md](docs/ble_link.md).
+
+### SSH
+
+SSH exec-only commander over BLE (phone holds host/user/password/command). Cache-first list; **Refresh hosts...**; result shows exit status + stdout/stderr paging.
+
+See [docs/m3_verify.md](docs/m3_verify.md) · [docs/ble_link.md](docs/ble_link.md).
 
 ### Settings
 
-화면 순서상 **맨 마지막** 앱입니다. Sleep·밝기·BLE 링크를 다루고, 배터리·펌웨어 정보를 표시합니다.
+Last app in the order. Sleep, brightness, BLE link, battery, and firmware version.
 
-- `↑` `↓` — Sleep / Bright / BLE 이동 · Sleep에서 `↑` → 크롬
-- `←` `→` — Sleep: **Immediate** / 30초 / 1분 / **5분** / 10분 / **Never** · Bright: 32 / 64 / **128** / 192 / 255
-  - Immediate: 곧 화면 OFF. **잠드는 순간** Sleep이 **30 sec**로 바뀌어 저장됨 (다시 Immediate 쓰려면 재선택)
-- **BLE 행:** 상태 요약 표시 (`Off Unpaired` / `Off Paired` / `Pairing` / `Connecting` / `Connected` · sim은 `N/A`). `Enter` → BLE 서브화면
-- **BLE 서브화면**
-  - 상태·peer(있을 때) 표시
-  - 문맥 동작만: 미페어 `Pair` · 페어됨 `Connect`/`Forget` · 진행 중 `Cancel` · 연결됨 `Disconnect`
-  - Forget은 `Forget?` 확인 후 실행 (`Enter` 예 / `Del` 취소)
-  - `←` / `Del` / 맨 위 `↑` → 메인 Settings (BLE 행 포커스)
-- **Battery:** 잔량(%)과 전압(V)을 한 줄에 표시 (충전 여부는 헤더 배터리 아이콘으로 확인)
-- **S/W Ver:** 펌웨어 버전 (`config.h`의 `kFirmwareVersion`)
-- 입력이 없으면 Sleep 시간 후 백라이트 OFF. Timer/Stopwatch가 **실행 중이 아니고** BLE 라디오가 **꺼져 있으면** light sleep으로 추가 절전하고, **TCA8418 INT(GPIO11)** 로만 키 입력 시 복귀합니다. BLE Pair/Connect 중이거나 연결 중이면 light sleep하지 않으며, **60초** 무트래픽 후 자동 disconnect·radio off.
-- Torch는 자체 밝기를 쓰며, 앱을 나가면 Settings Bright 값으로 복귀합니다.
-- Android companion: [`companion/`](companion/) · 프로토콜: [`docs/ble_link.md`](docs/ble_link.md) · 검증: [`docs/m1_verify.md`](docs/m1_verify.md)
+- `↑` `↓` — Sleep / Bright / BLE · from Sleep, `↑` → chrome
+- `←` `→` — Sleep: **Immediate** / 30 s / 1 min / **5 min** / 10 min / **Never** · Bright: 32 / 64 / **128** / 192 / 255
+  - Immediate: screen off soon. **On sleep**, Sleep is rewritten to **30 sec** and saved (pick Immediate again to reuse)
+- **BLE row:** status summary (`Off Unpaired` / `Off Paired` / `Pairing` / `Connecting` / `Connected` · sim: `N/A`). `Enter` → BLE submenu
+- **BLE submenu**
+  - Shows status and peer (when known)
+  - Contextual actions only: unpaired `Pair` · paired `Connect` / `Forget` · in progress `Cancel` · connected `Disconnect`
+  - Forget asks `Forget?` (`Enter` yes / `Del` cancel)
+  - `←` / `Del` / top `↑` → main Settings (BLE row focused)
+- **Battery:** percent and voltage on one line (charging shown on the chrome battery icon)
+- **S/W Ver:** firmware version (`kFirmwareVersion` in `config.h`)
+- With no input, backlight turns off after Sleep. If no Timer/Stopwatch is running **and** BLE radio is **off**, the device enters light sleep and wakes only on **TCA8418 INT (GPIO11)**. While BLE Pair/Connect or linked, light sleep is skipped; after **60 s** of idle link traffic the device disconnects and powers the radio down.
+- Torch uses its own brightness; leaving Torch restores Settings Bright
+- Android companion: [`companion/`](companion/) · protocol: [`docs/ble_link.md`](docs/ble_link.md) · verify: [`docs/m1_verify.md`](docs/m1_verify.md)
 
+## Desktop simulator
 
-
-## 데스크탑 시뮬레이터
-
-Torch / Timer / Stopwatch / Settings UI를 PC에서 미리 보려면 `sim/` 환경을 사용합니다. Fedora에서는 위 **시스템 패키지**(`SDL2-devel`, `pkg-config` 등) 설치 후:
+Preview Torch / Timer / Stopwatch / Web / SSH / Settings on a PC with `sim/`. On Fedora, install the **system packages** above (`SDL2-devel`, `pkg-config`, …), then:
 
 ```bash
 pio run -e sim -t upload
 ```
 
-`upload` 타겟이 PC에서 SDL 창을 띄웁니다. 조작 키·구조·한계는 [sim/README.md](sim/README.md)를 참고하세요.
+The `upload` target opens an SDL window. Keys, layout, and limits: [sim/README.md](sim/README.md).
 
-## 빌드
+## Build
 
+### For M5Launcher (recommended)
 
-
-### M5Launcher 설치용 (권장)
-
-기기에는 [M5Launcher](https://github.com/bmorcelli/Launcher)를 먼저 플래시해 두고, 이 프로젝트는 **OTA 앱 바이너리**로 설치합니다.
+Flash [M5Launcher](https://github.com/bmorcelli/Launcher) on the device first, then install this project as an **OTA app binary**.
 
 ```bash
 pio run -e m5launcher
 ```
 
-빌드 결과:
+Outputs:
 
-
-| 파일                                   | 용도                    |
+| File | Purpose |
 | ------------------------------------ | --------------------- |
-| `dist/cardputer_adv_firmware.bin`    | M5Launcher에 설치할 앱 이미지 |
-| `.pio/build/m5launcher/firmware.bin` | 위와 동일 (원본 경로)         |
+| `dist/cardputer_adv_firmware.bin` | App image for M5Launcher |
+| `.pio/build/m5launcher/firmware.bin` | Same file (build path) |
 
+**Install**
 
-**설치 방법**
+1. In M5Launcher, install the `.bin` via `SD` / `OTA` / `WUI`
+2. Run the app from the launcher list
 
-1. M5Launcher 메뉴에서 `SD` / `OTA` / `WUI` 중 하나로 `.bin` 설치
-2. 설치 후 목록에서 앱 실행
+**Return to launcher**
 
-**런처로 돌아가기**
+- Press **G0** once (upper-left of the keyboard) → reboot to M5Launcher (factory)
+- Recovery: hold **G0** and press **RST** → force launcher menu
 
-- 앱 실행 중 **G0 버튼**(키보드 왼쪽 상단) 한 번 → M5Launcher(factory)로 재부팅
-- 복구: **G0 누른 채로 RST** → 런처 메뉴 강제 진입
+> Flashing `firmware.bin` to `0x0` with `esptool` erases M5Launcher. Always use M5Launcher Install.
 
-> `firmware.bin`을 `esptool`로 `0x0`에 직접 쓰면 M5Launcher가 지워집니다. 반드시 M5Launcher의 Install 기능을 사용하세요.
+GitHub Release assets also include **`CardputerCompanion.apk`** (sideload; debug-signed until a store keystore is added).
 
+### Device test checklist
 
+After installing the `.bin` with M5Launcher (sim has no backlight hardware):
 
-### 실기 테스트 체크리스트
+- [ ] **Brightness:** In Torch, focus Bright — `←` dims, `→` brightens; at max, `→` stays at 255
+- [ ] **Timeout:** Focus Time — `←` `→` step by 60 s; countdown decreases each second; after expiry a message appears and keys work again
+- [ ] **Timer:** Add with `+ New`, set Hours/Minutes only, Start → countdown / DONE
+- [ ] **Stopwatch:** Rename, Start/Stop, History (max 10)
+- [ ] **Settings:** Change/save Sleep & Bright; BLE summary + submenu (Pair/Connect/Cancel/Disconnect/Forget); battery %/V; firmware version; idle backlight off and key wake (same app); light sleep when no timer and BLE off
+- [ ] **BLE M1:** BLE → Pair → companion Scan → Connected → Disconnect → `Off Paired` · sleep/wake keeps app · Forget confirm. See [companion/README.md](companion/README.md) · [docs/m1_verify.md](docs/m1_verify.md)
+- [ ] **Web M2 / SSH M3:** Linked Companion → open Web or SSH → list / Refresh / run. [docs/m2_verify.md](docs/m2_verify.md) · [docs/m3_verify.md](docs/m3_verify.md)
+- [ ] **G0:** While the app runs, G0 once → back to M5Launcher
+- [ ] **Battery:** Chrome icon visible; lightning when USB is plugged (no CHG pin — USB presence is used as a hint)
 
-M5Launcher에 `.bin` 설치 후 기기에서 확인합니다. (sim은 백라이트 하드웨어가 없습니다.)
+### USB direct flash (standalone firmware)
 
-- [ ] **밝기:** Torch에서 Bright 포커스 후 `←` 시 패널이 어두워지고, `→` 시 밝아진다. 최대에서 `→`를 눌러도 255에 머문다.
-- [ ] **타임아웃:** Time 포커스에서 `←` `→`가 60초 단위로 바뀌고, `Left`가 1초마다 줄어든다. 만료 후 메시지가 뜬 뒤 키가 다시 먹는다 (멈춘 것처럼 보이지 않음).
-- [ ] **Timer:** `+ New`로 추가, Hours/Minutes만 조절, Start 후 카운트다운·DONE 표시.
-- [ ] **Stopwatch:** Name 변경, Start/Stop 후 History에 기록(최대 10).
-- [ ] **Settings:** Sleep·Bright 변경·저장, **BLE** 요약 행·서브화면(Pair/Connect/Cancel/Disconnect/Forget), 배터리 잔량·전압, 펌웨어 버전, 유휴 후 화면 꺼짐·키 복귀(이전 앱 유지), Timer 미실행·BLE off 시 light sleep.
-- [ ] **BLE M1 (실기):** BLE → Pair → companion Scan → Connected → Disconnect → `Off Paired` · sleep/wake 앱 유지 · Forget 확인. 절차는 [companion/README.md](companion/README.md) · [docs/m1_verify.md](docs/m1_verify.md).
-- [ ] **G0:** 앱 실행 중 G0 한 번 → M5Launcher로 돌아간다.
-- [ ] **배터리:** 크롬 오른쪽에 아이콘이 보이고, USB 연결 시 번개 표시가 나타난다 (Cardputer는 CHG 핀이 없어 USB 연결로 추정).
-
-
-
-### USB 직접 플래시 (단독 펌웨어)
-
-M5Launcher 없이 단독으로 쓸 때만 사용합니다. Fedora에서 [USB 권한](#3-usb-업로드--시리얼-모니터)을 맞춘 뒤:
+Only when not using M5Launcher. On Fedora, fix [USB permissions](#3-usb-upload-and-serial-monitor) first:
 
 ```bash
 pio run -e m5stack-cardputer
@@ -277,158 +254,145 @@ pio run -e m5stack-cardputer -t upload
 pio device monitor
 ```
 
-업로드가 안 되면: 케이블이 **데이터** 지원인지, `pio device list`에 포트가 보이는지, `dialout` 그룹 적용 후 재로그인했는지 확인하세요. ESP32-S3은 부트로더 모드(보드의 **RST** 등)가 필요한 경우도 있습니다.
+If upload fails: use a **data** cable, confirm the port in `pio device list`, re-login after adding `dialout`, and try bootloader mode (**RST**, etc.) on ESP32-S3.
 
-### 요구 사항
+### Requirements
 
-- Fedora: [개발 환경](#개발-환경-fedora) 절의 패키지 + [PlatformIO](https://platformio.org/)
-- **Cardputer-Adv** 보드 (ESP32-S3, TCA8418 키보드)
-- USB-C **데이터** 케이블
+- Fedora: packages in [Development environment](#development-environment-fedora) + [PlatformIO](https://platformio.org/)
+- **Cardputer-Adv** (ESP32-S3, TCA8418 keyboard)
+- USB-C **data** cable
 
-`platformio.ini`에 M5Cardputer 의존성이 정의되어 있습니다.
+M5Cardputer is declared in `platformio.ini`.
 
-## 프로젝트 구조
+## Project layout
 
 ```
 .
 ├── platformio.ini
 ├── scripts/export_launcher_bin.py
-├── dist/                     # M5Launcher용 .bin (빌드 후 생성)
-├── docs/                     # ble_link.md(프로토콜) · m1/m2 검증 절차
-├── companion/                # Android companion (M1/M2)
-├── sim/                      # 데스크탑 시뮬레이터 (SDL2, Arduino/M5 스텁)
+├── dist/                     # M5Launcher .bin (after build)
+├── docs/                     # ble_link.md · m1/m2/m3 verify
+├── companion/                # Android companion (M1–M3)
+├── sim/                      # Desktop simulator (SDL2, Arduino/M5 stubs)
 ├── include/
 │   ├── config.h
-│   ├── system_settings.h     # Sleep/Bright 설정 (NVS)
-│   └── ble/                  # 프로토콜 상수 · BleLink API
+│   ├── system_settings.h     # Sleep/Bright (NVS)
+│   └── ble/                  # Protocol constants · BleLink API
 ├── src/
 │   ├── main.cpp
-│   ├── app_shell.*           # 앱 전환 셸 · sleep/wake
+│   ├── app_shell.*           # App switcher · sleep/wake
 │   ├── system_settings.cpp
-│   ├── launcher_exit.*       # M5Launcher 복귀
-│   ├── ble/ble_link.cpp      # NimBLE 링크 (sim stub)
-│   ├── input/                # 키 edge 감지 · 방향키 매핑
-│   ├── ui/                   # 배터리 아이콘
+│   ├── launcher_exit.*       # Return to M5Launcher
+│   ├── ble/ble_link.cpp      # NimBLE link (sim stub)
+│   ├── input/                # Key edge · arrow mapping
+│   ├── ui/                   # Battery icon
 │   └── apps/
 │       ├── torch/
 │       ├── timer/
 │       ├── stopwatch/
 │       ├── web/              # HTTP commander (M2)
+│       ├── ssh/              # SSH commander (M3)
 │       └── settings/
 └── README.md
 ```
 
+## Configuration
 
+Tune values in `include/config.h`:
 
-## 설정
-
-`include/config.h`에서 다음 값을 조정할 수 있습니다.
-
-
-| 상수                              | 기본값  | 설명                                 |
+| Constant | Default | Meaning |
 | ------------------------------- | ---- | ---------------------------------- |
-| `kTorchDefaultTimeoutSec`       | 600  | Torch 기본 타임아웃(초)                   |
-| `kTorchMaxTimeoutSec`           | 3600 | Torch 타임아웃 상한(초)                   |
-| `kMaxTimers`                    | 8    | 저장 가능한 타이머 수                       |
-| `kTimerMaxHours`                | 23   | 타이머 시간 상한                          |
-| `kMaxStopwatchHistory`          | 10   | 스톱워치 이력 최대 건수                      |
-| `kDefaultSleepOptionIndex`      | 3    | Sleep 기본값 (5분; Immediate·Never 포함) |
-| `kDefaultBrightnessOptionIndex` | 2    | Bright 기본값 (128)                   |
-| `kBleIdleDisconnectSec`         | 60   | BLE 연결/광고 무트래픽 후 radio off (초)     |
+| `kTorchDefaultTimeoutSec` | 600 | Torch default timeout (s) |
+| `kTorchMaxTimeoutSec` | 3600 | Torch timeout cap (s) |
+| `kMaxTimers` | 8 | Max stored timers |
+| `kTimerMaxHours` | 23 | Timer hours cap |
+| `kMaxStopwatchHistory` | 10 | Max stopwatch history entries |
+| `kDefaultSleepOptionIndex` | 3 | Default Sleep (5 min; includes Immediate / Never) |
+| `kDefaultBrightnessOptionIndex` | 2 | Default Bright (128) |
+| `kBleIdleDisconnectSec` | 60 | BLE idle → radio off (s) |
 
+## Roadmap
 
+- [ ] Features
+  - [x] Sleep
+  - [ ] ~~Battery charge threshold~~ (hardware unsupported)
+  - [ ] Settings backup
+  - [ ] Hangul text output
 
-
-## 로드맵
-
-- [ ] feature
-  - [x] sleep
-  - [ ] ~~Battery charge threshold 설정~~ (H/W가 미지원)
-  - [ ] 설정 백업
-  - [ ] 한글 출력
-
-- [ ] 더 많은 유틸리티 앱
-  - [ ] 녹음기
-  - [ ] expression calculator
+- [ ] More utility apps
+  - [ ] Voice recorder
+  - [ ] Expression calculator
   - [ ] SD reader/writer
-  - [ ] 메트로놈
-  - [ ] tuner(기타줄 6개에 해당하는 음 재생)
-  - [x] 타이머
-  - [x] 스톱워치
-  - [ ] 키보드 HID(블루투스, usb)
-  - [ ] 시계
-- [ ] SD 카드 백업/복원
+  - [ ] Metronome
+  - [ ] Tuner (six guitar-string pitches)
+  - [x] Timer
+  - [x] Stopwatch
+  - [ ] Keyboard HID (Bluetooth, USB)
+  - [ ] Clock
+- [ ] SD card backup / restore
 
+### Next major track — phone-backed companion
 
+Theme: Cardputer is a thin terminal UI; an Android phone owns networking, secrets, and background work.
+Cardputer Wi‑Fi is unused. Device↔phone link is **BLE** by default.
 
-### 다음 major 버전 — Phone-backed companion
+Goal: keep offline-util standby life near current light-sleep levels.
+Always-on notification mirroring costs more battery; **on-demand commanders** cost less.
 
-테마: Cardputer는 얇은 단말 UI, Android 폰이 네트워크·보안·백그라운드를 맡는다.
-Cardputer WiFi는 사용하지 않는다. 기기↔폰 링크는 **BLE**를 기본으로 한다.
+#### Shared (prerequisite for all companion features)
 
-목표: 기본 사용(오프라인 유틸)의 대기 수명은 현재 light sleep 수준을 유지한다.
-배터리 부담은 **알림 상시 연결**이 크고, **커맨더 on-demand**는 상대적으로 작다.
+- [x] BLE pairing, reconnect, connection UI (Settings)
+- [x] Link protocol: frame types, request/response IDs, error codes, payload limits ([docs/ble_link.md](docs/ble_link.md))
+- [x] Secrets only in phone secure storage (no SSH keys/tokens in Cardputer NVS)
+- [x] Sleep / battery policy
+  - [x] **BLE off by default** — paired but radio off for standby life
+  - [x] **Commander on-demand** — auto Connect for Web/SSH; disconnect on app exit / idle *(Settings Connect optional)*
+  - [ ] **Notifications opt-in** — Settings toggle only; when off, fully disconnect *(M4)*
+  - [ ] With notifications ON, keep existing display sleep; buffer quietly and refresh lists after wake (forced bright wake optional) *(M4)*
+- [x] Out of scope: iOS companion, Cardputer-native Wi‑Fi/SSH stack, full web browser
 
-#### 공통 (모든 기능의 선행 조건)
+#### M1 — Companion app (connectivity)
 
-- [x] BLE 페어링·재연결·연결 상태 UI (Settings)
-- [x] 링크 프로토콜: 프레임 타입, 요청/응답 ID, 에러 코드, 페이로드 크기 상한 ([docs/ble_link.md](docs/ble_link.md))
-- [x] 시크릿은 폰 secure storage에만 보관 (Cardputer NVS에 SSH 키·토큰 저장 금지)
-- [x] sleep/배터리 정책
-  - [x] **기본 BLE off** — 페어링만 해 두고 라디오는 끈 상태가 기본 (현재와 비슷한 대기 수명)
-  - [x] **커맨더 on-demand** — Web(또는 SSH) 요청 시 자동 Connect, 앱 종료·유휴 시 해제 *(Settings Connect는 선택)*
-  - [ ] **알림 opt-in** — Settings 토글로만 켬. 끄면 연결·라디오 완전 분리 *(M4)*
-  - [ ] 알림 ON이어도 화면은 기존 sleep 유지. 새 알림은 조용히 버퍼하고, 깨어난 뒤에만 목록 갱신 (강제 점등 wake는 옵션) *(M4)*
-- [x] 비범위: iOS companion, Cardputer 자체 WiFi/SSH 스택, 풀 웹 브라우저
+- [x] Android companion ([`companion/`](companion/) · connect / permissions)
+- [x] Pairing · default BLE off / connection status
+- [x] Out of scope: notification / commander UI (later milestones)
 
+#### M2 — Web commander (HTTP templates)
 
+- [x] Phone presets: name, URL, method, headers/body slots
+- [x] Select on Cardputer → run → page response body
+- [x] Short messages for timeout, HTTP errors, disconnect
+- [x] On-demand link only (preserve standby life)
+- [x] Out of scope: arbitrary URL browsing, JS render, cookie journal UI
 
-#### M1 — Companion 앱 (연결 기반)
-
-- [x] Android companion 앱 ([`companion/`](companion/) · 연결·권한 안내)
-- [x] 페어링·기본 BLE off / 연결 상태 표시
-- [x] 비범위: 알림·커맨더 UI (아래 마일스톤)
-
-
-
-#### M2 — Web commander (HTTP template)
-
-- [x] 폰에 프리셋 저장: 이름, URL, method, 헤더/바디 슬롯
-- [x] Cardputer에서 프리셋 선택 → 실행 → 응답 본문 페이징
-- [x] 타임아웃·HTTP 에러·연결 끊김을 짧은 메시지로 표시
-- [x] on-demand 연결만 사용 (대기 수명 유지)
-- [x] 비범위: 임의 URL 브라우징, JS 렌더링, 쿠키 저널 UI
-
-검증: [docs/m2_verify.md](docs/m2_verify.md) · 프로토콜: [docs/ble_link.md](docs/ble_link.md)
+Verify: [docs/m2_verify.md](docs/m2_verify.md) · protocol: [docs/ble_link.md](docs/ble_link.md)
 
 #### M3 — SSH commander (exec-only)
 
-- [x] 폰에 호스트 프리셋: host, user, 비밀번호(secure storage; v1 키 인증 비범위)
-- [x] 비대화형 exec: 한 줄 명령 → stdout/stderr 페이징
-- [x] known_hosts / 최초 연결 확인은 companion에서 처리 (TOFU)
-- [x] on-demand 연결만 사용 (대기 수명 유지)
-- [x] 비범위: 인터랙티브 PTY, 포트포워드, SFTP, 멀티 세션 tmux
+- [x] Phone host presets: host, user, password (secure storage; key auth out of scope for v1)
+- [x] Non-interactive exec: one-line command → stdout/stderr paging
+- [x] known_hosts / first-connect handling on companion (TOFU)
+- [x] On-demand link only (preserve standby life)
+- [x] Out of scope: interactive PTY, port-forward, SFTP, multi-session tmux
 
-검증: [docs/m3_verify.md](docs/m3_verify.md) · 프로토콜: [docs/ble_link.md](docs/ble_link.md)
+Verify: [docs/m3_verify.md](docs/m3_verify.md) · protocol: [docs/ble_link.md](docs/ble_link.md)
 
-#### M4 — 알림 미러 (opt-in, 대기 비용 큼)
+#### M4 — Notification mirror (opt-in, higher standby cost)
 
-- [ ] Settings에서 알림 미러 ON/OFF (기본 OFF)
-- [ ] 알림 접근 권한 + 읽기 전용 미러 (앱명/제목/요약)
-- [ ] Cardputer 알림 목록·상세 (스크롤, `Del` 복귀)
-- [ ] 수신 시 강제 화면 wake 없음 (버퍼 후 수동 확인; 점등 wake는 옵션)
-- [ ] 비범위: 알림 액션(답장/닫기), 미디어 제어, 통화
+- [ ] Settings notification mirror ON/OFF (default OFF)
+- [ ] Notification access + read-only mirror (app / title / summary)
+- [ ] Cardputer notification list + detail (scroll, `Del` back)
+- [ ] No forced screen wake on receive (buffer; manual check; bright wake optional)
+- [ ] Out of scope: notification actions (reply/dismiss), media controls, calls
 
-우선순위: **공통 → M1 → M2 → M3 → M4**.
-커맨더(M2/M3)를 알림(M4)보다 앞에 두어, 대기 배터리를 덜 깎는 기능을 먼저 출시한다.
-기존 로드맵의 계산기·메트로놈·tuner·HID·시계는 오프라인 유틸로 유지하고, 이 major 축과 섞지 않는다.
+Priority: **shared → M1 → M2 → M3 → M4**.
+Ship commanders (M2/M3) before notifications (M4) to protect standby battery.
+Keep calculator / metronome / tuner / HID / clock as offline utilities, separate from this major track.
 
-## 디버깅
+## Debugging
 
-1. [ ] sleep에서 wake하였을 때 항상 torch화면으로 진입하는 듯. sleep시의 화면으로 돌아가야 함
+1. [ ] After wake from sleep, UI seemed to always open Torch — should restore the screen that was active at sleep
 
+## License
 
-
-## 라이선스
-
-이 저장소의 라이선스는 별도 명시가 없으면 저장소 소유자 정책을 따릅니다.
+Unless stated otherwise, licensing follows the repository owner’s policy.

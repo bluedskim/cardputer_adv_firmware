@@ -1,12 +1,12 @@
 # Desktop Simulator (`sim/`)
 
-Torch / Timer / Stopwatch / Settings UI를 PC에서 SDL2 창으로 미리 확인합니다. 실제 키보드 하드웨어는 스텁으로 대체됩니다.
+Preview Torch / Timer / Stopwatch / Web / SSH / Settings in an SDL2 window on a PC. Real keyboard hardware is stubbed.
 
-PlatformIO 설치·USB 권한 등 공통 개발 환경은 저장소 루트 [README.md](../README.md#개발-환경-fedora)의 **Fedora** 절을 따르세요.
+For PlatformIO install, USB permissions, and shared setup, follow the **Fedora** section in the root [README.md](../README.md#development-environment-fedora).
 
-## 추가 패키지 (SDL2)
+## Extra packages (SDL2)
 
-루트 README의 Fedora `dnf install` 한 번으로 sim 빌드에 필요한 `SDL2-devel`, `pkg-config`가 포함됩니다. 다른 OS만 아래를 참고하세요.
+The root README Fedora `dnf install` already covers `SDL2-devel` and `pkg-config` for sim builds. Other OSes:
 
 ### Linux (Debian/Ubuntu)
 
@@ -20,54 +20,54 @@ sudo apt install build-essential libsdl2-dev pkg-config
 brew install sdl2 pkg-config
 ```
 
-`platformio.ini`의 `native_arm` 환경을 사용하려면 macOS용 플래그를 추가하세요.
+To use the `native_arm` environment in `platformio.ini`, add macOS-specific flags as needed.
 
 ### Windows
 
-[MSYS2 UCRT64](https://www.msys2.org/) + SDL2 개발 패키지가 필요합니다. [M5GFX PlatformIO_SDL 가이드](https://github.com/m5stack/M5GFX/tree/master/examples/PlatformIO_SDL)를 참고하세요.
+Requires [MSYS2 UCRT64](https://www.msys2.org/) plus SDL2 development packages. See the [M5GFX PlatformIO_SDL guide](https://github.com/m5stack/M5GFX/tree/master/examples/PlatformIO_SDL).
 
-## 실행
+## Run
 
-저장소 루트에서:
+From the repository root:
 
 ```bash
 pio run -e sim -t upload
 ```
 
-`upload` 타겟이 PC에서 시뮬레이터 실행 파일을 띄웁니다.
+The `upload` target launches the simulator binary on the PC.
 
-빌드만:
+Build only:
 
 ```bash
 pio run -e sim
 .pio/build/sim/program
 ```
 
-## 조작 키
+## Keys
 
-공통 2단 내비 (실기와 동일):
+Same two-level navigation as the device:
 
-| 키 | 동작 |
+| Key | Action |
 |----|------|
-| `↑` `↓` (`;` `.`) | 항목 이동 |
-| `←` `→` (`,` `/`) | 값 조절(Torch) / 뒤로(`←`) |
-| `Enter` | 선택·실행 |
-| `Del` | 뒤로 또는 글자 삭제 |
-| 맨 위에서 `↑` | 크롬 포커스 → `←` `→` 로 앱 전환 (실기는 Fn+화살표도 동일) |
-| 크롬에서 `↓` / `Enter` | 앱으로 복귀 |
-| `` ` `` | G0 (시뮬에서는 콘솔 메시지) |
+| `↑` `↓` (`;` `.`) | Move selection |
+| `←` `→` (`,` `/`) | Adjust values (Torch) / back (`←`) |
+| `Enter` | Select / run |
+| `Del` | Back or delete character |
+| Top of list `↑` | Chrome focus → `←` `→` to switch apps (device also accepts Fn+arrows) |
+| Chrome `↓` / `Enter` | Return to app |
+| `` ` `` | G0 (prints a console message in sim) |
 
-## 구조
+## Layout
 
 ```
 sim/
-  include/            # Arduino / M5Cardputer / Preferences 스텁
-  src/                # SDL main, 키보드 폴링
-src/apps/             # 실제 앱 코드 (sim 빌드에서 재사용)
+  include/            # Arduino / M5Cardputer / Preferences stubs
+  src/                # SDL main, keyboard polling
+src/apps/             # Real app code (reused by the sim build)
 ```
 
-## 한계
+## Limits
 
-- M5Launcher / NVS 영속성은 메모리 스텁
-- BLE는 stub (`BLE N/A`); 서브화면만 열리고 동작은 no-op
-- 실기 최종 확인은 여전히 필요 ([docs/m1_verify.md](../docs/m1_verify.md))
+- M5Launcher / NVS persistence are in-memory stubs
+- BLE is stubbed (`BLE N/A`); the submenu opens but actions are no-ops
+- Always re-check on hardware ([docs/m1_verify.md](../docs/m1_verify.md))
