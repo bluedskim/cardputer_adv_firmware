@@ -75,6 +75,8 @@ Constants:
 | `0x12` | BLE not ready |
 | `0x13` | No presets |
 
+Additional HTTP/SSH codes are listed under M2/M3 sections.
+
 ### Handshake
 
 1. Phone connects (and bonds on first pair).
@@ -101,11 +103,40 @@ Phone holds presets (name, URL, method, optional headers/body). Device lists and
 
 On-demand: Web Commander opens → device `Connect` → list/run → exit app → `disconnect` (idle 60s still applies while connected).
 
-## Reserved (M3+)
+## Message types (M3 SSH commander)
+
+Phone holds SSH presets (name, host, port, user, command, password in secure storage).
+Device lists and runs them; combined stdout/stderr is chunked (max **512** bytes on device).
+Password auth only in v1. known_hosts / TOFU is handled on the phone.
+
+| `type` | Name | Direction | Payload |
+|--------|------|-----------|---------|
+| `0x20` | `SshListReq` | Device → Phone | empty |
+| `0x21` | `SshListItem` | Phone → Device | `index(1)` `total(1)` UTF-8 name |
+| `0x22` | `SshListEnd` | Phone → Device | empty |
+| `0x23` | `SshRunReq` | Device → Phone | `index(1)` |
+| `0x24` | `SshRunMeta` | Phone → Device | `exit_status_i16_le(2)` `err_u8(1)` `reserved(1)` |
+| `0x25` | `SshRunChunk` | Phone → Device | `seq_u8(1)` + body bytes |
+| `0x26` | `SshRunEnd` | Phone → Device | empty |
+
+`SshRunMeta.err`: `0` = OK (use `exit_status`); otherwise `SshFailed` / `SshTimeout` / `SshAuthFailed` / `SshHostKey` / ….
+
+Additional error codes:
+
+| Code | Meaning |
+|------|---------|
+| `0x20` | SSH failed |
+| `0x21` | SSH timeout |
+| `0x22` | SSH auth failed |
+| `0x23` | SSH host key mismatch / rejected |
+| `0x24` | No SSH presets |
+
+On-demand: SSH app opens → device `Connect` → list/run → exit → `disconnect`.
+
+## Reserved (M4+)
 
 | Range | Intent |
 |-------|--------|
-| `0x20`–`0x2F` | SSH commander |
 | `0x30`–`0x3F` | Notification mirror |
 
 ## NVS on device (no secrets)
@@ -116,5 +147,12 @@ Namespace `card_adv_cfg` (shared with system settings):
 |-----|---------|
 | `ble_paired` | `u8` — bonded / paired flag for UI |
 | `ble_peer` | short string (≤16) — last peer label for display only |
+
+Namespace `card_adv_ssh` (SSH name cache only — no passwords):
+
+| Key | Meaning |
+|-----|---------|
+| `count` | `u8` — cached preset name count |
+| `n0`…`n11` | string — cached display names |
 
 Bonding material stays in the BLE stack / phone OS. Do not store SSH keys or HTTP tokens in NVS.

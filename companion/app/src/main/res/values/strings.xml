@@ -39,8 +39,11 @@
     <string name="battery_message">For reliable Cardputer linking while the screen is locked, allow unrestricted battery use for Companion.</string>
     <string name="battery_allow">Allow</string>
     <string name="presets_title">HTTP presets</string>
+    <string name="ssh_presets_title">SSH presets</string>
     <string name="add_preset">Add</string>
     <string name="edit_preset">Edit preset</string>
+    <string name="edit_ssh_preset">Edit SSH preset</string>
+    <string name="add_ssh_preset">Add SSH preset</string>
     <string name="delete_preset">Delete</string>
     <string name="save">Save</string>
     <string name="cancel">Cancel</string>
@@ -50,4 +53,10 @@
     <string name="preset_headers">Headers (Key: Value per line)</string>
     <string name="preset_body">Body (POST/PUT)</string>
     <string name="preset_limit">Max %1$d presets</string>
+    <string name="ssh_host">Host</string>
+    <string name="ssh_port">Port</string>
+    <string name="ssh_user">User</string>
+    <string name="ssh_command">Command</string>
+    <string name="ssh_password">Password</string>
+    <string name="ssh_fields_required">Name, host, user, and command required</string>
 </resources>

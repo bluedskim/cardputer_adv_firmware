@@ -29,6 +29,15 @@ enum class Type : uint8_t {
     HttpRunChunk = 0x15,  // phone → device: seq_u8 + bytes
     HttpRunEnd = 0x16,    // phone → device
 
+    // M3 SSH commander (phone executes; device displays).
+    SshListReq = 0x20,    // device → phone
+    SshListItem = 0x21,   // phone → device: index(1) total(1) nameutf8
+    SshListEnd = 0x22,    // phone → device
+    SshRunReq = 0x23,     // device → phone: index(1)
+    SshRunMeta = 0x24,    // phone → device: exit_status_i16_le, err_u8, reserved_u8
+    SshRunChunk = 0x25,   // phone → device: seq_u8 + bytes
+    SshRunEnd = 0x26,     // phone → device
+
     Error = 0x7F,
 };
 
@@ -40,11 +49,21 @@ enum class ErrorCode : uint8_t {
     HttpTimeout = 0x11,
     BleNotReady = 0x12,
     NoPresets = 0x13,
+    SshFailed = 0x20,
+    SshTimeout = 0x21,
+    SshAuthFailed = 0x22,
+    SshHostKey = 0x23,
+    NoSshPresets = 0x24,
 };
 
 inline bool isHttpType(Type type) {
     const auto v = static_cast<uint8_t>(type);
     return v >= 0x10 && v <= 0x1F;
+}
+
+inline bool isSshType(Type type) {
+    const auto v = static_cast<uint8_t>(type);
+    return v >= 0x20 && v <= 0x2F;
 }
 
 }  // namespace ble_protocol

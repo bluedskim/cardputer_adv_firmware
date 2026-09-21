@@ -30,6 +30,14 @@ object BleProtocol {
     const val TYPE_HTTP_RUN_CHUNK: Byte = 0x15
     const val TYPE_HTTP_RUN_END: Byte = 0x16
 
+    const val TYPE_SSH_LIST_REQ: Byte = 0x20
+    const val TYPE_SSH_LIST_ITEM: Byte = 0x21
+    const val TYPE_SSH_LIST_END: Byte = 0x22
+    const val TYPE_SSH_RUN_REQ: Byte = 0x23
+    const val TYPE_SSH_RUN_META: Byte = 0x24
+    const val TYPE_SSH_RUN_CHUNK: Byte = 0x25
+    const val TYPE_SSH_RUN_END: Byte = 0x26
+
     const val TYPE_ERROR: Byte = 0x7F
 
     const val ERR_BAD_FRAME: Int = 0x01
@@ -39,8 +47,18 @@ object BleProtocol {
     const val ERR_HTTP_TIMEOUT: Int = 0x11
     const val ERR_BLE_NOT_READY: Int = 0x12
     const val ERR_NO_PRESETS: Int = 0x13
+    const val ERR_SSH_FAILED: Int = 0x20
+    const val ERR_SSH_TIMEOUT: Int = 0x21
+    const val ERR_SSH_AUTH_FAILED: Int = 0x22
+    const val ERR_SSH_HOST_KEY: Int = 0x23
+    const val ERR_NO_SSH_PRESETS: Int = 0x24
 
-    const val APP_VERSION = "0.5.3-m2"
+    const val SSH_BODY_MAX = 512
+    const val SSH_CHUNK_DATA_MAX = MAX_PAYLOAD - 1
+    const val SSH_NAME_MAX = 20
+    const val SSH_MAX_PRESETS = 12
+
+    const val APP_VERSION = "0.6.0-m3"
 
     data class Frame(
         val type: Byte,
@@ -92,5 +110,10 @@ object BleProtocol {
     fun isHttpType(type: Byte): Boolean {
         val v = type.toInt() and 0xFF
         return v in 0x10..0x1F
+    }
+
+    fun isSshType(type: Byte): Boolean {
+        val v = type.toInt() and 0xFF
+        return v in 0x20..0x2F
     }
 }

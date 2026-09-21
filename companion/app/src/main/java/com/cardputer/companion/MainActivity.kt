@@ -25,13 +25,18 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.cardputer.companion.databinding.ActivityMainBinding
 import com.cardputer.companion.databinding.DialogPresetBinding
+import com.cardputer.companion.databinding.DialogSshPresetBinding
+import java.util.UUID
 import java.util.concurrent.Executor
 
 class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
     private lateinit var binding: ActivityMainBinding
     private lateinit var store: PresetStore
+    private lateinit var sshStore: SshPresetStore
     private val presets = mutableListOf<HttpPreset>()
+    private val sshPresets = mutableListOf<SshPreset>()
     private lateinit var listAdapter: ArrayAdapter<String>
+    private lateinit var sshListAdapter: ArrayAdapter<String>
     private var resumeListenAfterBtEnable = false
     private var forceRescanPending = false
     private var associateAfterBt = false
@@ -117,12 +122,18 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
         setContentView(binding.root)
 
         store = PresetStore(this)
+        sshStore = SshPresetStore(this)
         presets.clear()
         presets.addAll(store.load())
+        sshPresets.clear()
+        sshPresets.addAll(sshStore.load())
 
         listAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, mutableListOf())
         binding.presetList.adapter = listAdapter
+        sshListAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, mutableListOf())
+        binding.sshPresetList.adapter = sshListAdapter
         refreshPresetList()
+        refreshSshPresetList()
 
         binding.linkButton.setOnClickListener { requestPermissionsAndAssociate() }
         binding.scanButton.setOnClickListener { requestPermissionsAndScan(force = true) }
@@ -163,6 +174,24 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
         }
         binding.presetList.setOnItemLongClickListener { _, _, position, _ ->
             confirmDelete(position)
+            true
+        }
+        binding.addSshPresetButton.setOnClickListener {
+            if (sshPresets.size >= BleProtocol.SSH_MAX_PRESETS) {
+                Toast.makeText(
+                    this,
+                    getString(R.string.preset_limit, BleProtocol.SSH_MAX_PRESETS),
+                    Toast.LENGTH_SHORT
+                ).show()
+                return@setOnClickListener
+            }
+            showSshPresetDialog(null)
+        }
+        binding.sshPresetList.setOnItemClickListener { _, _, position, _ ->
+            showSshPresetDialog(position)
+        }
+        binding.sshPresetList.setOnItemLongClickListener { _, _, position, _ ->
+            confirmDeleteSsh(position)
             true
         }
     }
@@ -218,9 +247,22 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
         listAdapter.notifyDataSetChanged()
     }
 
+    private fun refreshSshPresetList() {
+        sshListAdapter.clear()
+        for (p in sshPresets) {
+            sshListAdapter.add("${p.name}\n${p.user}@${p.host}:${p.port} · ${p.command}")
+        }
+        sshListAdapter.notifyDataSetChanged()
+    }
+
     private fun persistPresets() {
         store.save(presets)
         refreshPresetList()
+    }
+
+    private fun persistSshPresets() {
+        sshStore.save(sshPresets)
+        refreshSshPresetList()
     }
 
     private fun showPresetDialog(editIndex: Int?) {
@@ -270,6 +312,62 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
         dialog.show()
     }
 
+    private fun showSshPresetDialog(editIndex: Int?) {
+        val dialogBinding = DialogSshPresetBinding.inflate(LayoutInflater.from(this))
+        val existing = editIndex?.let { sshPresets.getOrNull(it) }
+        if (existing != null) {
+            dialogBinding.editName.setText(existing.name)
+            dialogBinding.editHost.setText(existing.host)
+            dialogBinding.editPort.setText(existing.port.toString())
+            dialogBinding.editUser.setText(existing.user)
+            dialogBinding.editCommand.setText(existing.command)
+            dialogBinding.editPassword.setText(existing.password)
+        }
+        val builder = AlertDialog.Builder(this)
+            .setTitle(if (editIndex == null) R.string.add_ssh_preset else R.string.edit_ssh_preset)
+            .setView(dialogBinding.root)
+            .setPositiveButton(R.string.save, null)
+            .setNegativeButton(R.string.cancel, null)
+        if (editIndex != null) {
+            builder.setNeutralButton(R.string.delete_preset) { _, _ ->
+                sshPresets.removeAt(editIndex)
+                persistSshPresets()
+            }
+        }
+        val dialog = builder.create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val name = dialogBinding.editName.text?.toString()?.trim().orEmpty()
+                val host = dialogBinding.editHost.text?.toString()?.trim().orEmpty()
+                val port = dialogBinding.editPort.text?.toString()?.trim()?.toIntOrNull() ?: 22
+                val user = dialogBinding.editUser.text?.toString()?.trim().orEmpty()
+                val command = dialogBinding.editCommand.text?.toString()?.trim().orEmpty()
+                val password = dialogBinding.editPassword.text?.toString().orEmpty()
+                if (name.isEmpty() || host.isEmpty() || user.isEmpty() || command.isEmpty()) {
+                    Toast.makeText(this, R.string.ssh_fields_required, Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                val preset = SshPreset(
+                    id = existing?.id ?: UUID.randomUUID().toString(),
+                    name = name,
+                    host = host,
+                    port = port.coerceIn(1, 65535),
+                    user = user,
+                    command = command,
+                    password = password
+                )
+                if (editIndex == null) {
+                    sshPresets.add(preset)
+                } else {
+                    sshPresets[editIndex] = preset
+                }
+                persistSshPresets()
+                dialog.dismiss()
+            }
+        }
+        dialog.show()
+    }
+
     private fun confirmDelete(index: Int) {
         val name = presets.getOrNull(index)?.name ?: return
         AlertDialog.Builder(this)
@@ -277,6 +375,18 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
             .setPositiveButton(R.string.delete_preset) { _, _ ->
                 presets.removeAt(index)
                 persistPresets()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun confirmDeleteSsh(index: Int) {
+        val name = sshPresets.getOrNull(index)?.name ?: return
+        AlertDialog.Builder(this)
+            .setMessage("Delete \"$name\"?")
+            .setPositiveButton(R.string.delete_preset) { _, _ ->
+                sshPresets.removeAt(index)
+                persistSshPresets()
             }
             .setNegativeButton(R.string.cancel, null)
             .show()
@@ -462,6 +572,8 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
     }
 
     override fun presets(): List<HttpPreset> = presets.toList()
+
+    override fun sshPresets(): List<SshPreset> = sshPresets.toList()
 
     override fun onStatus(message: String) {
         binding.statusText.text = message

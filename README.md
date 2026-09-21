@@ -1,6 +1,6 @@
 # cardputer_adv_firmware
 
-현재 릴리스: **[v0.3.1](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.3.1)** · 개발 트리: `0.4.0-dev` (M1 BLE)
+현재 릴리스: **[v0.3.1](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.3.1)** · 개발 트리: `0.6.0-dev` (M3 SSH)
 
 M5Stack **Cardputer-Adv** 전용 커스텀 펌웨어입니다. 기본 탑재 UI처럼 기능별로 좌우 전환하며, **Torch(손전등)**, **Timer**, **Stopwatch**, **Settings** 기능을 제공합니다.
 
@@ -403,13 +403,13 @@ Cardputer WiFi는 사용하지 않는다. 기기↔폰 링크는 **BLE**를 기�
 
 #### M3 — SSH commander (exec-only)
 
-- [ ] 폰에 호스트 프리셋: host, user, 키/비밀번호(secure storage)
-- [ ] 비대화형 exec: 한 줄 명령 → stdout/stderr 페이징
-- [ ] known_hosts / 최초 연결 확인은 companion에서 처리
-- [ ] on-demand 연결만 사용 (대기 수명 유지)
-- [ ] 비범위: 인터랙티브 PTY, 포트포워드, SFTP, 멀티 세션 tmux
+- [x] 폰에 호스트 프리셋: host, user, 비밀번호(secure storage; v1 키 인증 비범위)
+- [x] 비대화형 exec: 한 줄 명령 → stdout/stderr 페이징
+- [x] known_hosts / 최초 연결 확인은 companion에서 처리 (TOFU)
+- [x] on-demand 연결만 사용 (대기 수명 유지)
+- [x] 비범위: 인터랙티브 PTY, 포트포워드, SFTP, 멀티 세션 tmux
 
-
+검증: [docs/m3_verify.md](docs/m3_verify.md) · 프로토콜: [docs/ble_link.md](docs/ble_link.md)
 
 #### M4 — 알림 미러 (opt-in, 대기 비용 큼)
 

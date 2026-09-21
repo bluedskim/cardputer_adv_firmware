@@ -34,6 +34,7 @@ class BleLinkClient(
         fun onHello(firmwareVersion: String)
         fun onDisconnected()
         fun presets(): List<HttpPreset>
+        fun sshPresets(): List<SshPreset>
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -41,6 +42,7 @@ class BleLinkClient(
         context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     private val adapter: BluetoothAdapter? = bluetoothManager.adapter
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private val sshHostKeys = SshHostKeyStore(context)
     private val wakeLock: PowerManager.WakeLock =
         (context.getSystemService(Context.POWER_SERVICE) as PowerManager)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "CardputerCompanion:BleLink")
@@ -760,6 +762,8 @@ class BleLinkClient(
                 }
                 BleProtocol.TYPE_HTTP_LIST_REQ -> handleListReq(frame.reqId)
                 BleProtocol.TYPE_HTTP_RUN_REQ -> handleRunReq(frame)
+                BleProtocol.TYPE_SSH_LIST_REQ -> handleSshListReq(frame.reqId)
+                BleProtocol.TYPE_SSH_RUN_REQ -> handleSshRunReq(frame)
                 else -> Unit
             }
         }
@@ -844,6 +848,89 @@ class BleLinkClient(
         enqueueWrite(BleProtocol.encode(BleProtocol.TYPE_HTTP_RUN_END, reqId))
         listener.onDetail(
             "HttpRun done status=${result.httpStatus} err=${result.errCode} bytes=${body.size}"
+        )
+    }
+
+    private fun handleSshListReq(reqId: Int) {
+        val presets = listener.sshPresets().take(BleProtocol.SSH_MAX_PRESETS)
+        handler.post {
+            listener.onDetail("SshListReq → ${presets.size} preset(s)")
+        }
+        if (presets.isEmpty()) {
+            enqueueWrite(BleProtocol.encode(BleProtocol.TYPE_SSH_LIST_END, reqId))
+            return
+        }
+        val total = presets.size
+        presets.forEachIndexed { index, preset ->
+            val nameBytes = preset.name.take(BleProtocol.SSH_NAME_MAX)
+                .toByteArray(Charsets.UTF_8)
+            val maxName = BleProtocol.MAX_PAYLOAD - 2
+            val name = if (nameBytes.size > maxName) nameBytes.copyOf(maxName) else nameBytes
+            val payload = ByteArray(2 + name.size)
+            payload[0] = index.toByte()
+            payload[1] = total.toByte()
+            System.arraycopy(name, 0, payload, 2, name.size)
+            enqueueWrite(BleProtocol.encode(BleProtocol.TYPE_SSH_LIST_ITEM, reqId, payload))
+        }
+        enqueueWrite(BleProtocol.encode(BleProtocol.TYPE_SSH_LIST_END, reqId))
+    }
+
+    private fun handleSshRunReq(frame: BleProtocol.Frame) {
+        if (frame.payload.isEmpty()) {
+            enqueueWrite(
+                BleProtocol.encode(
+                    BleProtocol.TYPE_ERROR,
+                    frame.reqId,
+                    byteArrayOf(BleProtocol.ERR_BAD_FRAME.toByte())
+                )
+            )
+            return
+        }
+        val index = frame.payload[0].toInt() and 0xFF
+        val presets = listener.sshPresets()
+        if (index >= presets.size) {
+            enqueueWrite(
+                BleProtocol.encode(
+                    BleProtocol.TYPE_ERROR,
+                    frame.reqId,
+                    byteArrayOf(BleProtocol.ERR_SSH_FAILED.toByte())
+                )
+            )
+            return
+        }
+        val preset = presets[index]
+        handler.post { listener.onDetail("SshRunReq → ${preset.name}") }
+        SshExecutor.executeAsync(preset, sshHostKeys) { result ->
+            handler.post {
+                sendSshRunResult(frame.reqId, result)
+            }
+        }
+    }
+
+    private fun sendSshRunResult(reqId: Int, result: SshExecResult) {
+        val exit = result.exitStatus
+        val meta = ByteArray(4)
+        meta[0] = (exit and 0xFF).toByte()
+        meta[1] = ((exit shr 8) and 0xFF).toByte()
+        meta[2] = (result.errCode and 0xFF).toByte()
+        meta[3] = 0
+        enqueueWrite(BleProtocol.encode(BleProtocol.TYPE_SSH_RUN_META, reqId, meta))
+
+        var offset = 0
+        var seq = 0
+        val body = result.body
+        while (offset < body.size) {
+            val n = minOf(BleProtocol.SSH_CHUNK_DATA_MAX, body.size - offset)
+            val chunk = ByteArray(1 + n)
+            chunk[0] = (seq and 0xFF).toByte()
+            System.arraycopy(body, offset, chunk, 1, n)
+            enqueueWrite(BleProtocol.encode(BleProtocol.TYPE_SSH_RUN_CHUNK, reqId, chunk))
+            offset += n
+            seq++
+        }
+        enqueueWrite(BleProtocol.encode(BleProtocol.TYPE_SSH_RUN_END, reqId))
+        listener.onDetail(
+            "SshRun done exit=${result.exitStatus} err=${result.errCode} bytes=${body.size}"
         )
     }
 

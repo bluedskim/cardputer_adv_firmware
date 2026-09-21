@@ -12,7 +12,7 @@ android {
         minSdk = 31
         targetSdk = 35
         versionCode = 1
-        versionName = "0.5.3-m2"
+        versionName = "0.6.0-m3"
     }
 
     buildTypes {
@@ -43,4 +43,6 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.constraintlayout:constraintlayout:2.2.0")
     implementation("androidx.activity:activity-ktx:1.9.3")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("com.hierynomus:sshj:0.38.0")
 }

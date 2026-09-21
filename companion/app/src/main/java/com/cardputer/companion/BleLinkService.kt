@@ -29,6 +29,7 @@ class BleLinkService : Service(), BleLinkClient.Listener {
     private val binder = LocalBinder()
     private val uiListeners = CopyOnWriteArrayList<BleLinkClient.Listener>()
     private lateinit var store: PresetStore
+    private lateinit var sshStore: SshPresetStore
 
     lateinit var client: BleLinkClient
         private set
@@ -52,6 +53,7 @@ class BleLinkService : Service(), BleLinkClient.Listener {
         super.onCreate()
         instance = this
         store = PresetStore(this)
+        sshStore = SshPresetStore(this)
         client = BleLinkClient(applicationContext, this)
         startInForeground(getString(R.string.listening))
         val filter = IntentFilter().apply {
@@ -192,6 +194,8 @@ class BleLinkService : Service(), BleLinkClient.Listener {
     }
 
     override fun presets(): List<HttpPreset> = store.load()
+
+    override fun sshPresets(): List<SshPreset> = sshStore.load()
 
     override fun onStatus(message: String) {
         lastStatus = message

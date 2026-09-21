@@ -533,7 +533,8 @@ void BleLink::handleRx(const uint8_t* data, size_t len) {
 
     const uint8_t* payload = data + ble_protocol::kHeaderSize;
 
-    if (ble_protocol::isHttpType(type) || type == ble_protocol::Type::Error) {
+    if (ble_protocol::isHttpType(type) || ble_protocol::isSshType(type) ||
+        type == ble_protocol::Type::Error) {
         enqueueRx(type, req_id, payload, payload_len);
         return;
     }

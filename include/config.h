@@ -4,7 +4,7 @@
 
 namespace config {
 
-    constexpr const char* kFirmwareVersion = "0.5.16-dev";
+    constexpr const char* kFirmwareVersion = "0.6.0-dev";
 
 constexpr uint32_t kTorchDefaultTimeoutSec = 600;
 constexpr uint32_t kTorchMaxTimeoutSec = 3600;
@@ -41,9 +41,14 @@ constexpr uint32_t kBleIdleDisconnectSec = 60;
 constexpr uint8_t kBlePeerLabelMax = 16;
 
 constexpr const char* kWebStorageNamespace = "card_adv_web";
+constexpr const char* kSshStorageNamespace = "card_adv_ssh";
 
 constexpr uint8_t kHttpMaxPresets = 12;
 constexpr uint8_t kHttpNameMax = 20;
 constexpr uint16_t kHttpBodyMax = 512;
+
+constexpr uint8_t kSshMaxPresets = kHttpMaxPresets;
+constexpr uint8_t kSshNameMax = kHttpNameMax;
+constexpr uint16_t kSshBodyMax = kHttpBodyMax;
 
 }  // namespace config
