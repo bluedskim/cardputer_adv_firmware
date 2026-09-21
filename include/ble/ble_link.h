@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "ble/ble_protocol.h"
+#include "config.h"
 
 struct BleRxFrame {
     ble_protocol::Type type = ble_protocol::Type::Error;
@@ -94,7 +95,11 @@ private:
     uint32_t last_traffic_ms_ = 0;
     uint16_t next_req_id_ = 1;
 
-    static constexpr uint8_t kRxQueueSize = 12;
+    // Must hold a full HTTP run burst (meta + body chunks + end) plus slack: frames
+    // arrive on the NimBLE host task while the display may be asleep between drains.
+    static constexpr uint8_t kHttpChunkDataMax = ble_protocol::kMaxPayload - 1;
+    static constexpr uint8_t kRxQueueSize =
+        static_cast<uint8_t>(2 + (config::kHttpBodyMax + kHttpChunkDataMax - 1) / kHttpChunkDataMax + 4);
     BleRxFrame rx_queue_[kRxQueueSize] = {};
     uint8_t rx_head_ = 0;
     uint8_t rx_tail_ = 0;
