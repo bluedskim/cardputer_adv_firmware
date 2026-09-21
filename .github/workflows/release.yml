@@ -70,6 +70,10 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG exists — publish + upload assets"
             gh release upload "$TAG" "${ASSETS[@]}" --clobber
+            # Drop pre-versioned asset names left from earlier releases.
+            for legacy in cardputer_adv_firmware.bin CardputerCompanion.apk; do
+              gh release delete-asset "$TAG" "$legacy" --yes 2>/dev/null || true
+            done
             EDIT_ARGS=(--draft=false --latest)
             if [ -f "$NOTES_FILE" ]; then
               EDIT_ARGS+=(--notes-file "$NOTES_FILE")
