@@ -19,12 +19,12 @@ constexpr int kElapsedBandTop = kContentTop + 10;
 constexpr int kElapsedBandHeight = 16;
 constexpr int kElapsedBandWidth = 168;
 
-}  // namespace
-
 int historyVisibleRows() {
     const int available = M5Cardputer.Display.height() - kFooterReserve - kListTop;
     return std::max(1, available / kLineHeight);
 }
+
+}  // namespace
 
 StopwatchApp::StopwatchApp() { storage_.begin(); }
 
@@ -95,6 +95,7 @@ void StopwatchApp::toggleRunStop() {
 void StopwatchApp::beginTextInput() {
     screen_ = Screen::TextInput;
     input_buffer_ = storage_.name();
+    held_text_chars_.clear();
     markDirty();
 }
 
@@ -136,6 +137,10 @@ NavRequest StopwatchApp::onUpdate(const Keyboard_Class::KeysState* keys, bool ch
         }
     }
 
+    if (!held_text_chars_.empty() && !M5Cardputer.Keyboard.isPressed()) {
+        held_text_chars_.clear();
+    }
+
     NavRequest req = NavRequest::None;
     if (keys != nullptr) {
         req = handleInput(*keys);
@@ -162,24 +167,31 @@ NavRequest StopwatchApp::handleInput(const Keyboard_Class::KeysState& status) {
             commitTextInput();
             return NavRequest::None;
         }
-        if (status.del) {
+        if (isBackKey(status)) {
             if (!input_buffer_.empty()) {
                 input_buffer_.pop_back();
             }
+            held_text_chars_ = status.word;
             return NavRequest::None;
         }
         if (detectArrowKey(status) == ArrowKey::Left) {
             goBack();
             return NavRequest::None;
         }
+        // Only chars that were not already held on the previous edge; otherwise a
+        // key held while another is tapped would be appended again.
         for (const char key : status.word) {
-            consumeTextChar(key);
+            if (std::find(held_text_chars_.begin(), held_text_chars_.end(), key) ==
+                held_text_chars_.end()) {
+                consumeTextChar(key);
+            }
         }
+        held_text_chars_ = status.word;
         return NavRequest::None;
     }
 
     if (screen_ == Screen::History) {
-        if (status.del || detectArrowKey(status) == ArrowKey::Left) {
+        if (isBackKey(status) || detectArrowKey(status) == ArrowKey::Left) {
             goBack();
             return NavRequest::None;
         }

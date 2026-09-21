@@ -317,14 +317,15 @@ NavRequest TimerApp::handleInput(const Keyboard_Class::KeysState& status) {
             enterList();
             return NavRequest::None;
         }
-        if (status.del || detectArrowKey(status) == ArrowKey::Left) {
+        if (isBackKey(status) || detectArrowKey(status) == ArrowKey::Left) {
             enterEdit(selected_);
         }
         return NavRequest::None;
     }
 
     if (screen_ == Screen::Edit) {
-        if (cursor_ == 0 && detectArrowKey(status) == ArrowKey::Left) {
+        // README: `←` (on the title row) or Del/Backspace returns to the list.
+        if (isBackKey(status) || (cursor_ == 0 && detectArrowKey(status) == ArrowKey::Left)) {
             goBack();
             return NavRequest::None;
         }
