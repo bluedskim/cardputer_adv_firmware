@@ -4,7 +4,7 @@
 
 namespace config {
 
-    constexpr const char* kFirmwareVersion = "0.6.0";
+    constexpr const char* kFirmwareVersion = "0.7.0";
 
 constexpr uint32_t kTorchDefaultTimeoutSec = 600;
 constexpr uint32_t kTorchMaxTimeoutSec = 3600;
@@ -50,5 +50,16 @@ constexpr uint16_t kHttpBodyMax = 512;
 constexpr uint8_t kSshMaxPresets = kHttpMaxPresets;
 constexpr uint8_t kSshNameMax = kHttpNameMax;
 constexpr uint16_t kSshBodyMax = kHttpBodyMax;
+
+// Voice recorder (microSD WAV).
+constexpr uint32_t kRecorderSampleRate = 16000;
+constexpr uint32_t kRecorderMaxDurationSec = 600;  // 10 min
+constexpr uint32_t kRecorderMinSaveMs = 500;
+constexpr uint8_t kRecorderMaxFiles = 32;
+constexpr const char* kRecorderDir = "/rec";
+constexpr int kSdSpiSck = 40;
+constexpr int kSdSpiMiso = 39;
+constexpr int kSdSpiMosi = 14;
+constexpr int kSdSpiCs = 12;
 
 }  // namespace config

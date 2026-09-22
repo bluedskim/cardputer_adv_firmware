@@ -20,6 +20,8 @@ public:
 
 private:
     void switchTo(std::size_t index);
+    void handleG0Short();
+    std::size_t findVoiceRecorderIndex() const;
     void drawChrome() const;
     bool refreshBatterySnapshot();
     bool consumeChromeKeys(const Keyboard_Class::KeysState& status);

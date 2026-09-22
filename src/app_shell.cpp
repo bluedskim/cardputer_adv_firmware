@@ -104,8 +104,15 @@ void AppShell::update() {
         noteUserActivity();
     }
 
-    if (M5Cardputer.BtnA.wasClicked()) {
+    if (M5Cardputer.BtnA.wasHold()) {
+        // Long-press G0 always returns to M5Launcher (factory).
         launcher_exit::rebootToLauncher();
+    } else if (M5Cardputer.BtnA.wasClicked()) {
+        noteUserActivity();
+        if (display_asleep_) {
+            wakeDisplay();
+        }
+        handleG0Short();
     }
 
     // Wake key must not navigate chrome/apps (Left/Right would leave Settings → Torch).
@@ -302,6 +309,39 @@ void AppShell::switchTo(const std::size_t index) {
     noteUserActivity();
     chrome_focused_ = true;
     chrome_dirty_ = true;
+}
+
+std::size_t AppShell::findVoiceRecorderIndex() const {
+    for (std::size_t i = 0; i < apps_.size(); ++i) {
+        if (apps_[i]->isVoiceRecorder()) {
+            return i;
+        }
+    }
+    return apps_.size();
+}
+
+void AppShell::handleG0Short() {
+    const std::size_t rec = findVoiceRecorderIndex();
+    if (rec >= apps_.size()) {
+        launcher_exit::rebootToLauncher();
+        return;
+    }
+
+    // Already recording → stop & save (stay on Recorder).
+    if (current_index_ == rec && apps_[rec]->voiceRecorderIsRecording()) {
+        apps_[rec]->voiceRecorderHotkey();
+        chrome_focused_ = false;
+        chrome_dirty_ = true;
+        return;
+    }
+
+    // Any other screen → jump to Recorder and start recording.
+    if (current_index_ != rec) {
+        switchTo(rec);
+    }
+    chrome_focused_ = false;
+    chrome_dirty_ = true;
+    apps_[rec]->voiceRecorderHotkey();
 }
 
 bool AppShell::consumeChromeKeys(const Keyboard_Class::KeysState& status) {

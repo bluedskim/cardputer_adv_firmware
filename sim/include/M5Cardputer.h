@@ -5,6 +5,9 @@
 
 #include <M5GFX.h>
 
+#include <cstddef>
+#include <cstdint>
+
 #include "sim_button.h"
 #include "sim_keyboard.h"
 
@@ -33,6 +36,47 @@ private:
     int16_t voltage_mv_ = 4120;
 };
 
+// Desktop stubs — no real audio; Recorder shows "SD unavailable".
+class Mic_Class {
+public:
+    bool begin() { running_ = true; return true; }
+    void end() { running_ = false; }
+    bool isRunning() const { return running_; }
+    bool isEnabled() const { return true; }
+    size_t isRecording() const { return 0; }
+    bool record(int16_t*, size_t, uint32_t, bool = false) { return false; }
+    bool record(uint8_t*, size_t, uint32_t, bool = false) { return false; }
+    bool record(int16_t*, size_t) { return false; }
+    bool record(uint8_t*, size_t) { return false; }
+
+private:
+    bool running_ = false;
+};
+
+class Speaker_Class {
+public:
+    bool begin() { running_ = true; return true; }
+    void end() {
+        running_ = false;
+        playing_ = false;
+    }
+    bool isRunning() const { return running_; }
+    bool isEnabled() const { return true; }
+    bool isPlaying() const { return playing_; }
+    size_t isPlaying(uint8_t) const { return playing_ ? 2 : 0; }
+    void setVolume(uint8_t) {}
+    void stop() { playing_ = false; }
+    void stop(uint8_t) { playing_ = false; }
+    bool playRaw(const int16_t*, size_t, uint32_t = 44100, bool = false, uint32_t = 1, int = -1,
+                 bool = false) {
+        return false;
+    }
+
+private:
+    bool running_ = false;
+    bool playing_ = false;
+};
+
 class M5Unified {
 public:
     using config_t = M5Unified_Config_t;
@@ -48,6 +92,8 @@ public:
     M5GFX Display;
     Keyboard_Class Keyboard;
     SimButton BtnA;
+    m5::Mic_Class Mic;
+    m5::Speaker_Class Speaker;
 
     void begin(bool enable_keyboard = true) {
         enable_keyboard_ = enable_keyboard;

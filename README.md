@@ -2,7 +2,7 @@
 
 Current release: **[v0.6.0](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.6.0)** · Companion `0.6.2-m3` (M3 SSH)
 
-Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like the stock UI. Includes **Torch**, **Timer**, **Stopwatch**, **Web** (HTTP presets — not a browser), **SSH** (one-shot exec — not an interactive shell), and **Settings**.
+Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like the stock UI. Includes **Torch**, **Timer**, **Stopwatch**, **Recorder** (microSD WAV), **Web** (HTTP presets — not a browser), **SSH** (one-shot exec — not an interactive shell), and **Settings**.
 
 Primary development target is **Fedora**; setup and flash steps below prefer Fedora, with notes for other platforms.
 
@@ -107,7 +107,7 @@ pio device list
 Shared **two-level arrow navigation**. Prefer arrows, Enter, and Del over letter shortcuts.
 
 - Top chrome bar: app name, page dots, battery
-- **G0** returns to M5Launcher
+- **G0** short press (any app) → open **Recorder** and start recording. If already recording → stop & save. **G0** long press (~0.5 s) → M5Launcher
 
 ### Arrow keys
 
@@ -184,6 +184,33 @@ Named timing sessions stored in NVS (max **10**).
 - `↑` `↓` — move · top `↑` → chrome
 - History: `↑` `↓` scroll · `←` / `Del` back
 
+### Recorder (voice)
+
+On-device mic → **microSD** WAV (16 kHz mono PCM). Requires a formatted microSD card.
+
+**List**
+
+- `↑` `↓` — file / `+ New recording`
+- `Enter` — play file, or start a new recording
+- **G0** short (from any app) — jump here and start recording; while recording, stop & save
+- `Del` — delete selected file (confirm)
+- Top row `↑` — chrome (app switch)
+- No card: `No SD — Enter` retries mount
+
+**Record**
+
+- Shows elapsed time, filename (`REC_XXXX.wav`), and a level bar
+- **G0** short or `Enter` — stop and save · `Del` — cancel and discard
+- **G0** long — exit to M5Launcher
+- Max length **10 min**; app switch mid-record saves if longer than 0.5 s
+
+**Play**
+
+- `Del` — delete this file (confirm) · `Enter` — no action
+- `←` — stop and return to list · playback end → list
+
+Files live under `/rec/` on the SD card.
+
 ### Web (HTTP commander)
 
 Phone-backed **HTTP presets** over BLE — pick a saved request and view the response body. **Not a web browser** (no arbitrary URL entry or page rendering on the device).
@@ -221,7 +248,7 @@ Last app in the order. Sleep, brightness, BLE link, battery, and firmware versio
 
 ## Desktop simulator
 
-Preview Torch / Timer / Stopwatch / Web / SSH / Settings on a PC with `sim/`. On Fedora, install the **system packages** above (`SDL2-devel`, `pkg-config`, …), then:
+Preview Torch / Timer / Stopwatch / Recorder / Web / SSH / Settings on a PC with `sim/`. Recorder has no real mic/SD (shows unavailable). On Fedora, install the **system packages** above (`SDL2-devel`, `pkg-config`, …), then:
 
 ```bash
 pio run -e sim -t upload
@@ -254,7 +281,8 @@ Outputs:
 
 **Return to launcher**
 
-- Press **G0** once (upper-left of the keyboard) → reboot to M5Launcher (factory)
+- **G0** long press (~0.5 s, upper-left of the keyboard) → reboot to M5Launcher (factory)
+- **G0** short → Recorder hotkey (start/stop), not launcher
 - Recovery: hold **G0** and press **RST** → force launcher menu
 
 > Flashing `firmware.bin` to `0x0` with `esptool` erases M5Launcher. Always use M5Launcher Install.
@@ -272,7 +300,8 @@ After installing the `.bin` with M5Launcher (sim has no backlight hardware):
 - [ ] **Settings:** Change/save Sleep & Bright; BLE summary + submenu (Pair/Connect/Cancel/Disconnect/Forget); battery %/V; firmware version; idle backlight off and key wake (same app); light sleep when no timer and BLE off
 - [ ] **BLE M1:** BLE → Pair → companion Scan → Connected → Disconnect → `Off Paired` · sleep/wake keeps app · Forget confirm. See [companion/README.md](companion/README.md) · [docs/m1_verify.md](docs/m1_verify.md)
 - [ ] **Web M2 / SSH M3:** Linked Companion → open Web or SSH → list / Refresh / run. [docs/m2_verify.md](docs/m2_verify.md) · [docs/m3_verify.md](docs/m3_verify.md)
-- [ ] **G0:** While the app runs, G0 once → back to M5Launcher
+- [ ] **G0:** Short from any app → Recorder + auto-record; short while recording → stop&save; long → M5Launcher
+- [ ] **Recorder:** microSD present → New / G0 start → G0 or Enter stop&save → play → Del delete. No SD shows error.
 - [ ] **Battery:** Chrome icon visible; lightning when USB is plugged (no CHG pin — USB presence is used as a hint)
 
 ### USB direct flash (standalone firmware)
@@ -316,11 +345,13 @@ M5Cardputer is declared in `platformio.ini`.
 │   ├── launcher_exit.*       # Return to M5Launcher
 │   ├── ble/ble_link.cpp      # NimBLE link (sim stub)
 │   ├── input/                # Key edge · arrow mapping
+│   ├── storage/              # microSD helper (Recorder)
 │   ├── ui/                   # Battery icon
 │   └── apps/
 │       ├── torch/
 │       ├── timer/
 │       ├── stopwatch/
+│       ├── recorder/         # Voice recorder (SD WAV)
 │       ├── web/              # HTTP commander (M2)
 │       ├── ssh/              # SSH commander (M3)
 │       └── settings/
@@ -338,6 +369,9 @@ Tune values in `include/config.h`:
 | `kMaxTimers` | 8 | Max stored timers |
 | `kTimerMaxHours` | 23 | Timer hours cap |
 | `kMaxStopwatchHistory` | 10 | Max stopwatch history entries |
+| `kRecorderSampleRate` | 16000 | Recorder WAV sample rate |
+| `kRecorderMaxDurationSec` | 600 | Recorder max length (s) |
+| `kRecorderMaxFiles` | 32 | Max listed recordings |
 | `kDefaultSleepOptionIndex` | 3 | Default Sleep (5 min; includes Immediate / Never) |
 | `kDefaultBrightnessOptionIndex` | 2 | Default Bright (128) |
 | `kBleIdleDisconnectSec` | 60 | BLE idle → radio off (s) |
@@ -351,7 +385,7 @@ Tune values in `include/config.h`:
   - [ ] Hangul text output
 
 - [ ] More utility apps
-  - [ ] Voice recorder
+  - [x] Voice recorder
   - [ ] Expression calculator
   - [ ] SD reader/writer
   - [ ] Metronome

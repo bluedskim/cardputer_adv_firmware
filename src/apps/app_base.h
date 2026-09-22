@@ -28,4 +28,10 @@ public:
     virtual void onBackgroundTick() {}
     // True while the app needs frequent CPU (e.g. running timer/stopwatch).
     virtual bool hasActiveBackgroundWork() const { return false; }
+
+    // Global G0 short-press record hotkey (AppShell routes here).
+    virtual bool isVoiceRecorder() const { return false; }
+    virtual bool voiceRecorderIsRecording() const { return false; }
+    // Start recording, or stop&save if already recording.
+    virtual void voiceRecorderHotkey() {}
 };
