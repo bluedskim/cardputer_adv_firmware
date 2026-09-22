@@ -1,6 +1,6 @@
 # cardputer_adv_firmware
 
-Current release: **[v0.6.0](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.6.0)** · Companion `0.6.2-m3` (M3 SSH)
+Current release: **[v0.7.0](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.7.0)** · Companion `0.6.2-m3` (M3 SSH)
 
 Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like the stock UI. Includes **Torch**, **Timer**, **Stopwatch**, **Recorder** (microSD WAV), **Web** (HTTP presets — not a browser), **SSH** (one-shot exec — not an interactive shell), and **Settings**.
 
