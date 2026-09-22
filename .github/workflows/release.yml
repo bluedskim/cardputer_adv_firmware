@@ -53,20 +53,34 @@ jobs:
             test -f "$f" || { echo "missing asset: $f"; exit 1; }
           done
 
+          # Draft releases do not show as "Latest" on the repo home page.
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG exists — uploading assets"
+            echo "Release $TAG exists — publish + upload assets"
             gh release upload "$TAG" "${ASSETS[@]}" --clobber
+            EDIT_ARGS=(--draft=false --latest)
             if [ -f "$NOTES_FILE" ]; then
-              gh release edit "$TAG" --notes-file "$NOTES_FILE"
+              EDIT_ARGS+=(--notes-file "$NOTES_FILE")
             fi
-          else
+            # Prefer release-notes title when present.
             if [ -f "$NOTES_FILE" ]; then
+              TITLE=$(head -n1 "$NOTES_FILE" | sed 's/^#* *//')
+              if [ -n "$TITLE" ]; then
+                EDIT_ARGS+=(--title "$TITLE")
+              fi
+            fi
+            gh release edit "$TAG" "${EDIT_ARGS[@]}"
+          else
+            CREATE_ARGS=(--latest)
+            if [ -f "$NOTES_FILE" ]; then
+              TITLE=$(head -n1 "$NOTES_FILE" | sed 's/^#* *//')
               gh release create "$TAG" "${ASSETS[@]}" \
-                --title "$TAG" \
-                --notes-file "$NOTES_FILE"
+                --title "${TITLE:-$TAG}" \
+                --notes-file "$NOTES_FILE" \
+                "${CREATE_ARGS[@]}"
             else
               gh release create "$TAG" "${ASSETS[@]}" \
                 --title "$TAG" \
-                --generate-notes
+                --generate-notes \
+                "${CREATE_ARGS[@]}"
             fi
           fi
