@@ -38,6 +38,12 @@ enum class Type : uint8_t {
     SshRunChunk = 0x25,   // phone → device: seq_u8 + bytes
     SshRunEnd = 0x26,     // phone → device
 
+    // M5 Find My Phone (phone vibrates; sound optional via flags).
+    FindStart = 0x40,     // device → phone: flags_u8 (bit0 = sound)
+    FindStarted = 0x41,   // phone → device: ok_u8 (0 = started)
+    FindStop = 0x42,      // device → phone
+    FindStopped = 0x43,   // phone → device: reason_u8 (0 user, 1 timeout, 2 error)
+
     Error = 0x7F,
 };
 
@@ -54,7 +60,10 @@ enum class ErrorCode : uint8_t {
     SshAuthFailed = 0x22,
     SshHostKey = 0x23,
     NoSshPresets = 0x24,
+    FindFailed = 0x40,
 };
+
+constexpr uint8_t kFindFlagSound = 0x01;
 
 inline bool isHttpType(Type type) {
     const auto v = static_cast<uint8_t>(type);
@@ -64,6 +73,11 @@ inline bool isHttpType(Type type) {
 inline bool isSshType(Type type) {
     const auto v = static_cast<uint8_t>(type);
     return v >= 0x20 && v <= 0x2F;
+}
+
+inline bool isFindType(Type type) {
+    const auto v = static_cast<uint8_t>(type);
+    return v >= 0x40 && v <= 0x4F;
 }
 
 }  // namespace ble_protocol

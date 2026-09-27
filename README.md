@@ -1,8 +1,8 @@
 # cardputer_adv_firmware
 
-Current release: **[v0.7.0](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.7.0)** · Companion `0.6.2-m3` (M3 SSH)
+Current release: **[v0.8.0](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.0)** · Companion `0.8.0` (M5 Find)
 
-Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like the stock UI. Includes **Torch**, **Timer**, **Stopwatch**, **Recorder** (microSD WAV), **Web** (HTTP presets — not a browser), **SSH** (one-shot exec — not an interactive shell), and **Settings**.
+Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like the stock UI. Includes **Torch**, **Timer**, **Stopwatch**, **Recorder** (microSD WAV), **Web** (HTTP presets — not a browser), **SSH** (one-shot exec — not an interactive shell), **Find** (phone vibrate / optional sound), and **Settings**.
 
 Primary development target is **Fedora**; setup and flash steps below prefer Fedora, with notes for other platforms.
 
@@ -227,6 +227,18 @@ Cache-first list; **Refresh hosts...**; result shows exit status + stdout/stderr
 
 See [docs/m3_verify.md](docs/m3_verify.md) · [docs/ble_link.md](docs/ble_link.md).
 
+### Find (phone)
+
+On-demand **Find My Phone**. Vibration is always on. **Sound Off/On** is chosen here (saved in NVS) and sent with each start.
+
+- `↑` `↓` — Sound / Find phone · from Sound, `↑` → chrome
+- `←` `→` or `Enter` on Sound — toggle Off/On
+- `Enter` on Find phone — start or stop
+- `Del` while finding — stop
+- Phone shows a Stop notification; auto-stop after 60 s
+
+See [docs/m5_verify.md](docs/m5_verify.md).
+
 ### Settings
 
 Last app in the order. Sleep, brightness, BLE link, battery, and firmware version.
@@ -354,6 +366,7 @@ M5Cardputer is declared in `platformio.ini`.
 │       ├── recorder/         # Voice recorder (SD WAV)
 │       ├── web/              # HTTP commander (M2)
 │       ├── ssh/              # SSH commander (M3)
+│       ├── find/             # Find My Phone (M5)
 │       └── settings/
 └── README.md
 ```
@@ -442,6 +455,15 @@ Verify: [docs/m2_verify.md](docs/m2_verify.md) · protocol: [docs/ble_link.md](d
 
 Verify: [docs/m3_verify.md](docs/m3_verify.md) · protocol: [docs/ble_link.md](docs/ble_link.md)
 
+#### M5 — Find My Phone (vibrate-first)
+
+- [x] Cardputer **Find** app: Sound Off/On (default Off) + start/stop
+- [x] Companion vibrates and shows Stop; ringtone only when Sound On
+- [x] On-demand link; 60 s timeout; stop from device, Del, or notification
+- [x] Out of scope: GPS, iOS, camera flash
+
+Verify: [docs/m5_verify.md](docs/m5_verify.md) · protocol: [docs/ble_link.md](docs/ble_link.md)
+
 #### M4 — Notification mirror (opt-in, higher standby cost)
 
 - [ ] Settings notification mirror ON/OFF (default OFF)
@@ -450,8 +472,8 @@ Verify: [docs/m3_verify.md](docs/m3_verify.md) · protocol: [docs/ble_link.md](d
 - [ ] No forced screen wake on receive (buffer; manual check; bright wake optional)
 - [ ] Out of scope: notification actions (reply/dismiss), media controls, calls
 
-Priority: **shared → M1 → M2 → M3 → M4**.
-Ship commanders (M2/M3) before notifications (M4) to protect standby battery.
+Priority: **shared → M1 → M2 → M3 → M5**. M4 (notifications) stays separate.
+Ship commanders before notifications (M4) to protect standby battery.
 Keep calculator / metronome / tuner / HID / clock as offline utilities, separate from this major track.
 
 ## Debugging

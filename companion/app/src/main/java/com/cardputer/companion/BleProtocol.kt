@@ -38,6 +38,15 @@ object BleProtocol {
     const val TYPE_SSH_RUN_CHUNK: Byte = 0x25
     const val TYPE_SSH_RUN_END: Byte = 0x26
 
+    const val TYPE_FIND_START: Byte = 0x40
+    const val TYPE_FIND_STARTED: Byte = 0x41
+    const val TYPE_FIND_STOP: Byte = 0x42
+    const val TYPE_FIND_STOPPED: Byte = 0x43
+    const val FIND_FLAG_SOUND: Int = 0x01
+    const val FIND_REASON_USER: Int = 0
+    const val FIND_REASON_TIMEOUT: Int = 1
+    const val FIND_REASON_ERROR: Int = 2
+
     const val TYPE_ERROR: Byte = 0x7F
 
     const val ERR_BAD_FRAME: Int = 0x01
@@ -52,13 +61,14 @@ object BleProtocol {
     const val ERR_SSH_AUTH_FAILED: Int = 0x22
     const val ERR_SSH_HOST_KEY: Int = 0x23
     const val ERR_NO_SSH_PRESETS: Int = 0x24
+    const val ERR_FIND_FAILED: Int = 0x40
 
     const val SSH_BODY_MAX = 512
     const val SSH_CHUNK_DATA_MAX = MAX_PAYLOAD - 1
     const val SSH_NAME_MAX = 20
     const val SSH_MAX_PRESETS = 12
 
-    const val APP_VERSION = "0.6.2-m3"
+    const val APP_VERSION = "0.8.0"
 
     data class Frame(
         val type: Byte,
@@ -115,5 +125,10 @@ object BleProtocol {
     fun isSshType(type: Byte): Boolean {
         val v = type.toInt() and 0xFF
         return v in 0x20..0x2F
+    }
+
+    fun isFindType(type: Byte): Boolean {
+        val v = type.toInt() and 0xFF
+        return v in 0x40..0x4F
     }
 }

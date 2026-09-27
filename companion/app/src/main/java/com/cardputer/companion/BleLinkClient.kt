@@ -764,9 +764,43 @@ class BleLinkClient(
                 BleProtocol.TYPE_HTTP_RUN_REQ -> handleRunReq(frame)
                 BleProtocol.TYPE_SSH_LIST_REQ -> handleSshListReq(frame.reqId)
                 BleProtocol.TYPE_SSH_RUN_REQ -> handleSshRunReq(frame)
+                BleProtocol.TYPE_FIND_START -> handleFindStart(frame)
+                BleProtocol.TYPE_FIND_STOP -> handleFindStop(frame)
                 else -> Unit
             }
         }
+    }
+
+    private fun handleFindStart(frame: BleProtocol.Frame) {
+        val flags = frame.payload.firstOrNull()?.toInt()?.and(0xFF) ?: 0
+        val sound = (flags and BleProtocol.FIND_FLAG_SOUND) != 0
+        FindAlerter.start(context, sound) { reason ->
+            sendFindStopped(frame.reqId, reason)
+        }
+        enqueueWrite(
+            BleProtocol.encode(
+                BleProtocol.TYPE_FIND_STARTED,
+                frame.reqId,
+                byteArrayOf(0)
+            )
+        )
+        handler.post { listener.onDetail(if (sound) "Find start + sound" else "Find start") }
+    }
+
+    private fun handleFindStop(frame: BleProtocol.Frame) {
+        FindAlerter.stop(context, notify = false)
+        sendFindStopped(frame.reqId, BleProtocol.FIND_REASON_USER)
+        handler.post { listener.onDetail("Find stop") }
+    }
+
+    private fun sendFindStopped(reqId: Int, reason: Int) {
+        enqueueWrite(
+            BleProtocol.encode(
+                BleProtocol.TYPE_FIND_STOPPED,
+                reqId,
+                byteArrayOf(reason.toByte())
+            )
+        )
     }
 
     private fun handleListReq(reqId: Int) {

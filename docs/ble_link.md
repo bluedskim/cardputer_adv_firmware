@@ -133,6 +133,21 @@ Additional error codes:
 
 On-demand: SSH app opens → device `Connect` → list/run → exit → `disconnect`.
 
+## M5 Find My Phone
+
+| Type | Name | Direction | Payload |
+|------|------|-----------|---------|
+| `0x40` | `FindStart` | Device → Phone | `flags` u8 — bit0 = 1 play sound, 0 vibrate only |
+| `0x41` | `FindStarted` | Phone → Device | `ok` u8 (`0` = started) |
+| `0x42` | `FindStop` | Device → Phone | empty |
+| `0x43` | `FindStopped` | Phone → Device | `reason` u8 (`0` user/device, `1` 60 s timeout, `2` error) |
+
+Phone always vibrates and shows a Stop notification. Sound follows the Cardputer **Sound Off/On** row (NVS `card_adv_find` / `sound`).
+
+Additional error code: `0x40` Find failed.
+
+On-demand: Find app opens → Connect on Enter → stop on Enter/Del/exit/timeout → disconnect on exit.
+
 ## Reserved (M4+)
 
 | Range | Intent |
