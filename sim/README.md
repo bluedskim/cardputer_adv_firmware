@@ -55,8 +55,7 @@ Same two-level navigation as the device:
 | `Del` | Back or delete character |
 | Top of list `↑` | Header focus → `←` `→` to switch apps (device also accepts Fn+arrows) |
 | Header `↓` / `Enter` | Return to app |
-| `` ` `` short | G0 short — Recorder hotkey (start, or stop & save), same as the device |
-| `` ` `` hold (~0.5 s) | G0 long — prints a launcher-reboot message (no `esp_restart` in sim) |
+| `` ` `` | G0 short — Recorder hotkey (start, or stop & save), same as the device |
 
 ## Layout
 
@@ -69,6 +68,6 @@ src/apps/             # Real app code (reused by the sim build)
 
 ## Limits
 
-- M5Launcher / NVS persistence are in-memory stubs
+- NVS persistence is an in-memory stub
 - BLE is stubbed (`BLE N/A`); the submenu opens but actions are no-ops
 - Always re-check on hardware ([docs/m1_verify.md](../docs/m1_verify.md))

@@ -14,7 +14,6 @@ pio run -e sim
 
 ```bash
 pio run -e m5stack-cardputer -t upload
-# or m5launcher + install dist/cardputer_adv_firmware.bin
 ```
 
 - [ ] Cold boot: main `BLE Off Unpaired` (or `Off Paired` after a prior bond)
@@ -25,7 +24,7 @@ pio run -e m5stack-cardputer -t upload
 - [ ] Leave connected ~60s without traffic → auto disconnect + `Off Paired`
 - [ ] Reboot → `Off Paired` persists; BLE → **Connect** + companion Scan reconnects
 - [ ] **Forget** → confirm → `Off Unpaired`; must Pair again
-- [ ] G0 short opens Recorder and starts a take; G0 long returns to M5Launcher (standalone builds: long press reboots the same app)
+- [ ] G0 short opens Recorder and starts a take; short press while recording stops and saves
 
 ## Companion app
 

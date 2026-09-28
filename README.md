@@ -1,6 +1,6 @@
 # cardputer_adv_firmware
 
-Current release: **[v0.8.2](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.2)** · Companion `0.8.2` (M5 Find)
+Current release: **[v0.8.3](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.3)** · Companion `0.8.3` (M5 Find)
 
 Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like the stock UI. Includes **Torch**, **Timer**, **Stopwatch**, **Recorder** (microSD WAV), **Web** (HTTP presets — not a browser), **SSH** (one-shot exec — not an interactive shell), **Find** (phone vibrate / optional sound), and **Settings**.
 
@@ -107,7 +107,7 @@ pio device list
 Shared **two-level arrow navigation**. Prefer arrows, Enter, and Del over letter shortcuts.
 
 - Top header bar: app name, page dots, battery
-- **G0** short press (any app) → open **Recorder** and start recording. If already recording → stop & save. **G0** long press (~0.5 s) → M5Launcher
+- **G0** short press (any app) → open **Recorder** and start recording. If already recording → stop & save
 
 ### Arrow keys
 
@@ -201,7 +201,6 @@ On-device mic → **microSD** WAV (16 kHz mono PCM). Requires a formatted microS
 
 - Shows elapsed time, filename (`REC_XXXX.wav`), and a level bar
 - **G0** short or `Enter` — stop and save · `Del` — cancel and discard
-- **G0** long — save if the take is at least 0.5 s, then exit to M5Launcher (shorter takes are discarded)
 - Max length **10 min**. The record screen does not return to the header, so another app cannot be opened mid-take
 
 **Play**
@@ -270,40 +269,21 @@ The `upload` target opens an SDL window. Keys, layout, and limits: [sim/README.m
 
 ## Build
 
-### For M5Launcher (recommended)
-
-Flash [M5Launcher](https://github.com/bmorcelli/Launcher) on the device first, then install this project as an **OTA app binary**.
+Flash over USB. On Fedora, fix [USB permissions](#3-usb-upload-and-serial-monitor) first:
 
 ```bash
-pio run -e m5launcher
+pio run -e m5stack-cardputer
+pio run -e m5stack-cardputer -t upload
+pio device monitor
 ```
 
-Outputs:
+The build copies `dist/cardputer_adv_firmware.bin`. GitHub Release assets are versioned, e.g. **`cardputer_adv_firmware-0.8.3.bin`** and **`CardputerCompanion-0.8.3.apk`** (sideload; debug-signed until a store keystore is added).
 
-| File | Purpose |
-| ------------------------------------ | --------------------- |
-| `dist/cardputer_adv_firmware.bin` | App image for M5Launcher (local build) |
-| `dist/cardputer_adv_firmware-<ver>.bin` | Same image on GitHub Releases (versioned) |
-| `.pio/build/m5launcher/firmware.bin` | Same file (build path) |
-
-**Install**
-
-1. In M5Launcher, install the `.bin` via `SD` / `OTA` / `WUI`
-2. Run the app from the launcher list
-
-**Return to launcher**
-
-- **G0** long press (~0.5 s, upper-left of the keyboard) → reboot to M5Launcher (factory). A recording in progress is saved first if it is at least 0.5 s
-- **G0** short → Recorder hotkey (start/stop), not launcher
-- Recovery: hold **G0** and press **RST** → force launcher menu
-
-> Flashing `firmware.bin` to `0x0` with `esptool` erases M5Launcher. Always use M5Launcher Install.
-
-GitHub Release assets are versioned, e.g. **`cardputer_adv_firmware-0.8.2.bin`** and **`CardputerCompanion-0.8.2.apk`** (sideload; debug-signed until a store keystore is added).
+If upload fails: use a **data** cable, confirm the port in `pio device list`, re-login after adding `dialout`, and try bootloader mode (**RST**, etc.) on ESP32-S3.
 
 ### Device test checklist
 
-After installing the `.bin` with M5Launcher (sim has no backlight hardware):
+After flashing (sim has no backlight hardware):
 
 - [ ] **Brightness:** In Torch, focus Bright — `←` dims, `→` brightens; at max, `→` stays at 255
 - [ ] **Timeout:** Focus Time — `←` `→` step by 60 s; countdown decreases each second; after expiry a message appears and keys work again
@@ -312,21 +292,9 @@ After installing the `.bin` with M5Launcher (sim has no backlight hardware):
 - [ ] **Settings:** Change/save Sleep & Bright; BLE summary + submenu (Pair/Connect/Cancel/Disconnect/Forget); battery %/V; firmware version; idle backlight off and key wake (same app); GPIO light sleep only before the BLE stack has been started
 - [ ] **BLE M1:** BLE → Pair → companion Scan → Connected → Disconnect → `Off Paired` · sleep/wake keeps app · Forget confirm. See [companion/README.md](companion/README.md) · [docs/m1_verify.md](docs/m1_verify.md)
 - [ ] **Web M2 / SSH M3:** Linked Companion → open Web or SSH → list / Refresh / run. [docs/m2_verify.md](docs/m2_verify.md) · [docs/m3_verify.md](docs/m3_verify.md)
-- [ ] **G0:** Short from any app → Recorder + auto-record; short while recording → stop&save; long → save if ≥ 0.5 s, then M5Launcher
+- [ ] **G0:** Short from any app → Recorder + auto-record; short while recording → stop&save
 - [ ] **Recorder:** microSD present → New / G0 start → G0 or Enter stop&save → play → Del delete. No SD shows error.
 - [ ] **Battery:** header icon visible; lightning when USB is plugged (no CHG pin — USB presence is used as a hint)
-
-### USB direct flash (standalone firmware)
-
-Only when not using M5Launcher. On Fedora, fix [USB permissions](#3-usb-upload-and-serial-monitor) first:
-
-```bash
-pio run -e m5stack-cardputer
-pio run -e m5stack-cardputer -t upload
-pio device monitor
-```
-
-If upload fails: use a **data** cable, confirm the port in `pio device list`, re-login after adding `dialout`, and try bootloader mode (**RST**, etc.) on ESP32-S3.
 
 ### Requirements
 
@@ -341,8 +309,8 @@ M5Cardputer is declared in `platformio.ini`.
 ```
 .
 ├── platformio.ini
-├── scripts/export_launcher_bin.py
-├── dist/                     # M5Launcher .bin (after build)
+├── scripts/export_firmware_bin.py
+├── dist/                     # firmware.bin (after build)
 ├── docs/                     # ble_link.md · m1/m2/m3/m5 verify · images/
 ├── companion/                # Android companion (M1–M3, M5 Find)
 ├── sim/                      # Desktop simulator (SDL2, Arduino/M5 stubs)
@@ -354,7 +322,6 @@ M5Cardputer is declared in `platformio.ini`.
 │   ├── main.cpp
 │   ├── app_shell.*           # App switcher · sleep/wake
 │   ├── system_settings.cpp
-│   ├── launcher_exit.*       # Return to M5Launcher
 │   ├── ble/ble_link.cpp      # NimBLE link (sim stub)
 │   ├── input/                # Key edge · arrow mapping
 │   ├── storage/              # microSD helper (Recorder)

@@ -12,7 +12,6 @@
 
 #include "config.h"
 #include "input/keyboard_input.h"
-#include "launcher_exit.h"
 #include "ble/ble_link.h"
 #include "ui/battery_indicator.h"
 
@@ -104,19 +103,9 @@ void AppShell::update() {
         noteUserActivity();
     }
 
-    if (M5Cardputer.BtnA.wasHold()) {
-        // Long-press G0 always returns to M5Launcher (factory).
-        // onExit finalizes an in-progress recording (save if ≥ min length).
-        apps_[current_index_]->onExit();
-        launcher_exit::rebootToLauncher();
-#if defined(CARDPUTER_SIM)
-        // Device reboot does not return. Sim prints and comes back into this app.
-        header_focused_ = true;
-        apps_[current_index_]->onEnter();
-        header_dirty_ = true;
-        return;
-#endif
-    } else if (M5Cardputer.BtnA.wasClicked()) {
+    // A long press is not a command. Consume it so it is not also reported as a click.
+    (void)M5Cardputer.BtnA.wasHold();
+    if (M5Cardputer.BtnA.wasClicked()) {
         noteUserActivity();
         if (display_asleep_) {
             wakeDisplay();
@@ -332,7 +321,6 @@ std::size_t AppShell::findVoiceRecorderIndex() const {
 void AppShell::handleG0Short() {
     const std::size_t rec = findVoiceRecorderIndex();
     if (rec >= apps_.size()) {
-        launcher_exit::rebootToLauncher();
         return;
     }
 

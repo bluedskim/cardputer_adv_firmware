@@ -33,7 +33,7 @@ cd companion
 ./gradlew :app:assembleRelease
 ```
 
-GitHub Releases ship versioned assets, e.g. `CardputerCompanion-0.8.2.apk` next to `cardputer_adv_firmware-0.8.2.bin`.
+GitHub Releases ship versioned assets, e.g. `CardputerCompanion-0.8.3.apk` next to `cardputer_adv_firmware-0.8.3.bin`.
 
 `local.properties` example: `sdk.dir=/home/YOU/Android/Sdk`
 
