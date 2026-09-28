@@ -21,11 +21,11 @@ pio run -e m5stack-cardputer -t upload
 - [ ] Enter BLE → **Pair** → status `Pairing`
 - [ ] Phone companion Scan → connect → phone `Hello OK`; device `Connecting` then `Connected`
 - [ ] **Disconnect** → radio off; main/summary `Off Paired`
-- [ ] Display sleep then key wake stays on Settings (not Torch); light sleep when BLE off
+- [ ] Display sleep then key wake stays on Settings (not Torch). GPIO light sleep only before the BLE stack has been started; after pair/connect the stack stays up and light sleep stays off even at `Off Paired`
 - [ ] Leave connected ~60s without traffic → auto disconnect + `Off Paired`
 - [ ] Reboot → `Off Paired` persists; BLE → **Connect** + companion Scan reconnects
 - [ ] **Forget** → confirm → `Off Unpaired`; must Pair again
-- [ ] G0 still returns to M5Launcher (standalone builds: G0 may no-op / reset only)
+- [ ] G0 short opens Recorder and starts a take; G0 long returns to M5Launcher (standalone builds: long press reboots the same app)
 
 ## Companion app
 

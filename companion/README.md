@@ -1,6 +1,6 @@
-# Cardputer Companion (Android, M3)
+# Cardputer Companion (Android)
 
-BLE central for [cardputer_adv_firmware](../README.md): M1 link, **HTTP Web** presets, and **SSH exec** presets.
+BLE central for [cardputer_adv_firmware](../README.md): M1 link, **HTTP Web** presets, **SSH exec** presets, and **Find My Phone** (vibrate, optional sound).
 
 Designed like a **smartwatch companion** (Mi Band–style):
 
@@ -10,7 +10,7 @@ Designed like a **smartwatch companion** (Mi Band–style):
 4. **Stop** — reliable mode keeps linked FGS standby; battery saver ends FGS (presence can restart). Long-press **Stop** → **Unlink**
 5. **Scan** is a manual force-rescan fallback (no new association)
 
-Also: HTTP and SSH presets on the phone; serves `HttpList*` / `HttpRun*` and `SshList*` / `SshRun*` for the Cardputer **Web** and **SSH** apps. No notification mirror yet (M4).
+Also: HTTP and SSH presets on the phone; serves `HttpList*` / `HttpRun*`, `SshList*` / `SshRun*`, and `FindStart` / `FindStop` for the Cardputer **Web**, **SSH**, and **Find** apps. No notification mirror yet (M4). HTTP preset JSON is stored with encrypted preferences (a plain copy from older builds is migrated on next load).
 
 **Test run** on each preset editor runs the request/SSH on the phone and shows body + step log (Copy log) before you rely on the Cardputer UI.
 
@@ -33,7 +33,7 @@ cd companion
 ./gradlew :app:assembleRelease
 ```
 
-GitHub Releases ship versioned assets, e.g. `CardputerCompanion-0.6.0.apk` next to `cardputer_adv_firmware-0.6.0.bin`.
+GitHub Releases ship versioned assets, e.g. `CardputerCompanion-0.8.2.apk` next to `cardputer_adv_firmware-0.8.2.bin`.
 
 `local.properties` example: `sdk.dir=/home/YOU/Android/Sdk`
 

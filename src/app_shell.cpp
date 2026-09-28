@@ -106,7 +106,16 @@ void AppShell::update() {
 
     if (M5Cardputer.BtnA.wasHold()) {
         // Long-press G0 always returns to M5Launcher (factory).
+        // onExit finalizes an in-progress recording (save if ≥ min length).
+        apps_[current_index_]->onExit();
         launcher_exit::rebootToLauncher();
+#if defined(CARDPUTER_SIM)
+        // Device reboot does not return. Sim prints and comes back into this app.
+        header_focused_ = true;
+        apps_[current_index_]->onEnter();
+        header_dirty_ = true;
+        return;
+#endif
     } else if (M5Cardputer.BtnA.wasClicked()) {
         noteUserActivity();
         if (display_asleep_) {

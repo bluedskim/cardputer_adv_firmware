@@ -23,7 +23,7 @@ void setup() {
     Serial.begin(115200);
     M5Cardputer.begin(true);
     std::printf("cardputer_adv_firmware desktop simulator\n");
-    std::printf("Arrow: ; , . / or PC arrow keys | B blink | ` G0\n");
+    std::printf("Arrow: ; , . / or PC arrow keys | B blink | ` short/hold G0\n");
 
     g_shell.addApp(std::unique_ptr<AppBase>(new TorchApp()));
     g_shell.addApp(std::unique_ptr<AppBase>(new TimerApp()));

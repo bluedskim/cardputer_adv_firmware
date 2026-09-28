@@ -13,6 +13,7 @@ public:
     void onEnter() override;
     void onExit() override;
     void onDisplayWake() override;
+    void onBackgroundTick() override;
     bool hasActiveBackgroundWork() const override;
     NavRequest onUpdate(const Keyboard_Class::KeysState* keys, bool header_focused) override;
 

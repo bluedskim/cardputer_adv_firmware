@@ -372,9 +372,31 @@ void SshApp::ensureCursorVisible() {
     }
 }
 
+bool SshApp::acceptsFrame(const BleRxFrame& frame) const {
+    switch (frame.type) {
+        case ble_protocol::Type::SshListItem:
+        case ble_protocol::Type::SshListEnd:
+            return awaiting_list_ && frame.req_id == list_req_id_;
+        case ble_protocol::Type::SshRunMeta:
+        case ble_protocol::Type::SshRunChunk:
+        case ble_protocol::Type::SshRunEnd:
+            return awaiting_run_ && frame.req_id == run_req_id_;
+        case ble_protocol::Type::Error:
+            return (awaiting_list_ && frame.req_id == list_req_id_) ||
+                   (awaiting_run_ && frame.req_id == run_req_id_);
+        default:
+            return false;
+    }
+}
+
 void SshApp::processBleFrames() {
     BleRxFrame frame;
     while (BleLink::instance().takeRxFrame(&frame)) {
+        // Late replies to a retried or abandoned request must not change the
+        // current screen (same rule as WebApp::acceptsFrame).
+        if (!acceptsFrame(frame)) {
+            continue;
+        }
         switch (frame.type) {
             case ble_protocol::Type::SshListItem: {
                 if (frame.len < 2) {
@@ -382,7 +404,7 @@ void SshApp::processBleFrames() {
                 }
                 const uint8_t index = frame.payload[0];
                 const uint8_t total = frame.payload[1];
-                if (total > config::kSshMaxPresets || index >= config::kSshMaxPresets) {
+                if (total > config::kSshMaxPresets || index >= total) {
                     break;
                 }
                 // New list size from phone — replace in place; keep cache if refresh aborts.

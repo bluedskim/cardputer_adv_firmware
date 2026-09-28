@@ -1,6 +1,6 @@
 # cardputer_adv_firmware
 
-Current release: **[v0.8.1](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.1)** · Companion `0.8.1` (M5 Find)
+Current release: **[v0.8.2](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.2)** · Companion `0.8.2` (M5 Find)
 
 Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like the stock UI. Includes **Torch**, **Timer**, **Stopwatch**, **Recorder** (microSD WAV), **Web** (HTTP presets — not a browser), **SSH** (one-shot exec — not an interactive shell), **Find** (phone vibrate / optional sound), and **Settings**.
 
@@ -201,8 +201,8 @@ On-device mic → **microSD** WAV (16 kHz mono PCM). Requires a formatted microS
 
 - Shows elapsed time, filename (`REC_XXXX.wav`), and a level bar
 - **G0** short or `Enter` — stop and save · `Del` — cancel and discard
-- **G0** long — exit to M5Launcher
-- Max length **10 min**; app switch mid-record saves if longer than 0.5 s
+- **G0** long — save if the take is at least 0.5 s, then exit to M5Launcher (shorter takes are discarded)
+- Max length **10 min**. The record screen does not return to the header, so another app cannot be opened mid-take
 
 **Play**
 
@@ -235,7 +235,7 @@ On-demand **Find My Phone**. Vibration is always on. **Sound Off/On** is chosen 
 - `←` `→` or `Enter` on Sound — toggle Off/On
 - `Enter` on Find phone — start or stop
 - `Del` while finding — stop
-- Phone shows a Stop notification; auto-stop after 60 s
+- Phone shows a Stop notification; auto-stop after 60 s. The device keeps the BLE link up for that session (the usual 60 s idle disconnect does not cut it short)
 
 See [docs/m5_verify.md](docs/m5_verify.md).
 
@@ -254,13 +254,13 @@ Last app in the order. Sleep, brightness, BLE link, battery, and firmware versio
   - `←` / `Del` / top `↑` → main Settings (BLE row focused)
 - **Battery:** percent and voltage on one line (charging shown on the header battery icon)
 - **S/W Ver:** firmware version (`kFirmwareVersion` in `config.h`)
-- With no input, backlight turns off after Sleep. If no Timer/Stopwatch is running **and** BLE radio is **off**, the device enters light sleep and wakes only on **TCA8418 INT (GPIO11)**. While BLE Pair/Connect or linked, light sleep is skipped; after **60 s** of idle link traffic the device disconnects and powers the radio down.
+- With no input, backlight turns off after Sleep. GPIO light sleep (wake only on **TCA8418 INT, GPIO11**) runs when no app has background work (timer, stopwatch, recording, playback, Find, or an in-flight Web/SSH request) **and** the NimBLE stack is down. After the first pair or connect the stack stays resident — `NimBLEDevice::deinit()` reboots this board — so light sleep stays off until reboot even when the radio is `Off Paired`. Pairing, connecting, or a live link also skips light sleep. An open link with no frames for **60 s** disconnects and powers the radio down; an active Find session holds that timer until the alert ends.
 - Torch uses its own brightness; leaving Torch restores Settings Bright
 - Android companion: [`companion/`](companion/) · protocol: [`docs/ble_link.md`](docs/ble_link.md) · verify: [`docs/m1_verify.md`](docs/m1_verify.md)
 
 ## Desktop simulator
 
-Preview Torch / Timer / Stopwatch / Recorder / Web / SSH / Settings on a PC with `sim/`. Recorder has no real mic/SD (shows unavailable). On Fedora, install the **system packages** above (`SDL2-devel`, `pkg-config`, …), then:
+Preview Torch / Timer / Stopwatch / Recorder / Web / SSH / Find / Settings on a PC with `sim/`. Recorder has no real mic/SD (shows unavailable). Find cannot reach a phone. On Fedora, install the **system packages** above (`SDL2-devel`, `pkg-config`, …), then:
 
 ```bash
 pio run -e sim -t upload
@@ -293,13 +293,13 @@ Outputs:
 
 **Return to launcher**
 
-- **G0** long press (~0.5 s, upper-left of the keyboard) → reboot to M5Launcher (factory)
+- **G0** long press (~0.5 s, upper-left of the keyboard) → reboot to M5Launcher (factory). A recording in progress is saved first if it is at least 0.5 s
 - **G0** short → Recorder hotkey (start/stop), not launcher
 - Recovery: hold **G0** and press **RST** → force launcher menu
 
 > Flashing `firmware.bin` to `0x0` with `esptool` erases M5Launcher. Always use M5Launcher Install.
 
-GitHub Release assets are versioned, e.g. **`cardputer_adv_firmware-0.6.0.bin`** and **`CardputerCompanion-0.6.0.apk`** (sideload; debug-signed until a store keystore is added).
+GitHub Release assets are versioned, e.g. **`cardputer_adv_firmware-0.8.2.bin`** and **`CardputerCompanion-0.8.2.apk`** (sideload; debug-signed until a store keystore is added).
 
 ### Device test checklist
 
@@ -309,10 +309,10 @@ After installing the `.bin` with M5Launcher (sim has no backlight hardware):
 - [ ] **Timeout:** Focus Time — `←` `→` step by 60 s; countdown decreases each second; after expiry a message appears and keys work again
 - [ ] **Timer:** Add with `+ New`, set Hours/Minutes only, Start → countdown / DONE
 - [ ] **Stopwatch:** Rename, Start/Stop, History (max 10)
-- [ ] **Settings:** Change/save Sleep & Bright; BLE summary + submenu (Pair/Connect/Cancel/Disconnect/Forget); battery %/V; firmware version; idle backlight off and key wake (same app); light sleep when no timer and BLE off
+- [ ] **Settings:** Change/save Sleep & Bright; BLE summary + submenu (Pair/Connect/Cancel/Disconnect/Forget); battery %/V; firmware version; idle backlight off and key wake (same app); GPIO light sleep only before the BLE stack has been started
 - [ ] **BLE M1:** BLE → Pair → companion Scan → Connected → Disconnect → `Off Paired` · sleep/wake keeps app · Forget confirm. See [companion/README.md](companion/README.md) · [docs/m1_verify.md](docs/m1_verify.md)
 - [ ] **Web M2 / SSH M3:** Linked Companion → open Web or SSH → list / Refresh / run. [docs/m2_verify.md](docs/m2_verify.md) · [docs/m3_verify.md](docs/m3_verify.md)
-- [ ] **G0:** Short from any app → Recorder + auto-record; short while recording → stop&save; long → M5Launcher
+- [ ] **G0:** Short from any app → Recorder + auto-record; short while recording → stop&save; long → save if ≥ 0.5 s, then M5Launcher
 - [ ] **Recorder:** microSD present → New / G0 start → G0 or Enter stop&save → play → Del delete. No SD shows error.
 - [ ] **Battery:** header icon visible; lightning when USB is plugged (no CHG pin — USB presence is used as a hint)
 
@@ -343,8 +343,8 @@ M5Cardputer is declared in `platformio.ini`.
 ├── platformio.ini
 ├── scripts/export_launcher_bin.py
 ├── dist/                     # M5Launcher .bin (after build)
-├── docs/                     # ble_link.md · m1/m2/m3 verify · images/
-├── companion/                # Android companion (M1–M3)
+├── docs/                     # ble_link.md · m1/m2/m3/m5 verify · images/
+├── companion/                # Android companion (M1–M3, M5 Find)
 ├── sim/                      # Desktop simulator (SDL2, Arduino/M5 stubs)
 ├── include/
 │   ├── config.h

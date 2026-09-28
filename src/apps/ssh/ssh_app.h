@@ -40,6 +40,7 @@ private:
     void drawRunning() const;
     void drawResult() const;
     NavRequest handleInput(const Keyboard_Class::KeysState& status);
+    bool acceptsFrame(const BleRxFrame& frame) const;
     void processBleFrames();
     bool ensureBle(Pending pending);
     void flushPending();

@@ -7,12 +7,14 @@ Cardputer WiFi is not used. Secrets (SSH keys, tokens) stay on the phone only.
 
 | Mode | Radio | Light sleep |
 |------|-------|-------------|
-| Default / after disconnect | **Off** | Allowed (TCA8418 INT wake) |
+| Cold boot, stack never started | **Off** | Allowed (TCA8418 INT wake) |
 | Pairing / Connect advertising | On | Blocked |
 | Connected | On | Blocked until idle disconnect |
-| Paired, radio off | Off | Allowed |
+| Paired, radio off, stack resident | Off | **Blocked** |
 
-M1 idle disconnect: after **60 s** with an open connection and no frame traffic, firmware disconnects and turns the radio off.
+After the first pair or connect, NimBLE stays resident. `NimBLEDevice::deinit()` reboots this ESP32-S3, so GPIO light sleep stays off until the next reboot even when the radio is off.
+
+M1 idle disconnect: after **60 s** with an open connection and no frame traffic, firmware disconnects and turns the radio off. An active Find session calls `holdIdleTimer()` so that window does not end the alert early. Web and SSH still disconnect on app exit.
 
 Notification mirroring (M4) is opt-in and separate; M1 does not keep a persistent link.
 
@@ -101,6 +103,8 @@ Phone holds presets (name, URL, method, optional headers/body). Device lists and
 
 `HttpRunMeta.err`: `0` = OK (use `http_status`); otherwise an `ErrorCode` (`HttpFailed` / `HttpTimeout` / …). Chunks are ordered `seq = 0..n-1`. Truncate body to 512 bytes on the phone before sending.
 
+An empty preset list is `HttpListEnd` with no items. The device also accepts `Error` `0x13` (no presets) if a peer sends it. The companion stores preset JSON (headers and body may hold tokens) in encrypted preferences.
+
 On-demand: Web Commander opens → device `Connect` → list/run → exit app → `disconnect` (idle 60s still applies while connected).
 
 ## Message types (M3 SSH commander)
@@ -120,6 +124,8 @@ Password auth only in v1. known_hosts / TOFU is handled on the phone.
 | `0x26` | `SshRunEnd` | Phone → Device | empty |
 
 `SshRunMeta.err`: `0` = OK (use `exit_status`); otherwise `SshFailed` / `SshTimeout` / `SshAuthFailed` / `SshHostKey` / ….
+
+An empty host list is `SshListEnd` with no items. The device also accepts `Error` `0x24` (no SSH presets) if a peer sends it. The device ignores SSH frames whose `req_id` does not match the list or run it is waiting on.
 
 Additional error codes:
 
@@ -146,7 +152,7 @@ Phone always vibrates and shows a Stop notification. Sound follows the Cardputer
 
 Additional error code: `0x40` Find failed.
 
-On-demand: Find app opens → Connect on Enter → stop on Enter/Del/exit/timeout → disconnect on exit.
+On-demand: Find app opens → Connect on Enter → stop on Enter/Del/exit/timeout → disconnect on exit. The device holds the idle-disconnect timer until the session ends, so the phone's 60 s alert is not cut by the link timeout. `FindStarted.ok` other than `0` is a failure. `Error` applies only when its `req_id` matches the current Find request.
 
 ## Reserved (M4+)
 

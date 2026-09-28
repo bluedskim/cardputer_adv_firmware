@@ -5,7 +5,7 @@
 namespace launcher_exit {
 
 void rebootToLauncher() {
-    std::printf("[sim] G0 pressed: would return to M5Launcher on device\n");
+    std::printf("[sim] G0 long: would return to M5Launcher on device\n");
 }
 
 }  // namespace launcher_exit

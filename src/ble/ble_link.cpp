@@ -154,6 +154,10 @@ void BleLink::noteTraffic() {
     last_traffic_ms_ = millis();
 }
 
+void BleLink::holdIdleTimer() {
+    last_traffic_ms_ = millis();
+}
+
 bool BleLink::isReady() const {
     if (state_ != State::Connected || !hello_ok_) {
         return false;

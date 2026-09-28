@@ -53,6 +53,7 @@ void FindApp::onEnter() {
     finding_ = false;
     awaiting_ = false;
     pending_ = Pending::None;
+    BleLink::instance().clearRxQueue();
     setFooter(BleLink::instance().isPaired() ? "Enter to find" : "Pair phone in Settings");
     markDirty();
     requestHeaderFocus();
@@ -139,8 +140,7 @@ void FindApp::sendStart() {
 void FindApp::sendStop() {
     auto& link = BleLink::instance();
     if (!link.isReady()) {
-        finding_ = false;
-        awaiting_ = false;
+        stopLocal("Link lost");
         return;
     }
     req_id_ = link.allocReqId();
@@ -156,17 +156,47 @@ void FindApp::stopLocal(const char* footer) {
     markDirty();
 }
 
+void FindApp::onBackgroundTick() {
+    // Display sleep skips onUpdate. Hold the idle timer so a 60 s Find alert
+    // is not cut off by maybeIdleDisconnect. Drain only while a Find session
+    // is active: onExit clears these flags before another app runs.
+    if (finding_ || awaiting_ || pending_ != Pending::None) {
+        BleLink::instance().holdIdleTimer();
+        processBleFrames();
+    }
+    if (pending_ != Pending::None) {
+        auto& link = BleLink::instance();
+        if (link.isReady()) {
+            flushPending();
+        } else if (millis() - connect_started_ms_ > kConnectTimeoutMs) {
+            pending_ = Pending::None;
+            setFooter("Connect timeout");
+            markDirty();
+        }
+    } else if ((finding_ || awaiting_) && !BleLink::instance().isLinkUp()) {
+        stopLocal("Link lost");
+    }
+}
+
 void FindApp::processBleFrames() {
     BleRxFrame frame;
     while (BleLink::instance().takeRxFrame(&frame)) {
-        if (frame.type == ble_protocol::Type::Error) {
-            stopLocal("Find failed");
-            continue;
-        }
         if (frame.req_id != req_id_) {
             continue;
         }
+        if (frame.type == ble_protocol::Type::Error) {
+            if (!awaiting_ && !finding_) {
+                continue;
+            }
+            stopLocal("Find failed");
+            continue;
+        }
         if (frame.type == ble_protocol::Type::FindStarted) {
+            const uint8_t ok = frame.len > 0 ? frame.payload[0] : 0;
+            if (ok != 0) {
+                stopLocal("Find failed");
+                continue;
+            }
             awaiting_ = false;
             finding_ = true;
             setFooter(sound_on_ ? "Finding + sound" : "Finding");
@@ -191,17 +221,6 @@ NavRequest FindApp::onUpdate(const Keyboard_Class::KeysState* keys, const bool h
     }
 
     processBleFrames();
-
-    if (pending_ != Pending::None) {
-        auto& link = BleLink::instance();
-        if (link.isReady()) {
-            flushPending();
-        } else if (millis() - connect_started_ms_ > kConnectTimeoutMs) {
-            pending_ = Pending::None;
-            setFooter("Connect timeout");
-            markDirty();
-        }
-    }
 
     NavRequest req = NavRequest::None;
     if (keys != nullptr && !header_focused) {

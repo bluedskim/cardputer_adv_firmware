@@ -1,6 +1,6 @@
 # Desktop Simulator (`sim/`)
 
-Preview Torch / Timer / Stopwatch / Web / SSH / Settings in an SDL2 window on a PC. Real keyboard hardware is stubbed.
+Preview Torch / Timer / Stopwatch / Recorder / Web / SSH / Find / Settings in an SDL2 window on a PC. Real keyboard hardware is stubbed. Recorder has no mic or SD. Find has no phone.
 
 For PlatformIO install, USB permissions, and shared setup, follow the **Fedora** section in the root [README.md](../README.md#development-environment-fedora).
 
@@ -55,7 +55,8 @@ Same two-level navigation as the device:
 | `Del` | Back or delete character |
 | Top of list `↑` | Header focus → `←` `→` to switch apps (device also accepts Fn+arrows) |
 | Header `↓` / `Enter` | Return to app |
-| `` ` `` | G0 (prints a console message in sim) |
+| `` ` `` short | G0 short — Recorder hotkey (start, or stop & save), same as the device |
+| `` ` `` hold (~0.5 s) | G0 long — prints a launcher-reboot message (no `esp_restart` in sim) |
 
 ## Layout
 

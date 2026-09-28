@@ -51,6 +51,10 @@ public:
     bool takeRxFrame(BleRxFrame* out);
     void clearRxQueue();
 
+    // Reset the 60 s idle-disconnect clock. Find calls this for the whole alert
+    // so the link stays up until FindStopped (the phone's own 60 s timeout).
+    void holdIdleTimer();
+
     void notifyConnected(const char* peer);
     void notifyDisconnected();
     void notifySubscribed();
