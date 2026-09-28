@@ -35,7 +35,7 @@ void StopwatchApp::onEnter() {
     focus_ = MainRow::Name;
     last_draw_cs_ = 0;
     markDirty();
-    requestChromeFocus();
+    requestHeaderFocus();
 }
 
 void StopwatchApp::onExit() { M5Cardputer.Display.fillScreen(TFT_BLACK); }
@@ -123,9 +123,9 @@ bool StopwatchApp::consumeTextChar(const char key) {
     return false;
 }
 
-NavRequest StopwatchApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_focused) {
-    if (chrome_focused_ != chrome_focused) {
-        chrome_focused_ = chrome_focused;
+NavRequest StopwatchApp::onUpdate(const Keyboard_Class::KeysState* keys, bool header_focused) {
+    if (header_focused_ != header_focused) {
+        header_focused_ = header_focused;
         markDirty();
     }
 
@@ -154,9 +154,9 @@ NavRequest StopwatchApp::onUpdate(const Keyboard_Class::KeysState* keys, bool ch
             last_draw_cs_ = currentElapsedMs() / 10;
         }
     }
-    if (pending_chrome_focus_) {
-        pending_chrome_focus_ = false;
-        return NavRequest::FocusChrome;
+    if (pending_header_focus_) {
+        pending_header_focus_ = false;
+        return NavRequest::FocusHeader;
     }
     return req;
 }
@@ -241,7 +241,7 @@ NavRequest StopwatchApp::handleInput(const Keyboard_Class::KeysState& status) {
     switch (detectArrowKey(status)) {
         case ArrowKey::Up:
             if (focus_ == MainRow::Name && isRootScreen()) {
-                return NavRequest::FocusChrome;
+                return NavRequest::FocusHeader;
             }
             if (focus_ == MainRow::Name) {
                 return NavRequest::None;
@@ -289,7 +289,7 @@ void StopwatchApp::draw() const {
         const std::size_t visible = static_cast<std::size_t>(historyVisibleRows());
         const std::size_t end = std::min(count, history_scroll_ + visible);
         for (std::size_t i = history_scroll_; i < end; ++i) {
-            const bool selected = i == history_cursor_ && !chrome_focused_;
+            const bool selected = i == history_cursor_ && !header_focused_;
             const uint16_t fg = selected ? TFT_YELLOW : TFT_WHITE;
             const uint16_t bg = selected ? TFT_NAVY : TFT_BLACK;
             if (selected) {
@@ -319,7 +319,7 @@ void StopwatchApp::draw() const {
     const int width = display.width();
     int y = kListTop;
     auto drawRow = [&](MainRow row, const char* label) {
-        const bool selected = focus_ == row && !chrome_focused_;
+        const bool selected = focus_ == row && !header_focused_;
         const uint16_t fg = selected ? TFT_YELLOW : TFT_WHITE;
         const uint16_t bg = selected ? TFT_NAVY : TFT_BLACK;
         if (selected) {

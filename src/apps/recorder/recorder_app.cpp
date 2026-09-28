@@ -53,7 +53,7 @@ void RecorderApp::onEnter() {
     message_.clear();
     refreshFileList();
     markDirty();
-    requestChromeFocus();
+    requestHeaderFocus();
 }
 
 void RecorderApp::onExit() {
@@ -85,8 +85,8 @@ bool RecorderApp::hasActiveBackgroundWork() const { return recording_ || playing
 bool RecorderApp::voiceRecorderIsRecording() const { return recording_; }
 
 void RecorderApp::voiceRecorderHotkey() {
-    // Toggle: stop&save if recording, otherwise start (after clearing chrome intent).
-    pending_chrome_focus_ = false;
+    // Toggle: stop&save if recording, otherwise start (after clearing header intent).
+    pending_header_focus_ = false;
     if (recording_) {
         stopRecording(true);
         screen_ = Screen::List;
@@ -116,9 +116,9 @@ void RecorderApp::voiceRecorderHotkey() {
     beginRecording();
 }
 
-NavRequest RecorderApp::onUpdate(const Keyboard_Class::KeysState* keys, const bool chrome_focused) {
-    if (chrome_focused_ != chrome_focused) {
-        chrome_focused_ = chrome_focused;
+NavRequest RecorderApp::onUpdate(const Keyboard_Class::KeysState* keys, const bool header_focused) {
+    if (header_focused_ != header_focused) {
+        header_focused_ = header_focused;
         markDirty();
     }
 
@@ -138,7 +138,7 @@ NavRequest RecorderApp::onUpdate(const Keyboard_Class::KeysState* keys, const bo
     }
 
     NavRequest req = NavRequest::None;
-    if (keys != nullptr && !chrome_focused) {
+    if (keys != nullptr && !header_focused) {
         req = handleInput(*keys);
     }
 
@@ -146,9 +146,9 @@ NavRequest RecorderApp::onUpdate(const Keyboard_Class::KeysState* keys, const bo
         draw();
         dirty_ = false;
     }
-    if (pending_chrome_focus_) {
-        pending_chrome_focus_ = false;
-        return NavRequest::FocusChrome;
+    if (pending_header_focus_) {
+        pending_header_focus_ = false;
+        return NavRequest::FocusHeader;
     }
     return req;
 }
@@ -536,7 +536,7 @@ NavRequest RecorderApp::handleInput(const Keyboard_Class::KeysState& status) {
     if (arrow == ArrowKey::Up) {
         if (screen_ == Screen::List) {
             if (cursor_ == 0) {
-                return NavRequest::FocusChrome;
+                return NavRequest::FocusHeader;
             }
             --cursor_;
             if (cursor_ < scroll_) {
@@ -704,7 +704,7 @@ void RecorderApp::draw() const {
     // List
     display.setTextSize(2);
     if (!sd_ok_) {
-        const bool selected = !chrome_focused_;
+        const bool selected = !header_focused_;
         display.setTextColor(selected ? TFT_YELLOW : TFT_ORANGE, selected ? TFT_NAVY : TFT_BLACK);
         if (selected) {
             display.fillRect(0, kListTop, display.width(), kLineHeight, TFT_NAVY);
@@ -719,7 +719,7 @@ void RecorderApp::draw() const {
     const std::size_t end = std::min(rows, scroll_ + visible);
     int y = kListTop;
     for (std::size_t i = scroll_; i < end; ++i) {
-        const bool selected = (i == cursor_) && !chrome_focused_;
+        const bool selected = (i == cursor_) && !header_focused_;
         const uint16_t fg = selected ? TFT_YELLOW : TFT_WHITE;
         const uint16_t bg = selected ? TFT_NAVY : TFT_BLACK;
         if (selected) {

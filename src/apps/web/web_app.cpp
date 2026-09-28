@@ -65,7 +65,7 @@ void WebApp::onEnter() {
     }
     clearFooter();
     markDirty();
-    // Stay on chrome — do not auto-select the first site.
+    // Stay on the header — do not auto-select the first site.
     return;
 #endif
 
@@ -432,7 +432,7 @@ void WebApp::processBleFrames() {
                     clearFooter();
                     cursor_ = std::min(cursor_, static_cast<uint8_t>(listRowCount() - 1));
                     ensureCursorVisible();
-                    // Keep chrome focus after refresh — user Down/Enter to pick a site.
+                    // Keep header focus after refresh — user Down/Enter to pick a site.
                 }
                 markDirty();
                 break;
@@ -508,9 +508,9 @@ void WebApp::processBleFrames() {
     }
 }
 
-NavRequest WebApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_focused) {
-    if (chrome_focused_ != chrome_focused) {
-        chrome_focused_ = chrome_focused;
+NavRequest WebApp::onUpdate(const Keyboard_Class::KeysState* keys, bool header_focused) {
+    if (header_focused_ != header_focused) {
+        header_focused_ = header_focused;
         markDirty();
     }
 
@@ -595,7 +595,7 @@ NavRequest WebApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_f
     }
 
     NavRequest req = NavRequest::None;
-    if (keys != nullptr && !chrome_focused_) {
+    if (keys != nullptr && !header_focused_) {
         req = handleInput(*keys);
         markDirty();
     }
@@ -606,12 +606,12 @@ NavRequest WebApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_f
     }
     if (pending_content_focus_) {
         pending_content_focus_ = false;
-        pending_chrome_focus_ = false;
+        pending_header_focus_ = false;
         return NavRequest::FocusContent;
     }
-    if (pending_chrome_focus_) {
-        pending_chrome_focus_ = false;
-        return NavRequest::FocusChrome;
+    if (pending_header_focus_) {
+        pending_header_focus_ = false;
+        return NavRequest::FocusHeader;
     }
     return req;
 }
@@ -630,14 +630,14 @@ NavRequest WebApp::handleInput(const Keyboard_Class::KeysState& status) {
             requestContentFocus();
             return NavRequest::None;
         }
-        return NavRequest::FocusChrome;
+        return NavRequest::FocusHeader;
     }
 
     switch (arrow) {
         case ArrowKey::Up:
             if (screen_ == Screen::List) {
                 if (cursor_ == 0) {
-                    return NavRequest::FocusChrome;
+                    return NavRequest::FocusHeader;
                 }
                 --cursor_;
                 ensureCursorVisible();
@@ -645,13 +645,13 @@ NavRequest WebApp::handleInput(const Keyboard_Class::KeysState& status) {
             }
             if (screen_ == Screen::Result) {
                 if (result_scroll_ == 0) {
-                    return NavRequest::FocusChrome;
+                    return NavRequest::FocusHeader;
                 }
                 --result_scroll_;
                 return NavRequest::None;
             }
             if (screen_ == Screen::Running) {
-                return NavRequest::FocusChrome;
+                return NavRequest::FocusHeader;
             }
             return NavRequest::None;
         case ArrowKey::Down:
@@ -746,7 +746,7 @@ void WebApp::drawList() const {
         if (idx >= rows) {
             break;
         }
-        const bool selected = idx == cursor_ && !chrome_focused_;
+        const bool selected = idx == cursor_ && !header_focused_;
         const bool refresh_row = idx >= preset_count_;
         const uint16_t fg = selected ? TFT_YELLOW : (refresh_row ? TFT_CYAN : TFT_WHITE);
         const uint16_t bg = selected ? TFT_NAVY : TFT_BLACK;
@@ -816,7 +816,7 @@ void WebApp::drawResult() const {
     display.setTextSize(2);
 
     // Row 0: site name only (never HTTP/timeout text).
-    display.setTextColor(chrome_focused_ ? TFT_WHITE : TFT_YELLOW, TFT_BLACK);
+    display.setTextColor(header_focused_ ? TFT_WHITE : TFT_YELLOW, TFT_BLACK);
     display.setCursor(8, kListTop);
     display.print(active_site_[0] != '\0' ? active_site_ : "(site)");
 

@@ -10,7 +10,7 @@ public:
     void onEnter() override;
     void onExit() override;
     void onDisplayWake() override;
-    NavRequest onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_focused) override;
+    NavRequest onUpdate(const Keyboard_Class::KeysState* keys, bool header_focused) override;
 
 private:
     enum class Focus : uint8_t {
@@ -37,5 +37,5 @@ private:
     uint32_t last_blink_ms_ = 0;
     bool auto_off_ = false;
     uint32_t auto_off_until_ms_ = 0;
-    bool chrome_focused_ = false;
+    bool header_focused_ = false;
 };

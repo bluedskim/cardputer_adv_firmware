@@ -25,7 +25,7 @@ public:
     bool isVoiceRecorder() const override { return true; }
     bool voiceRecorderIsRecording() const override;
     void voiceRecorderHotkey() override;
-    NavRequest onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_focused) override;
+    NavRequest onUpdate(const Keyboard_Class::KeysState* keys, bool header_focused) override;
 
 private:
     enum class Screen : uint8_t {
@@ -45,7 +45,7 @@ private:
     NavRequest handleInput(const Keyboard_Class::KeysState& status);
     void refreshFileList();
     void markDirty() { dirty_ = true; }
-    void requestChromeFocus() { pending_chrome_focus_ = true; }
+    void requestHeaderFocus() { pending_header_focus_ = true; }
     bool isRootScreen() const { return screen_ == Screen::List; }
 
     std::size_t listRowCount() const;
@@ -102,7 +102,7 @@ private:
     std::size_t play_buf_idx_ = 0;
 
     bool dirty_ = true;
-    bool pending_chrome_focus_ = false;
-    bool chrome_focused_ = false;
+    bool pending_header_focus_ = false;
+    bool header_focused_ = false;
     uint32_t last_draw_sec_ = 0;
 };

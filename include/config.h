@@ -4,7 +4,7 @@
 
 namespace config {
 
-    constexpr const char* kFirmwareVersion = "0.8.0";
+    constexpr const char* kFirmwareVersion = "0.8.1";
 
 constexpr uint32_t kTorchDefaultTimeoutSec = 600;
 constexpr uint32_t kTorchMaxTimeoutSec = 3600;
@@ -24,8 +24,8 @@ constexpr const char* kTimerStorageNamespace = "card_adv_tm";
 constexpr const char* kStopwatchStorageNamespace = "card_adv_sw";
 constexpr const char* kSettingsStorageNamespace = "card_adv_cfg";
 
-// Cardputer display: 240x135 landscape, chrome bar at top.
-constexpr int kChromeHeight = 22;
+// Cardputer display: 240x135 landscape, header bar at top.
+constexpr int kHeaderHeight = 22;
 constexpr int kContentTop = 22;
 constexpr int kFooterHeight = 18;
 

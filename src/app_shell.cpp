@@ -61,13 +61,13 @@ void AppShell::begin() {
     saved_brightness_ = SystemSettings::instance().brightness();
     last_activity_ms_ = millis();
     display_asleep_ = false;
-    chrome_focused_ = true;
+    header_focused_ = true;
     apps_[current_index_]->onEnter();
     battery_ = readBatterySnapshot();
     last_battery_poll_ms_ = millis();
-    chrome_dirty_ = true;
-    drawChrome();
-    chrome_dirty_ = false;
+    header_dirty_ = true;
+    drawHeader();
+    header_dirty_ = false;
 }
 
 void AppShell::update() {
@@ -115,13 +115,13 @@ void AppShell::update() {
         handleG0Short();
     }
 
-    // Wake key must not navigate chrome/apps (Left/Right would leave Settings → Torch).
+    // Wake key must not navigate header/apps (Left/Right would leave Settings → Torch).
     if (ignore_keys_until_release_) {
         if (M5Cardputer.Keyboard.isPressed()) {
-            apps_[current_index_]->onUpdate(nullptr, chrome_focused_);
-            if (chrome_dirty_) {
-                drawChrome();
-                chrome_dirty_ = false;
+            apps_[current_index_]->onUpdate(nullptr, header_focused_);
+            if (header_dirty_) {
+                drawHeader();
+                header_dirty_ = false;
             }
             maybeSleepDisplay();
             return;
@@ -133,19 +133,19 @@ void AppShell::update() {
     const auto status = M5Cardputer.Keyboard.keysState();
     const bool battery_changed = refreshBatterySnapshot();
     if (battery_changed) {
-        chrome_dirty_ = true;
+        header_dirty_ = true;
     }
 
-    if (chrome_focused_) {
-        if (consumeChromeKeys(status)) {
-            chrome_dirty_ = true;
+    if (header_focused_) {
+        if (consumeHeaderKeys(status)) {
+            header_dirty_ = true;
             noteUserActivity();
         }
-        const NavRequest req = apps_[current_index_]->onUpdate(nullptr, chrome_focused_);
-        // List may arrive over BLE while chrome is still focused.
+        const NavRequest req = apps_[current_index_]->onUpdate(nullptr, header_focused_);
+        // List may arrive over BLE while header is still focused.
         if (req == NavRequest::FocusContent) {
-            chrome_focused_ = false;
-            chrome_dirty_ = true;
+            header_focused_ = false;
+            header_dirty_ = true;
         }
     } else {
         const ArrowKey arrow = pollArrowEdge(status, keyboard_tracker_);
@@ -164,18 +164,18 @@ void AppShell::update() {
         }
         const NavRequest req =
             apps_[current_index_]->onUpdate(has_input ? &delivered : nullptr, false);
-        if (req == NavRequest::FocusChrome) {
-            chrome_focused_ = true;
-            chrome_dirty_ = true;
+        if (req == NavRequest::FocusHeader) {
+            header_focused_ = true;
+            header_dirty_ = true;
         } else if (req == NavRequest::FocusContent) {
-            chrome_focused_ = false;
-            chrome_dirty_ = true;
+            header_focused_ = false;
+            header_dirty_ = true;
         }
     }
 
-    if (chrome_dirty_) {
-        drawChrome();
-        chrome_dirty_ = false;
+    if (header_dirty_) {
+        drawHeader();
+        header_dirty_ = false;
     }
 
     maybeSleepDisplay();
@@ -258,7 +258,7 @@ void AppShell::sleepDisplay() {
     display_asleep_ = true;
     // Immediate = one-shot: flip to 30 sec as soon as we sleep so wake shows 30 sec.
     if (SystemSettings::instance().promoteImmediateToThirtySec()) {
-        chrome_dirty_ = true;
+        header_dirty_ = true;
     }
 }
 
@@ -271,12 +271,12 @@ void AppShell::wakeDisplay() {
     display_asleep_ = false;
     // Backup if sleep path missed promote (older builds / odd wake).
     if (SystemSettings::instance().promoteImmediateToThirtySec()) {
-        chrome_dirty_ = true;
+        header_dirty_ = true;
     }
     noteUserActivity();
     ignore_keys_until_release_ = true;
     resetKeyboardTracker(keyboard_tracker_);
-    chrome_dirty_ = true;
+    header_dirty_ = true;
     apps_[current_index_]->onDisplayWake();
 }
 
@@ -307,8 +307,8 @@ void AppShell::switchTo(const std::size_t index) {
     battery_ = readBatterySnapshot();
     last_battery_poll_ms_ = millis();
     noteUserActivity();
-    chrome_focused_ = true;
-    chrome_dirty_ = true;
+    header_focused_ = true;
+    header_dirty_ = true;
 }
 
 std::size_t AppShell::findVoiceRecorderIndex() const {
@@ -330,8 +330,8 @@ void AppShell::handleG0Short() {
     // Already recording → stop & save (stay on Recorder).
     if (current_index_ == rec && apps_[rec]->voiceRecorderIsRecording()) {
         apps_[rec]->voiceRecorderHotkey();
-        chrome_focused_ = false;
-        chrome_dirty_ = true;
+        header_focused_ = false;
+        header_dirty_ = true;
         return;
     }
 
@@ -339,12 +339,12 @@ void AppShell::handleG0Short() {
     if (current_index_ != rec) {
         switchTo(rec);
     }
-    chrome_focused_ = false;
-    chrome_dirty_ = true;
+    header_focused_ = false;
+    header_dirty_ = true;
     apps_[rec]->voiceRecorderHotkey();
 }
 
-bool AppShell::consumeChromeKeys(const Keyboard_Class::KeysState& status) {
+bool AppShell::consumeHeaderKeys(const Keyboard_Class::KeysState& status) {
     const ArrowKey arrow = pollArrowEdge(status, keyboard_tracker_);
     const bool enter_edge = status.enter && !keyboard_tracker_.enter_down;
     keyboard_tracker_.enter_down = status.enter;
@@ -361,20 +361,20 @@ bool AppShell::consumeChromeKeys(const Keyboard_Class::KeysState& status) {
             switchTo((current_index_ + 1) % apps_.size());
             return true;
         case ArrowKey::Down:
-            chrome_focused_ = false;
+            header_focused_ = false;
             return true;
         default:
             break;
     }
 
     if (enter_edge) {
-        chrome_focused_ = false;
+        header_focused_ = false;
         return true;
     }
     return false;
 }
 
-void AppShell::drawChrome() const {
+void AppShell::drawHeader() const {
     auto& display = M5Cardputer.Display;
     const int width = display.width();
     const std::size_t app_count = apps_.size();
@@ -385,10 +385,10 @@ void AppShell::drawChrome() const {
     const int battery_x = width - cluster_width;
     const int arrow_right_x = battery_x - kTitleClusterGap - 2 * kCharWidth;
     const int title_x = 4 + 2 * kCharWidth;
-    const uint16_t bar = chrome_focused_ ? TFT_NAVY : TFT_DARKGREY;
-    const uint16_t title = chrome_focused_ ? TFT_YELLOW : TFT_WHITE;
+    const uint16_t bar = header_focused_ ? TFT_NAVY : TFT_DARKGREY;
+    const uint16_t title = header_focused_ ? TFT_YELLOW : TFT_WHITE;
 
-    display.fillRect(0, 0, width, config::kChromeHeight, bar);
+    display.fillRect(0, 0, width, config::kHeaderHeight, bar);
     display.setTextSize(2);
     display.setTextColor(title, bar);
 

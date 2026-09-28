@@ -22,9 +22,9 @@ private:
     void switchTo(std::size_t index);
     void handleG0Short();
     std::size_t findVoiceRecorderIndex() const;
-    void drawChrome() const;
+    void drawHeader() const;
     bool refreshBatterySnapshot();
-    bool consumeChromeKeys(const Keyboard_Class::KeysState& status);
+    bool consumeHeaderKeys(const Keyboard_Class::KeysState& status);
     void noteUserActivity();
     void maybeSleepDisplay();
     void sleepDisplay();
@@ -34,8 +34,8 @@ private:
 
     std::vector<std::unique_ptr<AppBase>> apps_;
     std::size_t current_index_ = 0;
-    bool chrome_focused_ = false;
-    bool chrome_dirty_ = true;
+    bool header_focused_ = false;
+    bool header_dirty_ = true;
     bool display_asleep_ = false;
     bool ignore_keys_until_release_ = false;
     uint8_t saved_brightness_ = 128;

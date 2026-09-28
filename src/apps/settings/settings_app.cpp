@@ -28,7 +28,7 @@ void SettingsApp::onEnter() {
     last_battery_ms_ = 0;
     refreshBattery();
     markDirty();
-    requestChromeFocus();
+    requestHeaderFocus();
 }
 
 void SettingsApp::onExit() { M5Cardputer.Display.fillScreen(TFT_BLACK); }
@@ -99,9 +99,9 @@ void SettingsApp::runPrimaryBleAction() {
     markDirty();
 }
 
-NavRequest SettingsApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_focused) {
-    if (chrome_focused_ != chrome_focused) {
-        chrome_focused_ = chrome_focused;
+NavRequest SettingsApp::onUpdate(const Keyboard_Class::KeysState* keys, bool header_focused) {
+    if (header_focused_ != header_focused) {
+        header_focused_ = header_focused;
         markDirty();
     }
 
@@ -132,9 +132,9 @@ NavRequest SettingsApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chr
         draw();
         dirty_ = false;
     }
-    if (pending_chrome_focus_) {
-        pending_chrome_focus_ = false;
-        return NavRequest::FocusChrome;
+    if (pending_header_focus_) {
+        pending_header_focus_ = false;
+        return NavRequest::FocusHeader;
     }
     return req;
 }
@@ -181,7 +181,7 @@ NavRequest SettingsApp::handleMainInput(const Keyboard_Class::KeysState& status)
             return NavRequest::None;
         case ArrowKey::Up:
             if (focus_ == MainRow::Sleep) {
-                return NavRequest::FocusChrome;
+                return NavRequest::FocusHeader;
             }
             focus_ = static_cast<MainRow>(static_cast<uint8_t>(focus_) - 1);
             return NavRequest::None;
@@ -272,7 +272,7 @@ void SettingsApp::drawMain() const {
     int y = kListTop;
 
     auto drawSelectable = [&](MainRow row, const char* text) {
-        const bool selected = focus_ == row && !chrome_focused_;
+        const bool selected = focus_ == row && !header_focused_;
         const uint16_t fg = selected ? TFT_YELLOW : TFT_WHITE;
         const uint16_t bg = selected ? TFT_NAVY : TFT_BLACK;
         if (selected) {
@@ -349,7 +349,7 @@ void SettingsApp::drawBle() const {
     };
 
     auto drawSelectable = [&](BleRow row, const char* text) {
-        const bool selected = ble_focus_ == row && !chrome_focused_;
+        const bool selected = ble_focus_ == row && !header_focused_;
         const uint16_t fg = selected ? TFT_YELLOW : TFT_WHITE;
         const uint16_t bg = selected ? TFT_NAVY : TFT_BLACK;
         if (selected) {

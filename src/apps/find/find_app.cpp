@@ -55,7 +55,7 @@ void FindApp::onEnter() {
     pending_ = Pending::None;
     setFooter(BleLink::instance().isPaired() ? "Enter to find" : "Pair phone in Settings");
     markDirty();
-    requestChromeFocus();
+    requestHeaderFocus();
 }
 
 void FindApp::onExit() {
@@ -184,9 +184,9 @@ void FindApp::processBleFrames() {
     }
 }
 
-NavRequest FindApp::onUpdate(const Keyboard_Class::KeysState* keys, const bool chrome_focused) {
-    if (chrome_focused_ != chrome_focused) {
-        chrome_focused_ = chrome_focused;
+NavRequest FindApp::onUpdate(const Keyboard_Class::KeysState* keys, const bool header_focused) {
+    if (header_focused_ != header_focused) {
+        header_focused_ = header_focused;
         markDirty();
     }
 
@@ -204,7 +204,7 @@ NavRequest FindApp::onUpdate(const Keyboard_Class::KeysState* keys, const bool c
     }
 
     NavRequest req = NavRequest::None;
-    if (keys != nullptr && !chrome_focused) {
+    if (keys != nullptr && !header_focused) {
         req = handleInput(*keys);
     }
 
@@ -212,9 +212,9 @@ NavRequest FindApp::onUpdate(const Keyboard_Class::KeysState* keys, const bool c
         draw();
         dirty_ = false;
     }
-    if (pending_chrome_focus_) {
-        pending_chrome_focus_ = false;
-        return NavRequest::FocusChrome;
+    if (pending_header_focus_) {
+        pending_header_focus_ = false;
+        return NavRequest::FocusHeader;
     }
     return req;
 }
@@ -224,7 +224,7 @@ NavRequest FindApp::handleInput(const Keyboard_Class::KeysState& status) {
 
     if (arrow == ArrowKey::Up) {
         if (focus_ == Row::Sound) {
-            return NavRequest::FocusChrome;
+            return NavRequest::FocusHeader;
         }
         focus_ = Row::Sound;
         markDirty();
@@ -280,7 +280,7 @@ void FindApp::draw() const {
 
     int y = kContentTop + 6;
     for (uint8_t i = 0; i < 2; ++i) {
-        const bool selected = !chrome_focused_ && static_cast<Row>(i) == focus_;
+        const bool selected = !header_focused_ && static_cast<Row>(i) == focus_;
         const uint16_t fg = selected ? TFT_YELLOW : TFT_WHITE;
         const uint16_t bg = selected ? TFT_NAVY : TFT_BLACK;
         if (selected) {

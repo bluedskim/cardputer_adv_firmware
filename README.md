@@ -1,6 +1,6 @@
 # cardputer_adv_firmware
 
-Current release: **[v0.8.0](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.0)** · Companion `0.8.0` (M5 Find)
+Current release: **[v0.8.1](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.1)** · Companion `0.8.0` (M5 Find)
 
 Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like the stock UI. Includes **Torch**, **Timer**, **Stopwatch**, **Recorder** (microSD WAV), **Web** (HTTP presets — not a browser), **SSH** (one-shot exec — not an interactive shell), **Find** (phone vibrate / optional sound), and **Settings**.
 
@@ -106,7 +106,7 @@ pio device list
 
 Shared **two-level arrow navigation**. Prefer arrows, Enter, and Del over letter shortcuts.
 
-- Top chrome bar: app name, page dots, battery
+- Top header bar: app name, page dots, battery
 - **G0** short press (any app) → open **Recorder** and start recording. If already recording → stop & save. **G0** long press (~0.5 s) → M5Launcher
 
 ### Arrow keys
@@ -128,10 +128,10 @@ Use the arrow glyphs printed on the keycaps. **Fn + arrow** works the same way.
 | Adjust value / no submenu | `←` `→` (app-dependent) |
 | Select / run | `Enter` |
 | Back | `←` or `Del` |
-| Switch apps | From the **top** of a list, `↑` → chrome focus → `←` `→` |
-| Return to app | From chrome, `↓` or `Enter` |
+| Switch apps | From the **top** of a list, `↑` → header focus → `←` `→` |
+| Return to app | From the header, `↓` or `Enter` |
 
-When chrome is focused, the bar turns navy and the title yellow.
+When header is focused, the bar turns navy and the title yellow.
 
 ## Features
 
@@ -144,7 +144,7 @@ Full-brightness backlight as a flashlight.
 | Focus Bright / Time / Blink | `↑` `↓` |
 | Adjust brightness or timeout; toggle Blink | `←` `→` |
 | Toggle Blink (when focused) | `Enter` |
-| Switch apps | From Bright, `↑` → chrome |
+| Switch apps | From Bright, `↑` → header |
 
 - Timeout step: **60 s** (max **60 min**)
 - Default timeout: **10 min (600 s)**
@@ -160,7 +160,7 @@ Multiple countdown timers stored in NVS. Set **hours and minutes** only.
 - `↑` `↓` — timer / `+ New`
 - `Enter` — open / start / clear done / add New
 - While running, `Enter` — cancel
-- Top row `↑` — chrome (app switch)
+- Top row `↑` — header (app switch)
 
 **Edit**
 
@@ -181,7 +181,7 @@ Named timing sessions stored in NVS (max **10**).
 | Start / Stop | Start or stop (Stop saves history) |
 | History | Saved runs |
 
-- `↑` `↓` — move · top `↑` → chrome
+- `↑` `↓` — move · top `↑` → header
 - History: `↑` `↓` scroll · `←` / `Del` back
 
 ### Recorder (voice)
@@ -194,7 +194,7 @@ On-device mic → **microSD** WAV (16 kHz mono PCM). Requires a formatted microS
 - `Enter` — play file, or start a new recording
 - **G0** short (from any app) — jump here and start recording; while recording, stop & save
 - `Del` — delete selected file (confirm)
-- Top row `↑` — chrome (app switch)
+- Top row `↑` — header (app switch)
 - No card: `No SD — Enter` retries mount
 
 **Record**
@@ -231,7 +231,7 @@ See [docs/m3_verify.md](docs/m3_verify.md) · [docs/ble_link.md](docs/ble_link.m
 
 On-demand **Find My Phone**. Vibration is always on. **Sound Off/On** is chosen here (saved in NVS) and sent with each start.
 
-- `↑` `↓` — Sound / Find phone · from Sound, `↑` → chrome
+- `↑` `↓` — Sound / Find phone · from Sound, `↑` → header
 - `←` `→` or `Enter` on Sound — toggle Off/On
 - `Enter` on Find phone — start or stop
 - `Del` while finding — stop
@@ -243,7 +243,7 @@ See [docs/m5_verify.md](docs/m5_verify.md).
 
 Last app in the order. Sleep, brightness, BLE link, battery, and firmware version.
 
-- `↑` `↓` — Sleep / Bright / BLE · from Sleep, `↑` → chrome
+- `↑` `↓` — Sleep / Bright / BLE · from Sleep, `↑` → header
 - `←` `→` — Sleep: **Immediate** / 30 s / 1 min / **5 min** / 10 min / **Never** · Bright: 32 / 64 / **128** / 192 / 255
   - Immediate: screen off soon. **On sleep**, Sleep is rewritten to **30 sec** and saved (pick Immediate again to reuse)
 - **BLE row:** status summary (`Off Unpaired` / `Off Paired` / `Pairing` / `Connecting` / `Connected` · sim: `N/A`). `Enter` → BLE submenu
@@ -252,7 +252,7 @@ Last app in the order. Sleep, brightness, BLE link, battery, and firmware versio
   - Contextual actions only: unpaired `Pair` · paired `Connect` / `Forget` · in progress `Cancel` · connected `Disconnect`
   - Forget asks `Forget?` (`Enter` yes / `Del` cancel)
   - `←` / `Del` / top `↑` → main Settings (BLE row focused)
-- **Battery:** percent and voltage on one line (charging shown on the chrome battery icon)
+- **Battery:** percent and voltage on one line (charging shown on the header battery icon)
 - **S/W Ver:** firmware version (`kFirmwareVersion` in `config.h`)
 - With no input, backlight turns off after Sleep. If no Timer/Stopwatch is running **and** BLE radio is **off**, the device enters light sleep and wakes only on **TCA8418 INT (GPIO11)**. While BLE Pair/Connect or linked, light sleep is skipped; after **60 s** of idle link traffic the device disconnects and powers the radio down.
 - Torch uses its own brightness; leaving Torch restores Settings Bright
@@ -314,7 +314,7 @@ After installing the `.bin` with M5Launcher (sim has no backlight hardware):
 - [ ] **Web M2 / SSH M3:** Linked Companion → open Web or SSH → list / Refresh / run. [docs/m2_verify.md](docs/m2_verify.md) · [docs/m3_verify.md](docs/m3_verify.md)
 - [ ] **G0:** Short from any app → Recorder + auto-record; short while recording → stop&save; long → M5Launcher
 - [ ] **Recorder:** microSD present → New / G0 start → G0 or Enter stop&save → play → Del delete. No SD shows error.
-- [ ] **Battery:** Chrome icon visible; lightning when USB is plugged (no CHG pin — USB presence is used as a hint)
+- [ ] **Battery:** header icon visible; lightning when USB is plugged (no CHG pin — USB presence is used as a hint)
 
 ### USB direct flash (standalone firmware)
 

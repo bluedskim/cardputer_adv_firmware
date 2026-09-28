@@ -53,8 +53,8 @@ Same two-level navigation as the device:
 | `←` `→` (`,` `/`) | Adjust values (Torch) / back (`←`) |
 | `Enter` | Select / run |
 | `Del` | Back or delete character |
-| Top of list `↑` | Chrome focus → `←` `→` to switch apps (device also accepts Fn+arrows) |
-| Chrome `↓` / `Enter` | Return to app |
+| Top of list `↑` | Header focus → `←` `→` to switch apps (device also accepts Fn+arrows) |
+| Header `↓` / `Enter` | Return to app |
 | `` ` `` | G0 (prints a console message in sim) |
 
 ## Layout

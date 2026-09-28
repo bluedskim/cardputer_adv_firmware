@@ -49,7 +49,7 @@ void TorchApp::onDisplayWake() {
     draw();
 }
 
-NavRequest TorchApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_focused) {
+NavRequest TorchApp::onUpdate(const Keyboard_Class::KeysState* keys, bool header_focused) {
     if (auto_off_) {
         if (keys != nullptr) {
             onEnter();
@@ -62,8 +62,8 @@ NavRequest TorchApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chrome
     NavRequest req = NavRequest::None;
     bool need_draw = false;
 
-    if (chrome_focused_ != chrome_focused) {
-        chrome_focused_ = chrome_focused;
+    if (header_focused_ != header_focused) {
+        header_focused_ = header_focused;
         need_draw = true;
     }
 
@@ -109,7 +109,7 @@ void TorchApp::draw() const {
     const int base_y = config::kContentTop + 12;
 
     auto drawRow = [&](Focus row, int y, const String& text, uint16_t idle_fg = TFT_BLACK) {
-        const bool selected = focus_ == row && !chrome_focused_;
+        const bool selected = focus_ == row && !header_focused_;
         const uint16_t fg = selected ? TFT_YELLOW : idle_fg;
         const uint16_t bg = selected ? TFT_NAVY : TFT_WHITE;
         display.fillRect(0, y - 8, width, 16, bg);
@@ -203,7 +203,7 @@ NavRequest TorchApp::handleInput(const Keyboard_Class::KeysState& status) {
     switch (detectArrowKey(status)) {
         case ArrowKey::Up:
             if (focus_ == Focus::Bright) {
-                return NavRequest::FocusChrome;
+                return NavRequest::FocusHeader;
             }
             focus_ = static_cast<Focus>(static_cast<uint8_t>(focus_) - 1);
             return NavRequest::None;

@@ -11,7 +11,7 @@ public:
     void onEnter() override;
     void onExit() override;
     void onDisplayWake() override;
-    NavRequest onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_focused) override;
+    NavRequest onUpdate(const Keyboard_Class::KeysState* keys, bool header_focused) override;
 
 private:
     enum class Screen : uint8_t {
@@ -48,7 +48,7 @@ private:
     const char* primaryBleActionLabel() const;
     bool showForgetRow() const;
     void markDirty() { dirty_ = true; }
-    void requestChromeFocus() { pending_chrome_focus_ = true; }
+    void requestHeaderFocus() { pending_header_focus_ = true; }
 
     Screen screen_ = Screen::Main;
     MainRow focus_ = MainRow::Sleep;
@@ -56,6 +56,6 @@ private:
     BatterySnapshot battery_;
     uint32_t last_battery_ms_ = 0;
     bool dirty_ = true;
-    bool pending_chrome_focus_ = false;
-    bool chrome_focused_ = false;
+    bool pending_header_focus_ = false;
+    bool header_focused_ = false;
 };

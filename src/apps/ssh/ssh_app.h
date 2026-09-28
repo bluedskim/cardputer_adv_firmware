@@ -12,7 +12,7 @@ public:
     void onEnter() override;
     void onExit() override;
     void onDisplayWake() override;
-    NavRequest onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_focused) override;
+    NavRequest onUpdate(const Keyboard_Class::KeysState* keys, bool header_focused) override;
     bool hasActiveBackgroundWork() const override;
 
 private:
@@ -30,7 +30,7 @@ private:
     };
 
     void markDirty() { dirty_ = true; }
-    void requestChromeFocus() { pending_chrome_focus_ = true; }
+    void requestHeaderFocus() { pending_header_focus_ = true; }
     void requestContentFocus() { pending_content_focus_ = true; }
     void setFooter(const char* msg);
     void clearFooter() { footer_[0] = '\0'; }
@@ -79,9 +79,9 @@ private:
     bool awaiting_run_ = false;
     bool run_got_meta_ = false;
     bool dirty_ = true;
-    bool pending_chrome_focus_ = false;
+    bool pending_header_focus_ = false;
     bool pending_content_focus_ = false;
-    bool chrome_focused_ = false;
+    bool header_focused_ = false;
     bool was_ready_ = false;
     bool was_hello_ok_ = false;
     bool connect_failed_ = false;

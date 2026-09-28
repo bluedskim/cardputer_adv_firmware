@@ -72,7 +72,7 @@ void TimerApp::enterList() {
     scroll_ = 0;
     ensureCursorVisible();
     markDirty();
-    requestChromeFocus();
+    requestHeaderFocus();
 }
 
 void TimerApp::enterEdit(const std::size_t index) {
@@ -191,9 +191,9 @@ bool TimerApp::hasActiveBackgroundWork() const {
     return false;
 }
 
-NavRequest TimerApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chrome_focused) {
-    if (chrome_focused_ != chrome_focused) {
-        chrome_focused_ = chrome_focused;
+NavRequest TimerApp::onUpdate(const Keyboard_Class::KeysState* keys, bool header_focused) {
+    if (header_focused_ != header_focused) {
+        header_focused_ = header_focused;
         markDirty();
     }
 
@@ -207,9 +207,9 @@ NavRequest TimerApp::onUpdate(const Keyboard_Class::KeysState* keys, bool chrome
         draw();
         dirty_ = false;
     }
-    if (pending_chrome_focus_) {
-        pending_chrome_focus_ = false;
-        return NavRequest::FocusChrome;
+    if (pending_header_focus_) {
+        pending_header_focus_ = false;
+        return NavRequest::FocusHeader;
     }
     return req;
 }
@@ -360,7 +360,7 @@ NavRequest TimerApp::handleInput(const Keyboard_Class::KeysState& status) {
         case ArrowKey::Up:
             if (cursor_ == 0) {
                 if (isRootScreen()) {
-                    return NavRequest::FocusChrome;
+                    return NavRequest::FocusHeader;
                 }
                 return NavRequest::None;
             }
@@ -457,7 +457,7 @@ void TimerApp::draw() const {
     display.fillRect(0, kContentTop, display.width(), display.height() - kContentTop, TFT_BLACK);
 
     if (screen_ == Screen::Edit && selected_ < storage_.timers().size()) {
-        const bool title_selected = cursor_ == 0 && !chrome_focused_;
+        const bool title_selected = cursor_ == 0 && !header_focused_;
         const uint16_t fg = title_selected ? TFT_YELLOW : TFT_CYAN;
         const uint16_t bg = title_selected ? TFT_NAVY : TFT_BLACK;
         if (title_selected) {
@@ -490,7 +490,7 @@ void TimerApp::draw() const {
     const std::size_t end = std::min(rows, scroll_ + visible);
     for (std::size_t i = scroll_; i < end; ++i) {
         const std::size_t row_cursor = screen_ == Screen::Edit ? i + 1 : i;
-        drawListRow(y, i, row_cursor == cursor_ && !chrome_focused_);
+        drawListRow(y, i, row_cursor == cursor_ && !header_focused_);
         y += kLineHeight;
     }
 }
