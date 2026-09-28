@@ -68,7 +68,7 @@ object BleProtocol {
     const val SSH_NAME_MAX = 20
     const val SSH_MAX_PRESETS = 12
 
-    const val APP_VERSION = "0.8.0"
+    const val APP_VERSION = "0.8.1"
 
     data class Frame(
         val type: Byte,

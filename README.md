@@ -1,6 +1,6 @@
 # cardputer_adv_firmware
 
-Current release: **[v0.8.1](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.1)** · Companion `0.8.0` (M5 Find)
+Current release: **[v0.8.1](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.1)** · Companion `0.8.1` (M5 Find)
 
 Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like the stock UI. Includes **Torch**, **Timer**, **Stopwatch**, **Recorder** (microSD WAV), **Web** (HTTP presets — not a browser), **SSH** (one-shot exec — not an interactive shell), **Find** (phone vibrate / optional sound), and **Settings**.
 
