@@ -8,6 +8,7 @@
 
 #include "config.h"
 #include "input/keyboard_input.h"
+#include "ui/fitted_text.h"
 
 namespace {
 
@@ -616,9 +617,7 @@ void RecorderApp::draw() const {
         display.setTextColor(TFT_ORANGE, TFT_BLACK);
         display.setCursor(8, kListTop + 8);
         display.print(message_.c_str());
-        display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        display.setCursor(8, kListTop + 8 + kLineHeight);
-        display.print("Enter OK");
+        ui::drawFittedFooter("Enter OK");
         return;
     }
 
@@ -632,9 +631,7 @@ void RecorderApp::draw() const {
         } else {
             display.print("Delete?");
         }
-        display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        display.setCursor(8, kListTop + 8 + kLineHeight);
-        display.print("Enter/Del");
+        ui::drawFittedFooter("Enter/Del");
         return;
     }
 
@@ -664,9 +661,7 @@ void RecorderApp::draw() const {
             display.fillRect(bar_x + 1, bar_y + 1, std::min(fill, bar_w - 2), bar_h - 2, TFT_GREEN);
         }
 
-        display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        display.setCursor(8, bar_y + bar_h + 6);
-        display.print("G0/Ent stop Del x");
+        ui::drawFittedFooter("G0/Ent stop Del x");
         return;
     }
 
@@ -695,9 +690,7 @@ void RecorderApp::draw() const {
             display.print(stem);
         }
 
-        display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        display.setCursor(8, kListTop + kLineHeight * 2 + 4);
-        display.print("Del delete");
+        ui::drawFittedFooter("Del delete");
         return;
     }
 

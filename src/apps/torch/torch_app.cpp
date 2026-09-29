@@ -5,6 +5,7 @@
 #include "config.h"
 #include "input/keyboard_input.h"
 #include "system_settings.h"
+#include "ui/fitted_text.h"
 
 #include <algorithm>
 
@@ -252,7 +253,8 @@ void TorchApp::checkTimeout() {
     display.setTextSize(2);
     display.setTextColor(TFT_ORANGE, TFT_BLACK);
     display.drawString("Torch auto-off", display.width() / 2, display.height() / 2 - 12);
-    display.setTextSize(1);
+    display.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    ui::fitTextSize("any key / wait", display.width() - 8);
     display.drawString("any key / wait", display.width() / 2, display.height() / 2 + 16);
     display.setTextDatum(top_left);
 }

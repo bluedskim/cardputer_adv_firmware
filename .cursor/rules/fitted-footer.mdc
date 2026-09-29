@@ -1,0 +1,23 @@
+---
+description: Status and footer text uses the fitted size-2 rule
+alwaysApply: true
+---
+
+# Fitted footer text
+
+New screens and status lines use the shared footer font. Do not hard-code `setTextSize(1)` for a hint, status, or footer.
+
+- A bottom status line calls `ui::drawFittedFooter(text)` (`src/ui/fitted_text.h`).
+- Any other single-line caption that must stay on screen calls `ui::fitTextSize(text, max_width)` before drawing.
+- Both start at text size 2 and step down by 0.25 until the string fits the width. Do not copy that loop into an app.
+
+```cpp
+// Bottom hint
+ui::drawFittedFooter("Enter OK");
+
+// Centered caption
+ui::fitTextSize("any key / wait", display.width() - 8);
+display.drawString("any key / wait", display.width() / 2, y);
+```
+
+List rows, titles, and values stay `setTextSize(2)` unless the string is one of these captions.

@@ -9,6 +9,7 @@
 
 #include "ble/ble_protocol.h"
 #include "input/keyboard_input.h"
+#include "ui/fitted_text.h"
 
 namespace {
 
@@ -707,31 +708,7 @@ void SshApp::draw() const {
 }
 
 void SshApp::drawFooter() const {
-    if (footer_[0] == '\0') {
-        return;
-    }
-    auto& display = M5Cardputer.Display;
-    const int y = display.height() - kFooterH;
-    constexpr int kMargin = 4;
-    const int max_w = display.width() - kMargin * 2;
-    display.fillRect(0, y, display.width(), kFooterH, TFT_BLACK);
-    display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-
-    // Prefer size 2; shrink until the string fits the display width.
-    float size = 2.0f;
-    display.setTextSize(size);
-    while (size > 1.0f && display.textWidth(footer_) > max_w) {
-        size -= 0.25f;
-        if (size < 1.0f) {
-            size = 1.0f;
-        }
-        display.setTextSize(size);
-    }
-
-    const int text_h = display.fontHeight();
-    const int text_y = y + std::max(0, (kFooterH - text_h) / 2);
-    display.setCursor(kMargin, text_y);
-    display.print(footer_);
+    ui::drawFittedFooter(footer_);
 }
 
 void SshApp::drawList() const {

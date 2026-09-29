@@ -8,6 +8,7 @@
 
 #include "config.h"
 #include "input/keyboard_input.h"
+#include "ui/fitted_text.h"
 
 namespace {
 
@@ -311,8 +312,9 @@ void FindApp::draw() const {
         y += kLineHeight + 4;
     }
 
-    display.setTextSize(1);
-    display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    display.setCursor(4, display.height() - 14);
-    display.print(footer_);
+    drawFooter();
+}
+
+void FindApp::drawFooter() const {
+    ui::drawFittedFooter(footer_);
 }

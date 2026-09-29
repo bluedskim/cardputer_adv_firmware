@@ -7,6 +7,7 @@
 
 #include "config.h"
 #include "input/keyboard_input.h"
+#include "ui/fitted_text.h"
 
 namespace {
 
@@ -307,7 +308,7 @@ void StopwatchApp::draw() const {
 
         if (count == 0) {
             display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-            display.setTextSize(1);
+            ui::fitTextSize("(empty)", display.width() - 16);
             display.setCursor(8, kListTop);
             display.print("(empty)");
         }

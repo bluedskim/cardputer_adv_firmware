@@ -25,6 +25,7 @@ private:
     void requestHeaderFocus() { pending_header_focus_ = true; }
     void setFooter(const char* msg);
     void draw() const;
+    void drawFooter() const;
     NavRequest handleInput(const Keyboard_Class::KeysState& status);
     void loadSound();
     void saveSound() const;
