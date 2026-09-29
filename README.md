@@ -10,27 +10,23 @@ Primary development target is **Fedora**; setup and flash steps below prefer Fed
 
 ### Cardputer firmware
 
-<p align="center">
-  <img src="docs/images/firmware-torch.png" alt="Torch app on Cardputer" width="320" />
-  <img src="docs/images/firmware-web.png" alt="Web commander list on Cardputer" width="320" />
-  <img src="docs/images/firmware-ssh.png" alt="SSH command result on Cardputer" width="320" />
-</p>
+![Torch app on Cardputer](docs/images/firmware-torch.png)![Web commander list on Cardputer](docs/images/firmware-web.png)![SSH command result on Cardputer](docs/images/firmware-ssh.png)
 
-| Torch | Web list | SSH result |
-| :---: | :---: | :---: |
+
+| Torch                           | Web list            | SSH result                  |
+| ------------------------------- | ------------------- | --------------------------- |
 | Brightness / timeout flashlight | Pick an HTTP preset | Exit status + stdout paging |
+
 
 ### Android Companion
 
-<p align="center">
-  <img src="docs/images/companion-main.png" alt="Companion main screen with HTTP and SSH presets" width="240" />
-  &nbsp;&nbsp;
-  <img src="docs/images/companion-ssh-dialog.png" alt="Companion SSH preset editor with Test run" width="240" />
-</p>
+![Companion main screen with HTTP and SSH presets](docs/images/companion-main.png)    ![Companion SSH preset editor with Test run](docs/images/companion-ssh-dialog.png)
 
-| Main | SSH preset |
-| :---: | :---: |
+
+| Main                                 | SSH preset                            |
+| ------------------------------------ | ------------------------------------- |
 | Link / Scan / Stop, HTTP & SSH lists | Edit host + **Test run** before flash |
+
 
 ## Development environment (Fedora)
 
@@ -40,11 +36,13 @@ Primary development target is **Fedora**; setup and flash steps below prefer Fed
 sudo dnf install git python3-pip gcc-c++ make SDL2-devel pkg-config
 ```
 
-| Package | Purpose |
-| -------------------------- | ------------------ |
-| `git`, `python3-pip` | PlatformIO, cloning |
-| `gcc-c++`, `make` | Native / sim builds |
+
+| Package                    | Purpose                   |
+| -------------------------- | ------------------------- |
+| `git`, `python3-pip`       | PlatformIO, cloning       |
+| `gcc-c++`, `make`          | Native / sim builds       |
 | `SDL2-devel`, `pkg-config` | Desktop simulator (`sim`) |
+
 
 ### 2. PlatformIO
 
@@ -96,11 +94,13 @@ pio device list
 
 ### 4. Other Linux / macOS / Windows
 
-| OS | Notes |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Debian/Ubuntu | `sudo apt install build-essential git python3-pip libsdl2-dev pkg-config` · serial group `dialout` |
-| macOS | [PlatformIO IDE](https://platformio.org/install/ide?install=vscode) · sim: `brew install sdl2 pkg-config` ([sim/README.md](sim/README.md)) |
-| Windows | PlatformIO IDE · sim: MSYS2 + SDL2 ([sim/README.md](sim/README.md)) |
+
+| OS            | Notes                                                                                                                                      |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Debian/Ubuntu | `sudo apt install build-essential git python3-pip libsdl2-dev pkg-config` · serial group `dialout`                                         |
+| macOS         | [PlatformIO IDE](https://platformio.org/install/ide?install=vscode) · sim: `brew install sdl2 pkg-config` ([sim/README.md](sim/README.md)) |
+| Windows       | PlatformIO IDE · sim: MSYS2 + SDL2 ([sim/README.md](sim/README.md))                                                                        |
+
 
 ## UI
 
@@ -113,23 +113,27 @@ Shared **two-level arrow navigation**. Prefer arrows, Enter, and Del over letter
 
 Use the arrow glyphs printed on the keycaps. **Fn + arrow** works the same way.
 
-| Key | Direction |
-| ------------- | --- |
-| `;` or Fn+`;` | Up |
-| `,` or Fn+`,` | Left |
-| `.` or Fn+`.` | Down |
-| `/` or Fn+`/` | Right |
+
+| Key           | Direction |
+| ------------- | --------- |
+| `;` or Fn+`;` | Up        |
+| `,` or Fn+`,` | Left      |
+| `.` or Fn+`.` | Down      |
+| `/` or Fn+`/` | Right     |
+
 
 ### Common controls
 
-| Action | Keys |
-| ------------ | ----------------------------------- |
-| Move selection | `↑` `↓` |
-| Adjust value / no submenu | `←` `→` (app-dependent) |
-| Select / run | `Enter` |
-| Back | `←` or `Del` |
-| Switch apps | From the **top** of a list, `↑` → header focus → `←` `→` |
-| Return to app | From the header, `↓` or `Enter` |
+
+| Action                    | Keys                                                     |
+| ------------------------- | -------------------------------------------------------- |
+| Move selection            | `↑` `↓`                                                  |
+| Adjust value / no submenu | `←` `→` (app-dependent)                                  |
+| Select / run              | `Enter`                                                  |
+| Back                      | `←` or `Del`                                             |
+| Switch apps               | From the **top** of a list, `↑` → header focus → `←` `→` |
+| Return to app             | From the header, `↓` or `Enter`                          |
+
 
 When header is focused, the bar turns navy and the title yellow.
 
@@ -139,12 +143,14 @@ When header is focused, the bar turns navy and the title yellow.
 
 Full-brightness backlight as a flashlight.
 
-| Action | Keys |
-| ------------------------- | ----------------- |
-| Focus Bright / Time / Blink | `↑` `↓` |
-| Adjust brightness or timeout; toggle Blink | `←` `→` |
-| Toggle Blink (when focused) | `Enter` |
-| Switch apps | From Bright, `↑` → header |
+
+| Action                                     | Keys                      |
+| ------------------------------------------ | ------------------------- |
+| Focus Bright / Time / Blink                | `↑` `↓`                   |
+| Adjust brightness or timeout; toggle Blink | `←` `→`                   |
+| Toggle Blink (when focused)                | `Enter`                   |
+| Switch apps                                | From Bright, `↑` → header |
+
 
 - Timeout step: **60 s** (max **60 min**)
 - Default timeout: **10 min (600 s)**
@@ -175,11 +181,13 @@ Finished timers show `DONE` in the list.
 
 Named timing sessions stored in NVS (max **10**).
 
-| Item | `Enter` |
-| ------------ | ----------------------- |
-| Name | Edit name |
+
+| Item         | `Enter`                            |
+| ------------ | ---------------------------------- |
+| Name         | Edit name                          |
 | Start / Stop | Start or stop (Stop saves history) |
-| History | Saved runs |
+| History      | Saved runs                         |
+
 
 - `↑` `↓` — move · top `↑` → header
 - History: `↑` `↓` scroll · `←` / `Del` back
@@ -255,7 +263,7 @@ Last app in the order. Sleep, brightness, BLE link, battery, and firmware versio
 - **S/W Ver:** firmware version (`kFirmwareVersion` in `config.h`)
 - With no input, backlight turns off after Sleep. GPIO light sleep (wake only on **TCA8418 INT, GPIO11**) runs when no app has background work (timer, stopwatch, recording, playback, Find, or an in-flight Web/SSH request) **and** the NimBLE stack is down. After the first pair or connect the stack stays resident — `NimBLEDevice::deinit()` reboots this board — so light sleep stays off until reboot even when the radio is `Off Paired`. Pairing, connecting, or a live link also skips light sleep. An open link with no frames for **60 s** disconnects and powers the radio down; an active Find session holds that timer until the alert ends.
 - Torch uses its own brightness; leaving Torch restores Settings Bright
-- Android companion: [`companion/`](companion/) · protocol: [`docs/ble_link.md`](docs/ble_link.md) · verify: [`docs/m1_verify.md`](docs/m1_verify.md)
+- Android companion: `[companion/](companion/)` · protocol: `[docs/ble_link.md](docs/ble_link.md)` · verify: `[docs/m1_verify.md](docs/m1_verify.md)`
 
 ## Desktop simulator
 
@@ -277,7 +285,7 @@ pio run -e m5stack-cardputer -t upload
 pio device monitor
 ```
 
-The build copies `dist/cardputer_adv_firmware.bin`. GitHub Release assets are versioned, e.g. **`cardputer_adv_firmware-0.8.3.bin`** and **`CardputerCompanion-0.8.3.apk`** (sideload; debug-signed until a store keystore is added).
+The build copies `dist/cardputer_adv_firmware.bin`. GitHub Release assets are versioned, e.g. `**cardputer_adv_firmware-0.8.2.bin**` and `**CardputerCompanion-0.8.2.apk**` (sideload; debug-signed until a store keystore is added).
 
 If upload fails: use a **data** cable, confirm the port in `pio device list`, re-login after adding `dialout`, and try bootloader mode (**RST**, etc.) on ESP32-S3.
 
@@ -342,19 +350,21 @@ M5Cardputer is declared in `platformio.ini`.
 
 Tune values in `include/config.h`:
 
-| Constant | Default | Meaning |
-| ------------------------------- | ---- | ---------------------------------- |
-| `kTorchDefaultTimeoutSec` | 600 | Torch default timeout (s) |
-| `kTorchMaxTimeoutSec` | 3600 | Torch timeout cap (s) |
-| `kMaxTimers` | 8 | Max stored timers |
-| `kTimerMaxHours` | 23 | Timer hours cap |
-| `kMaxStopwatchHistory` | 10 | Max stopwatch history entries |
-| `kRecorderSampleRate` | 16000 | Recorder WAV sample rate |
-| `kRecorderMaxDurationSec` | 600 | Recorder max length (s) |
-| `kRecorderMaxFiles` | 32 | Max listed recordings |
-| `kDefaultSleepOptionIndex` | 3 | Default Sleep (5 min; includes Immediate / Never) |
-| `kDefaultBrightnessOptionIndex` | 2 | Default Bright (128) |
-| `kBleIdleDisconnectSec` | 60 | BLE idle → radio off (s) |
+
+| Constant                        | Default | Meaning                                           |
+| ------------------------------- | ------- | ------------------------------------------------- |
+| `kTorchDefaultTimeoutSec`       | 600     | Torch default timeout (s)                         |
+| `kTorchMaxTimeoutSec`           | 3600    | Torch timeout cap (s)                             |
+| `kMaxTimers`                    | 8       | Max stored timers                                 |
+| `kTimerMaxHours`                | 23      | Timer hours cap                                   |
+| `kMaxStopwatchHistory`          | 10      | Max stopwatch history entries                     |
+| `kRecorderSampleRate`           | 16000   | Recorder WAV sample rate                          |
+| `kRecorderMaxDurationSec`       | 600     | Recorder max length (s)                           |
+| `kRecorderMaxFiles`             | 32      | Max listed recordings                             |
+| `kDefaultSleepOptionIndex`      | 3       | Default Sleep (5 min; includes Immediate / Never) |
+| `kDefaultBrightnessOptionIndex` | 2       | Default Bright (128)                              |
+| `kBleIdleDisconnectSec`         | 60      | BLE idle → radio off (s)                          |
+
 
 ## Roadmap
 
@@ -374,6 +384,8 @@ Tune values in `include/config.h`:
   - [x] Stopwatch
   - [ ] Keyboard HID (Bluetooth, USB)
   - [ ] Clock
+  - [ ] Eraser Game
+  - [ ] Seismograph
 - [ ] SD card backup / restore
 
 ### Next major track — phone-backed companion
@@ -398,7 +410,7 @@ Always-on notification mirroring costs more battery; **on-demand commanders** co
 
 #### M1 — Companion app (connectivity)
 
-- [x] Android companion ([`companion/`](companion/) · connect / permissions)
+- [x] Android companion (`[companion/](companion/)` · connect / permissions)
 - [x] Pairing · default BLE off / connection status
 - [x] Out of scope: notification / commander UI (later milestones)
 
