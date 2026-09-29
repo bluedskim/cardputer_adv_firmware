@@ -57,6 +57,9 @@ private:
     bool beginRecording();
     void stopRecording(bool save);
     void tickRecording();
+    bool queueRecordChunk();
+    bool writeRecordChunk(std::size_t slot);
+    void flushRecordTail();
     bool beginPlayback();
     void stopPlayback();
     void tickPlayback();
@@ -84,8 +87,11 @@ private:
 #ifndef CARDPUTER_SIM
     File record_file_;
 #endif
+    // Three chunks: two stay queued in the mic task, the oldest is written.
     static constexpr std::size_t kRecChunkSamples = 512;
-    int16_t rec_buf_[kRecChunkSamples]{};
+    static constexpr std::size_t kRecBufCount = 3;
+    int16_t rec_buf_[kRecBufCount][kRecChunkSamples]{};
+    std::size_t rec_queued_ = 0;
 
     // Play state
     bool playing_ = false;

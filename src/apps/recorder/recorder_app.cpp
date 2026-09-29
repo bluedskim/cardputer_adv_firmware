@@ -245,9 +245,25 @@ bool RecorderApp::beginRecording() {
 
     releaseAudio();
     M5Cardputer.Speaker.end();
+    // Capture at the codec's existing 32 kHz I2S rate and keep every sample.
+    // over_sampling 2 used to average pairs down to 16 kHz. magnification 2 is
+    // unity at over_sampling 1; the ES8311 PGA below supplies the level.
+    auto mic_cfg = M5Cardputer.Mic.config();
+    mic_cfg.sample_rate = config::kRecorderSampleRate;
+    mic_cfg.over_sampling = 1;
+    mic_cfg.magnification = 2;
+    mic_cfg.noise_filter_level = 0;
+    M5Cardputer.Mic.config(mic_cfg);
     if (!M5Cardputer.Mic.begin()) {
         showMessage("Mic failed");
         return false;
+    }
+    // Reg 0x14: Mic1p-Mic1n (0x10) + PGA 24 dB (8). The library leaves PGA at 0 dB.
+    for (int attempt = 0; attempt < 4; ++attempt) {
+        if (M5Cardputer.In_I2C.writeRegister8(0x18, 0x14, 0x18, 100000)) {
+            break;
+        }
+        delay(1);
     }
 
     record_file_ = SD.open(record_path_, FILE_WRITE);
@@ -270,16 +286,55 @@ bool RecorderApp::beginRecording() {
     recording_ = true;
     record_start_ms_ = millis();
     record_data_bytes_ = 0;
+    rec_queued_ = 0;
     level_peak_ = 0;
     last_draw_sec_ = 0;
     screen_ = Screen::Record;
     markDirty();
+    // Mic.record() only queues a buffer. Two stay in flight so the task never
+    // stalls, and the chunk two behind is the one safe to write.
+    if (!queueRecordChunk() || !queueRecordChunk()) {
+        stopRecording(false);
+        showMessage("Mic failed");
+        return false;
+    }
     return true;
 #else
     showMessage("SD unavailable");
     return false;
 #endif
 }
+
+#ifndef CARDPUTER_SIM
+bool RecorderApp::queueRecordChunk() {
+    const std::size_t slot = rec_queued_ % kRecBufCount;
+    if (!M5Cardputer.Mic.record(rec_buf_[slot], kRecChunkSamples, config::kRecorderSampleRate)) {
+        return false;
+    }
+    ++rec_queued_;
+    return true;
+}
+
+bool RecorderApp::writeRecordChunk(const std::size_t slot) {
+    const size_t bytes = kRecChunkSamples * sizeof(int16_t);
+    if (record_file_.write(reinterpret_cast<const uint8_t*>(rec_buf_[slot]), bytes) != bytes) {
+        return false;
+    }
+    record_data_bytes_ += static_cast<uint32_t>(bytes);
+    level_peak_ = peakLevel(rec_buf_[slot], kRecChunkSamples);
+    return true;
+}
+
+void RecorderApp::flushRecordTail() {
+    // Chunks already stored are the ones two behind the queue. The rest just finished.
+    const std::size_t already = rec_queued_ > 2 ? rec_queued_ - 2 : 0;
+    for (std::size_t i = already; i < rec_queued_; ++i) {
+        if (!writeRecordChunk(i % kRecBufCount)) {
+            break;
+        }
+    }
+}
+#endif
 
 void RecorderApp::tickRecording() {
 #ifndef CARDPUTER_SIM
@@ -293,15 +348,19 @@ void RecorderApp::tickRecording() {
         return;
     }
 
-    if (M5Cardputer.Mic.record(rec_buf_, kRecChunkSamples, config::kRecorderSampleRate)) {
-        const size_t bytes = kRecChunkSamples * sizeof(int16_t);
-        if (record_file_.write(reinterpret_cast<const uint8_t*>(rec_buf_), bytes) != bytes) {
-            stopRecording(record_data_bytes_ > 0);
-            showMessage("SD full?");
-            return;
-        }
-        record_data_bytes_ += static_cast<uint32_t>(bytes);
-        level_peak_ = peakLevel(rec_buf_, kRecChunkSamples);
+    // Queue the next chunk first. record() waits while both mic slots are full,
+    // so the chunk two submissions back has finished and can be stored.
+    if (!queueRecordChunk()) {
+        stopRecording(record_data_bytes_ > 0);
+        showMessage("Mic failed");
+        return;
+    }
+    if (rec_queued_ < 3) {
+        return;
+    }
+    if (!writeRecordChunk((rec_queued_ - 3) % kRecBufCount)) {
+        stopRecording(record_data_bytes_ > 0);
+        showMessage("SD full?");
     }
 #else
     (void)0;
@@ -315,9 +374,12 @@ void RecorderApp::stopRecording(const bool save) {
     }
     recording_ = false;
 
-    // Drain any in-flight Mic buffers (best-effort).
+    // The last two queued chunks are still in the mic task. Wait, then store them.
     while (M5Cardputer.Mic.isRecording()) {
         delay(1);
+    }
+    if (save) {
+        flushRecordTail();
     }
     M5Cardputer.Mic.end();
 

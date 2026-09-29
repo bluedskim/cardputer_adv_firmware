@@ -53,7 +53,7 @@ constexpr uint8_t kSshNameMax = kHttpNameMax;
 constexpr uint16_t kSshBodyMax = kHttpBodyMax;
 
 // Voice recorder (microSD WAV).
-constexpr uint32_t kRecorderSampleRate = 16000;
+constexpr uint32_t kRecorderSampleRate = 32000;
 constexpr uint32_t kRecorderMaxDurationSec = 600;  // 10 min
 constexpr uint32_t kRecorderMinSaveMs = 500;
 constexpr uint8_t kRecorderMaxFiles = 32;

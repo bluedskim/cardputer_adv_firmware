@@ -194,7 +194,7 @@ Named timing sessions stored in NVS (max **10**).
 
 ### Recorder (voice)
 
-On-device mic → **microSD** WAV (16 kHz mono PCM). Requires a formatted microSD card.
+On-device mic → **microSD** WAV (32 kHz mono PCM). Requires a formatted microSD card.
 
 **List**
 
@@ -358,7 +358,7 @@ Tune values in `include/config.h`:
 | `kMaxTimers`                    | 8       | Max stored timers                                 |
 | `kTimerMaxHours`                | 23      | Timer hours cap                                   |
 | `kMaxStopwatchHistory`          | 10      | Max stopwatch history entries                     |
-| `kRecorderSampleRate`           | 16000   | Recorder WAV sample rate                          |
+| `kRecorderSampleRate`           | 32000   | Recorder WAV sample rate                          |
 | `kRecorderMaxDurationSec`       | 600     | Recorder max length (s)                           |
 | `kRecorderMaxFiles`             | 32      | Max listed recordings                             |
 | `kDefaultSleepOptionIndex`      | 3       | Default Sleep (5 min; includes Immediate / Never) |
