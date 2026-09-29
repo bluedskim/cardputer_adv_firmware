@@ -2,7 +2,7 @@
 
 Current release: **[v0.8.3](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.3)** · Companion `0.8.3` (M5 Find)
 
-Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like the stock UI. Includes **Torch**, **Timer**, **Stopwatch**, **Recorder** (microSD WAV), **Web** (HTTP presets — not a browser), **SSH** (one-shot exec — not an interactive shell), **Find** (phone vibrate / optional sound), and **Settings**.
+Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like the stock UI. Includes **Torch**, **Timer**, **Stopwatch**, **Recorder** (microSD WAV), **Level** (two-axis spirit level), **Web** (HTTP presets — not a browser), **SSH** (one-shot exec — not an interactive shell), **Find** (phone vibrate / optional sound), and **Settings**.
 
 Primary development target is **Fedora**; setup and flash steps below prefer Fedora, with notes for other platforms.
 
@@ -218,6 +218,15 @@ On-device mic → **microSD** WAV (32 kHz mono PCM). Requires a formatted microS
 
 Files live under `/rec/` on the SD card.
 
+### Level (split level)
+
+Two-axis spirit level from the Cardputer-Adv accelerometer. Screen faces up.
+
+- **Roll** — left / right tilt, horizontal bar. **Pitch** — near / far tilt, vertical bar on the right. Signed degrees, center-zero, ±30° full scale
+- Both axes within **±1°** → footer `LEVEL`
+- No accelerometer → footer `No IMU`
+- `↑` → header (app switch)
+
 ### Web (HTTP commander)
 
 Phone-backed **HTTP presets** over BLE — pick a saved request and view the response body. **Not a web browser** (no arbitrary URL entry or page rendering on the device).
@@ -267,7 +276,7 @@ Last app in the order. Sleep, brightness, BLE link, battery, and firmware versio
 
 ## Desktop simulator
 
-Preview Torch / Timer / Stopwatch / Recorder / Web / SSH / Find / Settings on a PC with `sim/`. Recorder has no real mic/SD (shows unavailable). Find cannot reach a phone. On Fedora, install the **system packages** above (`SDL2-devel`, `pkg-config`, …), then:
+Preview Torch / Timer / Stopwatch / Recorder / Level / Web / SSH / Find / Settings on a PC with `sim/`. Recorder has no real mic/SD (shows unavailable). Level has no accelerometer (stays at 0°). Find cannot reach a phone. On Fedora, install the **system packages** above (`SDL2-devel`, `pkg-config`, …), then:
 
 ```bash
 pio run -e sim -t upload
@@ -339,6 +348,7 @@ M5Cardputer is declared in `platformio.ini`.
 │       ├── timer/
 │       ├── stopwatch/
 │       ├── recorder/         # Voice recorder (SD WAV)
+│       ├── level/            # Split level (accelerometer)
 │       ├── web/              # HTTP commander (M2)
 │       ├── ssh/              # SSH commander (M3)
 │       ├── find/             # Find My Phone (M5)
@@ -386,6 +396,7 @@ Tune values in `include/config.h`:
   - [ ] Clock
   - [ ] Eraser Game
   - [ ] Seismograph
+  - [x] split level
 - [ ] SD card backup / restore
 
 ### Next major track — phone-backed companion
