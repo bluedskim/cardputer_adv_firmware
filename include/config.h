@@ -4,7 +4,7 @@
 
 namespace config {
 
-    constexpr const char* kFirmwareVersion = "0.8.3";
+    constexpr const char* kFirmwareVersion = "0.8.4";
 
 constexpr uint32_t kTorchDefaultTimeoutSec = 600;
 constexpr uint32_t kTorchMaxTimeoutSec = 3600;
