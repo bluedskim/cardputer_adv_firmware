@@ -44,11 +44,11 @@ void restoreCenter(M5GFX& display, const Plot& plot, const int x) {
 }
 
 void drawTip(M5GFX& display, const int x, const int y) {
-    display.fillRect(x - 1, y - 1, 3, 3, kCursorColor);
+    display.fillRect(x - 2, y - 2, 5, 5, kCursorColor);
 }
 
 void drawCursorMark(M5GFX& display, const Plot& plot, const int x, const int y) {
-    display.drawFastVLine(x, plot.y, plot.h, kCursorColor);
+    display.fillRect(x - 1, plot.y, 3, plot.h, kCursorColor);
     drawTip(display, x, y);
 }
 
@@ -227,20 +227,27 @@ void SeismoApp::paintLatestColumn() {
     const int prev_x = (cursor_ + count - 1) % count;
     display.startWrite();
     if (cursor_drawn_ && painted_cursor_ != cursor_) {
-        clearColumn(display, plot, painted_cursor_);
-        restoreCenter(display, plot, painted_cursor_);
-        if (!columnInGap(painted_cursor_, cursor_, count)) {
-            const int old_y = sampleToY(samples_[painted_cursor_]);
-            const int left = (painted_cursor_ + count - 1) % count;
+        for (int dx = -2; dx <= 2; ++dx) {
+            const int x = (painted_cursor_ + dx + count) % count;
+            clearColumn(display, plot, x);
+            restoreCenter(display, plot, x);
+            if (columnInGap(x, cursor_, count)) {
+                continue;
+            }
+            const int old_y = sampleToY(samples_[x]);
+            const int left = (x + count - 1) % count;
             if (!columnInGap(left, cursor_, count) && left != cursor_) {
-                display.drawLine(left, sampleToY(samples_[left]), painted_cursor_, old_y, TFT_WHITE);
+                display.drawLine(left, sampleToY(samples_[left]), x, old_y, TFT_WHITE);
             } else {
-                display.drawPixel(painted_cursor_, old_y, TFT_WHITE);
+                display.drawPixel(x, old_y, TFT_WHITE);
             }
         }
     }
-    clearColumn(display, plot, cursor_);
-    restoreCenter(display, plot, cursor_);
+    for (int dx = -2; dx <= 2; ++dx) {
+        const int x = (cursor_ + dx + count) % count;
+        clearColumn(display, plot, x);
+        restoreCenter(display, plot, x);
+    }
     clearGap(display, plot, cursor_, count);
     if (cursor_ != 0) {
         display.drawLine(prev_x, prev_y_, cursor_, y, TFT_WHITE);
