@@ -2,7 +2,7 @@
 
 Current release: **[v0.8.4](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.4)** · Companion `0.8.4` (M5 Find)
 
-Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like the stock UI. Includes **Torch**, **Timer**, **Stopwatch**, **Recorder** (microSD WAV), **Level** (two-axis spirit level), **Web** (HTTP presets — not a browser), **SSH** (one-shot exec — not an interactive shell), **Find** (phone vibrate / optional sound), and **Settings**.
+Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like the stock UI. Includes **Torch**, **Timer**, **Stopwatch**, **Recorder** (microSD WAV), **Level** (two-axis spirit level), **Seismo** (vibration trace), **Web** (HTTP presets — not a browser), **SSH** (one-shot exec — not an interactive shell), **Find** (phone vibrate / optional sound), and **Settings**.
 
 Primary development target is **Fedora**; setup and flash steps below prefer Fedora, with notes for other platforms.
 
@@ -227,6 +227,16 @@ Two-axis spirit level from the Cardputer-Adv accelerometer. Screen faces up.
 - No accelerometer → footer `No IMU`
 - `↑` → header (app switch)
 
+### Seismograph
+
+Vibration trace from the accelerometer. The header name is **Seismo** (the full word does not fit).
+
+- One left-to-right sweep, about 12 s. The center line is still
+- Footer `+-100mg peak 12` — full scale, and the peak of this sweep
+- `←` `→` — scale 20 / 50 / 100 / 200 mg. Default ±100 mg
+- No accelerometer → footer `No IMU`
+- `↑` → header (app switch)
+
 ### Web (HTTP commander)
 
 Phone-backed **HTTP presets** over BLE — pick a saved request and view the response body. **Not a web browser** (no arbitrary URL entry or page rendering on the device).
@@ -276,7 +286,7 @@ Last app in the order. Sleep, brightness, BLE link, battery, and firmware versio
 
 ## Desktop simulator
 
-Preview Torch / Timer / Stopwatch / Recorder / Level / Web / SSH / Find / Settings on a PC with `sim/`. Recorder has no real mic/SD (shows unavailable). Level has no accelerometer (stays at 0°). Find cannot reach a phone. On Fedora, install the **system packages** above (`SDL2-devel`, `pkg-config`, …), then:
+Preview Torch / Timer / Stopwatch / Recorder / Level / Seismo / Web / SSH / Find / Settings on a PC with `sim/`. Recorder has no real mic/SD (shows unavailable). Level has no accelerometer (stays at 0°). Seismo stays at 0 mg. Find cannot reach a phone. On Fedora, install the **system packages** above (`SDL2-devel`, `pkg-config`, …), then:
 
 ```bash
 pio run -e sim -t upload
@@ -349,6 +359,7 @@ M5Cardputer is declared in `platformio.ini`.
 │       ├── stopwatch/
 │       ├── recorder/         # Voice recorder (SD WAV)
 │       ├── level/            # Split level (accelerometer)
+│       ├── seismo/           # Seismograph (accelerometer)
 │       ├── web/              # HTTP commander (M2)
 │       ├── ssh/              # SSH commander (M3)
 │       ├── find/             # Find My Phone (M5)
@@ -395,7 +406,7 @@ Tune values in `include/config.h`:
   - [ ] Keyboard HID (Bluetooth, USB)
   - [ ] Clock
   - [ ] Eraser Game
-  - [ ] Seismograph
+  - [x] Seismograph
   - [x] split level
 - [ ] SD card backup / restore
 

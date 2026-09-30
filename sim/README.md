@@ -1,6 +1,6 @@
 # Desktop Simulator (`sim/`)
 
-Preview Torch / Timer / Stopwatch / Recorder / Level / Web / SSH / Find / Settings in an SDL2 window on a PC. Real keyboard hardware is stubbed. Recorder has no mic or SD. Level stays at 0° (no accelerometer). Find has no phone.
+Preview Torch / Timer / Stopwatch / Recorder / Level / Seismo / Web / SSH / Find / Settings in an SDL2 window on a PC. Real keyboard hardware is stubbed. Recorder has no mic or SD. Level stays at 0° (no accelerometer). Seismo stays at 0 mg. Find has no phone.
 
 For PlatformIO install, USB permissions, and shared setup, follow the **Fedora** section in the root [README.md](../README.md#development-environment-fedora).
 
