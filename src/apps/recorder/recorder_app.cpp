@@ -437,6 +437,11 @@ bool RecorderApp::beginPlayback() {
     play_sample_rate_ = play_info_.sample_rate;
     play_buf_idx_ = 0;
 
+    // Drive I2S at the file rate so playRaw does not resample. On Cardputer-Adv
+    // (ES8311) a 48 kHz speaker clock with 32 kHz content can play too fast.
+    auto spk_cfg = M5Cardputer.Speaker.config();
+    spk_cfg.sample_rate = play_sample_rate_;
+    M5Cardputer.Speaker.config(spk_cfg);
     if (!M5Cardputer.Speaker.begin()) {
         play_file_.close();
         showMessage("Spk failed");
