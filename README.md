@@ -1,6 +1,6 @@
 # cardputer_adv_firmware
 
-Current release: **[v0.8.6](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.6)** · Companion `0.8.6` (M5 Find)
+Current release: **[v0.8.7](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.7)** · Companion `0.8.7` (M5 Find)
 
 Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like the stock UI. Includes **Torch**, **Timer**, **Stopwatch**, **Recorder** (microSD WAV), **Level** (two-axis spirit level), **Seismo** (vibration trace), **Web** (HTTP presets — not a browser), **SSH** (one-shot exec — not an interactive shell), **Find** (phone vibrate / optional sound), and **Settings**.
 
@@ -305,7 +305,7 @@ pio run -e m5stack-cardputer -t upload
 pio device monitor
 ```
 
-The build copies `dist/cardputer_adv_firmware.bin`. GitHub Release assets are versioned, e.g. **`cardputer_adv_firmware-0.8.6.bin`** and **`CardputerCompanion-0.8.6.apk`** (sideload; debug-signed until a store keystore is added).
+The build copies `dist/cardputer_adv_firmware.bin`. GitHub Release assets are versioned, e.g. **`cardputer_adv_firmware-0.8.7.bin`** and **`CardputerCompanion-0.8.7.apk`** (sideload; debug-signed until a store keystore is added).
 
 If upload fails: use a **data** cable, confirm the port in `pio device list`, re-login after adding `dialout`, and try bootloader mode (**RST**, etc.) on ESP32-S3.
 
