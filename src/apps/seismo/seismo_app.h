@@ -30,9 +30,11 @@ private:
     bool base_ready_ = false;
     bool need_full_ = true;
     bool header_focused_ = false;
+    bool cursor_drawn_ = false;
     float base_g_ = 1.0f;
     int scale_index_ = 2;
     int cursor_ = 0;
+    int painted_cursor_ = 0;
     int prev_y_ = 0;
     int peak_mg_ = 0;
     uint32_t last_sample_ms_ = 0;

@@ -16,6 +16,8 @@ constexpr int kContentTop = config::kContentTop;
 constexpr uint32_t kSampleMs = 50;
 constexpr float kBaseAlpha = 0.033f;
 constexpr int kScalesMg[] = {20, 50, 100, 200};
+constexpr uint16_t kCursorColor = TFT_YELLOW;
+constexpr int kGapWidth = 3;
 
 struct Plot {
     int y;
@@ -39,6 +41,32 @@ void clearColumn(M5GFX& display, const Plot& plot, const int x) {
 
 void restoreCenter(M5GFX& display, const Plot& plot, const int x) {
     display.drawPixel(x, plot.center_y, TFT_DARKGREY);
+}
+
+void drawTip(M5GFX& display, const int x, const int y) {
+    display.fillRect(x - 1, y - 1, 3, 3, kCursorColor);
+}
+
+void drawCursorMark(M5GFX& display, const Plot& plot, const int x, const int y) {
+    display.drawFastVLine(x, plot.y, plot.h, kCursorColor);
+    drawTip(display, x, y);
+}
+
+bool columnInGap(const int x, const int cursor, const int count) {
+    for (int i = 1; i <= kGapWidth; ++i) {
+        if (x == (cursor + i) % count) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void clearGap(M5GFX& display, const Plot& plot, const int cursor, const int count) {
+    for (int i = 1; i <= kGapWidth; ++i) {
+        const int x = (cursor + i) % count;
+        clearColumn(display, plot, x);
+        restoreCenter(display, plot, x);
+    }
 }
 
 }  // namespace
@@ -85,6 +113,7 @@ void SeismoApp::resetTrace() {
     cursor_ = 0;
     peak_mg_ = 0;
     prev_y_ = sampleToY(0);
+    cursor_drawn_ = false;
     std::memset(samples_, 0, sizeof(samples_));
 }
 
@@ -161,12 +190,12 @@ void SeismoApp::drawFull() {
     display.startWrite();
     display.fillRect(0, plot.y, display.width(), plot.h, TFT_BLACK);
     display.drawFastHLine(0, plot.center_y, count, TFT_DARKGREY);
+    cursor_drawn_ = false;
     if (imu_ok_) {
-        const int gap = (cursor_ + 1) % count;
         int prev_x = -1;
         int prev_y = 0;
         for (int x = 0; x < count; ++x) {
-            if (x == gap) {
+            if (columnInGap(x, cursor_, count)) {
                 prev_x = -1;
                 continue;
             }
@@ -179,7 +208,12 @@ void SeismoApp::drawFull() {
             prev_x = x;
             prev_y = y;
         }
-        prev_y_ = sampleToY(samples_[cursor_]);
+        clearGap(display, plot, cursor_, count);
+        const int y = sampleToY(samples_[cursor_]);
+        drawCursorMark(display, plot, cursor_, y);
+        prev_y_ = y;
+        painted_cursor_ = cursor_;
+        cursor_drawn_ = true;
     }
     paintFooter(true);
     display.endWrite();
@@ -189,20 +223,34 @@ void SeismoApp::paintLatestColumn() {
     auto& display = M5Cardputer.Display;
     const Plot plot = plotFor(display);
     const int count = columns();
-    const int gap = (cursor_ + 1) % count;
     const int y = sampleToY(samples_[cursor_]);
     const int prev_x = (cursor_ + count - 1) % count;
     display.startWrite();
+    if (cursor_drawn_ && painted_cursor_ != cursor_) {
+        clearColumn(display, plot, painted_cursor_);
+        restoreCenter(display, plot, painted_cursor_);
+        if (!columnInGap(painted_cursor_, cursor_, count)) {
+            const int old_y = sampleToY(samples_[painted_cursor_]);
+            const int left = (painted_cursor_ + count - 1) % count;
+            if (!columnInGap(left, cursor_, count) && left != cursor_) {
+                display.drawLine(left, sampleToY(samples_[left]), painted_cursor_, old_y, TFT_WHITE);
+            } else {
+                display.drawPixel(painted_cursor_, old_y, TFT_WHITE);
+            }
+        }
+    }
     clearColumn(display, plot, cursor_);
-    clearColumn(display, plot, gap);
     restoreCenter(display, plot, cursor_);
-    restoreCenter(display, plot, gap);
+    clearGap(display, plot, cursor_, count);
     if (cursor_ != 0) {
         display.drawLine(prev_x, prev_y_, cursor_, y, TFT_WHITE);
     } else {
         display.drawPixel(cursor_, y, TFT_WHITE);
     }
+    drawCursorMark(display, plot, cursor_, y);
     prev_y_ = y;
+    painted_cursor_ = cursor_;
+    cursor_drawn_ = true;
     paintFooter(false);
     display.endWrite();
 }

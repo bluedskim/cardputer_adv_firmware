@@ -231,7 +231,7 @@ Two-axis spirit level from the Cardputer-Adv accelerometer. Screen faces up.
 
 Vibration trace from the accelerometer. The header name is **Seismo** (the full word does not fit).
 
-- One left-to-right sweep, about 12 s. The center line is still
+- One left-to-right sweep, about 12 s. The center line is still. A yellow line marks the write head
 - Footer `+-100mg peak 12` — full scale, and the peak of this sweep
 - `←` `→` — scale 20 / 50 / 100 / 200 mg. Default ±100 mg
 - No accelerometer → footer `No IMU`
