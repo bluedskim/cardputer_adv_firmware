@@ -13,7 +13,7 @@ Prerequisites: M2 Web link works ([m2_verify.md](m2_verify.md)). Companion build
 
 1. Linked Companion (same as M2). Settings → BLE → Pair once if needed.
 2. Open **SSH**. Cache-first list (auto List only if empty). Trailing row **Refresh hosts...** forces sync.
-3. Enter on a host → phone runs SSH exec (password auth) → footer `exit N` + combined stdout/stderr (≤512 bytes), paging like Web.
+3. Enter on a host → phone runs SSH exec (password auth) → footer `exit N` + combined stdout/stderr (≤512 bytes), paging like Web. Phone shows a result notification (success includes body text).
 4. Del / Left from result → list. Leave SSH → device disconnects.
 
 ## Error cases

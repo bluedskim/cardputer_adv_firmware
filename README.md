@@ -241,7 +241,7 @@ Vibration trace from the accelerometer. The header name is **Seismo** (the full 
 
 Phone-backed **HTTP presets** over BLE — pick a saved request and view the response body. **Not a web browser** (no arbitrary URL entry or page rendering on the device).
 
-Cache-first name list; trailing **Refresh sites...** forces a sync. Enter runs a preset; result shows status + body paging.
+Cache-first name list; trailing **Refresh sites...** forces a sync. Enter runs a preset; result shows status + body paging. Companion also notifies when the run finishes (success includes the body, up to 512 bytes).
 
 See [docs/m2_verify.md](docs/m2_verify.md) · [docs/ble_link.md](docs/ble_link.md).
 
@@ -249,7 +249,7 @@ See [docs/m2_verify.md](docs/m2_verify.md) · [docs/ble_link.md](docs/ble_link.m
 
 Phone-backed **one-shot SSH exec** over BLE — pick a saved host/command and view stdout/stderr. **Not an interactive SSH client** (no PTY, no typing commands on the Cardputer).
 
-Cache-first list; **Refresh hosts...**; result shows exit status + stdout/stderr paging.
+Cache-first list; **Refresh hosts...**; result shows exit status + stdout/stderr paging. Companion also notifies when the run finishes (success includes the body, up to 512 bytes).
 
 See [docs/m3_verify.md](docs/m3_verify.md) · [docs/ble_link.md](docs/ble_link.md).
 

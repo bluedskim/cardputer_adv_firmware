@@ -854,12 +854,12 @@ class BleLinkClient(
         handler.post { listener.onDetail("HttpRunReq → ${preset.name}") }
         HttpExecutor.executeAsync(preset) { result ->
             handler.post {
-                sendRunResult(frame.reqId, result)
+                sendRunResult(frame.reqId, preset.name, result)
             }
         }
     }
 
-    private fun sendRunResult(reqId: Int, result: HttpExecResult) {
+    private fun sendRunResult(reqId: Int, presetName: String, result: HttpExecResult) {
         val meta = ByteArray(4)
         meta[0] = (result.httpStatus and 0xFF).toByte()
         meta[1] = ((result.httpStatus shr 8) and 0xFF).toByte()
@@ -883,6 +883,7 @@ class BleLinkClient(
         listener.onDetail(
             "HttpRun done status=${result.httpStatus} err=${result.errCode} bytes=${body.size}"
         )
+        CommanderNotifier.notifyHttp(context, presetName, result)
     }
 
     private fun handleSshListReq(reqId: Int) {
@@ -936,12 +937,12 @@ class BleLinkClient(
         handler.post { listener.onDetail("SshRunReq → ${preset.name}") }
         SshExecutor.executeAsync(preset, sshHostKeys) { result ->
             handler.post {
-                sendSshRunResult(frame.reqId, result)
+                sendSshRunResult(frame.reqId, preset.name, result)
             }
         }
     }
 
-    private fun sendSshRunResult(reqId: Int, result: SshExecResult) {
+    private fun sendSshRunResult(reqId: Int, presetName: String, result: SshExecResult) {
         val exit = result.exitStatus
         val meta = ByteArray(4)
         meta[0] = (exit and 0xFF).toByte()
@@ -966,6 +967,7 @@ class BleLinkClient(
         listener.onDetail(
             "SshRun done exit=${result.exitStatus} err=${result.errCode} bytes=${body.size}"
         )
+        CommanderNotifier.notifySsh(context, presetName, result)
     }
 
     /**

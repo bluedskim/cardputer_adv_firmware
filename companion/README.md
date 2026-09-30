@@ -10,7 +10,7 @@ Designed like a **smartwatch companion** (Mi Band–style):
 4. **Stop** — reliable mode keeps linked FGS standby; battery saver ends FGS (presence can restart). Long-press **Stop** → **Unlink**
 5. **Scan** is a manual force-rescan fallback (no new association)
 
-Also: HTTP and SSH presets on the phone; serves `HttpList*` / `HttpRun*`, `SshList*` / `SshRun*`, and `FindStart` / `FindStop` for the Cardputer **Web**, **SSH**, and **Find** apps. No notification mirror yet (M4). HTTP preset JSON is stored with encrypted preferences (a plain copy from older builds is migrated on next load).
+Also: HTTP and SSH presets on the phone; serves `HttpList*` / `HttpRun*`, `SshList*` / `SshRun*`, and `FindStart` / `FindStop` for the Cardputer **Web**, **SSH**, and **Find** apps. When a Web or SSH run finishes, Companion posts a notification (success includes the truncated result body). No notification mirror yet (M4). HTTP preset JSON is stored with encrypted preferences (a plain copy from older builds is migrated on next load).
 
 **Test run** on each preset editor runs the request/SSH on the phone and shows body + step log (Copy log) before you rely on the Cardputer UI.
 

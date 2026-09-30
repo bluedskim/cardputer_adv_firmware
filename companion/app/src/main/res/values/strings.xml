@@ -35,6 +35,14 @@
     <string name="notif_channel_name">Cardputer link</string>
     <string name="notif_channel_desc">Keeps BLE listening while the screen is locked</string>
     <string name="notif_title">Cardputer Companion</string>
+    <string name="commander_notif_channel_name">Web / SSH results</string>
+    <string name="commander_notif_channel_desc">Alerts when a Cardputer Web or SSH run finishes</string>
+    <string name="commander_http_ok_title">Web %1$s — %2$d</string>
+    <string name="commander_http_err_title">Web %1$s — %2$s</string>
+    <string name="commander_ssh_ok_title">SSH %1$s — exit %2$d</string>
+    <string name="commander_ssh_err_title">SSH %1$s — %2$s</string>
+    <string name="commander_notif_tap">Tap to open</string>
+    <string name="commander_notif_failed">Run failed</string>
     <string name="battery_title">Allow background link</string>
     <string name="battery_message">For reliable Cardputer linking while the screen is locked, allow unrestricted battery use for Companion.</string>
     <string name="battery_allow">Allow</string>
