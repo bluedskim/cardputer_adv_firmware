@@ -12,6 +12,7 @@
 
 #include "config.h"
 #include "input/keyboard_input.h"
+#include "app_visibility.h"
 #include "ble/ble_link.h"
 #include "ui/battery_indicator.h"
 
@@ -44,16 +45,45 @@ char arrowToChar(ArrowKey arrow) {
 
 }  // namespace
 
+AppShell* AppShell::instance_ = nullptr;
+
 void AppShell::addApp(std::unique_ptr<AppBase> app) {
     apps_.push_back(std::move(app));
 }
 
+bool AppShell::isAppVisible(const std::size_t index) const {
+    if (index >= apps_.size()) {
+        return false;
+    }
+    return !AppVisibility::instance().isHidden(apps_[index]->name());
+}
+
+std::size_t AppShell::adjacentVisible(const std::size_t from, const int delta) const {
+    if (apps_.empty()) {
+        return from;
+    }
+    std::size_t i = from;
+    for (std::size_t n = 0; n < apps_.size(); ++n) {
+        if (delta > 0) {
+            i = (i + 1) % apps_.size();
+        } else {
+            i = i == 0 ? apps_.size() - 1 : i - 1;
+        }
+        if (isAppVisible(i)) {
+            return i;
+        }
+    }
+    return from;
+}
+
 void AppShell::begin() {
+    instance_ = this;
     if (apps_.empty()) {
         return;
     }
 
     SystemSettings::instance().begin();
+    AppVisibility::instance().begin();
     BleLink::instance().begin();
     M5Cardputer.Display.setRotation(1);
     M5Cardputer.Display.fillScreen(TFT_BLACK);
@@ -61,6 +91,9 @@ void AppShell::begin() {
     last_activity_ms_ = millis();
     display_asleep_ = false;
     header_focused_ = true;
+    if (!isAppVisible(current_index_)) {
+        current_index_ = adjacentVisible(current_index_, 1);
+    }
     apps_[current_index_]->onEnter();
     battery_ = readBatterySnapshot();
     last_battery_poll_ms_ = millis();
@@ -348,14 +381,11 @@ bool AppShell::consumeHeaderKeys(const Keyboard_Class::KeysState& status) {
     keyboard_tracker_.del_down = status.del;
 
     switch (arrow) {
-        case ArrowKey::Left: {
-            const std::size_t next =
-                current_index_ == 0 ? apps_.size() - 1 : current_index_ - 1;
-            switchTo(next);
+        case ArrowKey::Left:
+            switchTo(adjacentVisible(current_index_, -1));
             return true;
-        }
         case ArrowKey::Right:
-            switchTo((current_index_ + 1) % apps_.size());
+            switchTo(adjacentVisible(current_index_, 1));
             return true;
         case ArrowKey::Down:
             header_focused_ = false;
@@ -374,9 +404,27 @@ bool AppShell::consumeHeaderKeys(const Keyboard_Class::KeysState& status) {
 void AppShell::drawHeader() const {
     auto& display = M5Cardputer.Display;
     const int width = display.width();
-    const std::size_t app_count = apps_.size();
+
+    std::size_t visible[16];
+    std::size_t visible_count = 0;
+    std::size_t visible_current = 0;
+    for (std::size_t i = 0; i < apps_.size() && visible_count < 16; ++i) {
+        if (!isAppVisible(i)) {
+            continue;
+        }
+        if (i == current_index_) {
+            visible_current = visible_count;
+        }
+        visible[visible_count++] = i;
+    }
+    if (visible_count == 0) {
+        visible[0] = current_index_;
+        visible_count = 1;
+        visible_current = 0;
+    }
+
     const int dots_span =
-        app_count > 0 ? static_cast<int>((app_count - 1) * kDotSpacing + kDotRadius * 2) : 0;
+        visible_count > 0 ? static_cast<int>((visible_count - 1) * kDotSpacing + kDotRadius * 2) : 0;
     const int dots_width = dots_span + kDotsRightMargin;
     const int cluster_width = kBatteryWidth + kBatteryDotGap + dots_width;
     const int battery_x = width - cluster_width;
@@ -412,12 +460,13 @@ void AppShell::drawHeader() const {
 
     drawBatteryIndicator(display, battery_x, 6, battery_);
 
-    for (std::size_t i = 0; i < app_count; ++i) {
+    for (std::size_t i = 0; i < visible_count; ++i) {
         const int dot_x = width - kDotsRightMargin - kDotRadius -
-                          static_cast<int>((app_count - 1 - i) * kDotSpacing);
-        const uint16_t color = i == current_index_ ? TFT_YELLOW : TFT_DARKGREY;
+                          static_cast<int>((visible_count - 1 - i) * kDotSpacing);
+        const bool current = isAppVisible(current_index_) && i == visible_current;
+        const uint16_t color = current ? TFT_YELLOW : TFT_DARKGREY;
         display.fillCircle(dot_x, 11, kDotRadius, color);
-        if (i == current_index_) {
+        if (current) {
             display.drawCircle(dot_x, 11, kDotActiveRing, TFT_WHITE);
         }
     }

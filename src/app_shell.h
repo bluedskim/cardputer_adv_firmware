@@ -13,13 +13,18 @@
 
 class AppShell {
 public:
+    static AppShell* instance() { return instance_; }
+
     void addApp(std::unique_ptr<AppBase> app);
     void begin();
     void update();
     uint32_t loopDelayMs() const;
+    void markHeaderDirty() { header_dirty_ = true; }
 
 private:
     void switchTo(std::size_t index);
+    std::size_t adjacentVisible(std::size_t from, int delta) const;
+    bool isAppVisible(std::size_t index) const;
     void handleG0Short();
     std::size_t findVoiceRecorderIndex() const;
     void drawHeader() const;
@@ -31,6 +36,8 @@ private:
     void wakeDisplay();
     bool anyBackgroundWork() const;
     void enterLowPowerWait() const;
+
+    static AppShell* instance_;
 
     std::vector<std::unique_ptr<AppBase>> apps_;
     std::size_t current_index_ = 0;

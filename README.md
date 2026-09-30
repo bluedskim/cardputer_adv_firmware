@@ -267,9 +267,9 @@ See [docs/m5_verify.md](docs/m5_verify.md).
 
 ### Settings
 
-Last app in the order. Sleep, brightness, BLE link, battery, and firmware version.
+Last app in the order. Sleep, brightness, BLE link, **Apps** (show/hide), battery, and firmware version.
 
-- `↑` `↓` — Sleep / Bright / BLE · from Sleep, `↑` → header
+- `↑` `↓` — Sleep / Bright / BLE / Apps · from Sleep, `↑` → header
 - `←` `→` — Sleep: **Immediate** / 30 s / 1 min / **5 min** / 10 min / **Never** · Bright: 32 / 64 / **128** / 192 / 255
   - Immediate: screen off soon. **On sleep**, Sleep is rewritten to **30 sec** and saved (pick Immediate again to reuse)
 - **BLE row:** status summary (`Off Unpaired` / `Off Paired` / `Pairing` / `Connecting` / `Connected` · sim: `N/A`). `Enter` → BLE submenu
@@ -278,6 +278,7 @@ Last app in the order. Sleep, brightness, BLE link, battery, and firmware versio
   - Contextual actions only: unpaired `Pair` · paired `Connect` / `Forget` · in progress `Cancel` · connected `Disconnect`
   - Forget asks `Forget?` (`Enter` yes / `Del` cancel)
   - `←` / `Del` / top `↑` → main Settings (BLE row focused)
+- **Apps:** `Enter` → list of apps (Settings is not listed and cannot be hidden). `→` or `Enter` toggles **show** / **hide**. `←` / `Del` / top `↑` → main Settings. Hidden apps are skipped by header Left/Right and omitted from page dots. G0 still opens Recorder even if it is hidden. Saved in NVS
 - **Battery:** percent and voltage on one line (charging shown on the header battery icon)
 - **S/W Ver:** firmware version (`kFirmwareVersion` in `config.h`)
 - With no input, backlight turns off after Sleep. GPIO light sleep (wake only on **TCA8418 INT, GPIO11**) runs when no app has background work (timer, stopwatch, recording, playback, Find, or an in-flight Web/SSH request) **and** the NimBLE stack is down. After the first pair or connect the stack stays resident — `NimBLEDevice::deinit()` reboots this board — so light sleep stays off until reboot even when the radio is `Off Paired`. Pairing, connecting, or a live link also skips light sleep. An open link with no frames for **60 s** disconnects and powers the radio down; an active Find session holds that timer until the alert ends.
@@ -349,6 +350,7 @@ M5Cardputer is declared in `platformio.ini`.
 │   ├── main.cpp
 │   ├── app_shell.*           # App switcher · sleep/wake
 │   ├── system_settings.cpp
+│   ├── app_visibility.cpp    # Settings → Apps show/hide mask (NVS)
 │   ├── ble/ble_link.cpp      # NimBLE link (sim stub)
 │   ├── input/                # Key edge · arrow mapping
 │   ├── storage/              # microSD helper (Recorder)
