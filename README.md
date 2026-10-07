@@ -2,7 +2,7 @@
 
 Current release: **[v0.8.7](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.7)** · Companion `0.8.7` (M5 Find)
 
-Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like the stock UI. Includes **Torch**, **Timer**, **Stopwatch**, **Recorder** (microSD WAV), **Level** (two-axis spirit level), **Seismo** (vibration trace), **Web** (HTTP presets — not a browser), **SSH** (one-shot exec — not an interactive shell), **Find** (phone vibrate / optional sound), and **Settings**.
+Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like the stock UI. Includes **Torch**, **Timer**, **Stopwatch**, **Recorder** (microSD WAV), **Level** (two-axis spirit level), **Seismo** (vibration trace), **Tuner** (six guitar-string pitches), **Web** (HTTP presets — not a browser), **SSH** (one-shot exec — not an interactive shell), **Find** (phone vibrate / optional sound), and **Settings**.
 
 Primary development target is **Fedora**; setup and flash steps below prefer Fedora, with notes for other platforms.
 
@@ -237,6 +237,15 @@ Vibration trace from the accelerometer. The header name is **Seismo** (the full 
 - No accelerometer → footer `No IMU`
 - `↑` → header (app switch)
 
+### Tuner
+
+Standard guitar tuner (EADGBE, A4=440). Listens on the built-in mic and maps the pitch to the nearest open string.
+
+- Large string letter (`E` / `A` / `D` / `G` / `B` / `e`), cents readout, ±50¢ needle
+- Within **±5¢** → green needle and footer `IN TUNE`
+- Quiet / unclear → `--`; no mic (sim) → `No mic`
+- `↑` → header (app switch)
+
 ### Web (HTTP commander)
 
 Phone-backed **HTTP presets** over BLE — pick a saved request and view the response body. **Not a web browser** (no arbitrary URL entry or page rendering on the device).
@@ -287,7 +296,7 @@ Last app in the order. Sleep, brightness, BLE link, **Apps** (show/hide), batter
 
 ## Desktop simulator
 
-Preview Torch / Timer / Stopwatch / Recorder / Level / Seismo / Web / SSH / Find / Settings on a PC with `sim/`. Recorder has no real mic/SD (shows unavailable). Level has no accelerometer (stays at 0°). Seismo stays at 0 mg. Find cannot reach a phone. On Fedora, install the **system packages** above (`SDL2-devel`, `pkg-config`, …), then:
+Preview Torch / Timer / Stopwatch / Recorder / Level / Seismo / Tuner / Web / SSH / Find / Settings on a PC with `sim/`. Recorder has no real mic/SD (shows unavailable). Level has no accelerometer (stays at 0°). Seismo stays at 0 mg. Tuner shows `No mic`. Find cannot reach a phone. On Fedora, install the **system packages** above (`SDL2-devel`, `pkg-config`, …), then:
 
 ```bash
 pio run -e sim -t upload
@@ -322,6 +331,7 @@ After flashing (sim has no backlight hardware):
 - [ ] **Web M2 / SSH M3:** Linked Companion → open Web or SSH → list / Refresh / run. [docs/m2_verify.md](docs/m2_verify.md) · [docs/m3_verify.md](docs/m3_verify.md)
 - [ ] **G0:** Short from any app → Recorder + auto-record; short while recording → stop&save
 - [ ] **Recorder:** microSD present → New / G0 start → G0 or Enter stop&save → play → Del delete. No SD shows error.
+- [ ] **Tuner:** open string → letter + cents needle; quiet → `--`; within ±5¢ → `IN TUNE`
 - [ ] **Battery:** header icon visible; lightning when USB is plugged (no CHG pin — USB presence is used as a hint)
 
 ### Requirements
@@ -362,6 +372,7 @@ M5Cardputer is declared in `platformio.ini`.
 │       ├── recorder/         # Voice recorder (SD WAV)
 │       ├── level/            # Split level (accelerometer)
 │       ├── seismo/           # Seismograph (accelerometer)
+│       ├── tuner/            # Guitar tuner (6 open strings)
 │       ├── web/              # HTTP commander (M2)
 │       ├── ssh/              # SSH commander (M3)
 │       ├── find/             # Find My Phone (M5)
@@ -402,7 +413,7 @@ Tune values in `include/config.h`:
   - [ ] Expression calculator
   - [ ] SD reader/writer
   - [ ] Metronome
-  - [ ] Tuner (six guitar-string pitches)
+  - [x] Tuner (six guitar-string pitches)
   - [x] Timer
   - [x] Stopwatch
   - [ ] Keyboard HID (Bluetooth, USB)

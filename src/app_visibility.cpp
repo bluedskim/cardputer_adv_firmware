@@ -10,7 +10,7 @@ namespace {
 
 // Stable bits — never reorder; new apps append. Settings is not listed.
 constexpr const char* kHideable[] = {
-    "Torch", "Timer", "Stopwatch", "Recorder", "Level", "Seismo", "Web", "SSH", "Find",
+    "Torch", "Timer", "Stopwatch", "Recorder", "Level", "Seismo", "Web", "SSH", "Find", "Tuner",
 };
 constexpr uint8_t kHideableCount = sizeof(kHideable) / sizeof(kHideable[0]);
 
