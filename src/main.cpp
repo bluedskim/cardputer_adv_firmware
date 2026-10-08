@@ -8,6 +8,7 @@
 #include "apps/seismo/seismo_app.h"
 #include "apps/recorder/recorder_app.h"
 #include "apps/tuner/tuner_app.h"
+#include "apps/metro/metro_app.h"
 #include "apps/settings/settings_app.h"
 #include "apps/stopwatch/stopwatch_app.h"
 #include "apps/ssh/ssh_app.h"
@@ -35,6 +36,7 @@ void setup() {
     g_shell.addApp(std::unique_ptr<AppBase>(new LevelApp()));
     g_shell.addApp(std::unique_ptr<AppBase>(new SeismoApp()));
     g_shell.addApp(std::unique_ptr<AppBase>(new TunerApp()));
+    g_shell.addApp(std::unique_ptr<AppBase>(new MetroApp()));
     g_shell.addApp(std::unique_ptr<AppBase>(new WebApp()));
     g_shell.addApp(std::unique_ptr<AppBase>(new SshApp()));
     g_shell.addApp(std::unique_ptr<AppBase>(new FindApp()));

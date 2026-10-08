@@ -67,12 +67,19 @@ public:
     void setVolume(uint8_t) {}
     void stop() { playing_ = false; }
     void stop(uint8_t) { playing_ = false; }
+    void tone(int, uint32_t = 0, int = 0, bool = true) { playing_ = true; }
     bool playRaw(const int16_t*, size_t, uint32_t = 44100, bool = false, uint32_t = 1, int = -1,
                  bool = false) {
         return false;
     }
+    struct config_t {
+        uint32_t sample_rate = 48000;
+    };
+    config_t config() const { return cfg_; }
+    void config(const config_t& c) { cfg_ = c; }
 
 private:
+    config_t cfg_{};
     bool running_ = false;
     bool playing_ = false;
 };

@@ -1,8 +1,8 @@
 # cardputer_adv_firmware
 
-Current release: **[v0.8.7](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.7)** · Companion `0.8.7` (M5 Find)
+Current release: **[v0.8.8](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.8)** · Companion `0.8.8` (M5 Find)
 
-Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like the stock UI. Includes **Torch**, **Timer**, **Stopwatch**, **Recorder** (microSD WAV), **Level** (two-axis spirit level), **Seismo** (vibration trace), **Tuner** (six guitar-string pitches), **Web** (HTTP presets — not a browser), **SSH** (one-shot exec — not an interactive shell), **Find** (phone vibrate / optional sound), and **Settings**.
+Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like the stock UI. Includes **Torch**, **Timer**, **Stopwatch**, **Recorder** (microSD WAV), **Level** (two-axis spirit level), **Seismo** (vibration trace), **Tuner** (six guitar-string pitches), **Metro** (clip-on style metronome), **Web** (HTTP presets — not a browser), **SSH** (one-shot exec — not an interactive shell), **Find** (phone vibrate / optional sound), and **Settings**.
 
 Primary development target is **Fedora**; setup and flash steps below prefer Fedora, with notes for other platforms.
 
@@ -246,6 +246,15 @@ Standard guitar tuner (EADGBE, A4=440). Listens on the built-in mic and maps the
 - Quiet / unclear → `--`; no mic (sim) → `No mic`
 - `↑` → header (app switch)
 
+### Metro (metronome)
+
+Yamaha ME-110–style clip-on metronome. The header name is **Metro**.
+
+- Beat LEDs match the Beat setting (accent = red, others = yellow), large BPM, click on the speaker
+- **Tempo** 30–250 · **Beat** 0–7 (0 = no accent) · **Vol** 0–10 — saved in NVS
+- `↑` `↓` — focus Tempo / Beat / Vol · `←` `→` — adjust · `Enter` — start / stop
+- From Tempo, `↑` → header (app switch)
+
 ### Web (HTTP commander)
 
 Phone-backed **HTTP presets** over BLE — pick a saved request and view the response body. **Not a web browser** (no arbitrary URL entry or page rendering on the device).
@@ -296,7 +305,7 @@ Last app in the order. Sleep, brightness, BLE link, **Apps** (show/hide), batter
 
 ## Desktop simulator
 
-Preview Torch / Timer / Stopwatch / Recorder / Level / Seismo / Tuner / Web / SSH / Find / Settings on a PC with `sim/`. Recorder has no real mic/SD (shows unavailable). Level has no accelerometer (stays at 0°). Seismo stays at 0 mg. Tuner shows `No mic`. Find cannot reach a phone. On Fedora, install the **system packages** above (`SDL2-devel`, `pkg-config`, …), then:
+Preview Torch / Timer / Stopwatch / Recorder / Level / Seismo / Tuner / Metro / Web / SSH / Find / Settings on a PC with `sim/`. Recorder has no real mic/SD (shows unavailable). Level has no accelerometer (stays at 0°). Seismo stays at 0 mg. Tuner shows `No mic`. Metro has no speaker click. Find cannot reach a phone. On Fedora, install the **system packages** above (`SDL2-devel`, `pkg-config`, …), then:
 
 ```bash
 pio run -e sim -t upload
@@ -314,7 +323,7 @@ pio run -e m5stack-cardputer -t upload
 pio device monitor
 ```
 
-The build copies `dist/cardputer_adv_firmware.bin`. GitHub Release assets are versioned, e.g. **`cardputer_adv_firmware-0.8.7.bin`** and **`CardputerCompanion-0.8.7.apk`** (sideload; debug-signed until a store keystore is added).
+The build copies `dist/cardputer_adv_firmware.bin`. GitHub Release assets are versioned, e.g. **`cardputer_adv_firmware-0.8.8.bin`** and **`CardputerCompanion-0.8.8.apk`** (sideload; debug-signed until a store keystore is added).
 
 If upload fails: use a **data** cable, confirm the port in `pio device list`, re-login after adding `dialout`, and try bootloader mode (**RST**, etc.) on ESP32-S3.
 
@@ -332,6 +341,7 @@ After flashing (sim has no backlight hardware):
 - [ ] **G0:** Short from any app → Recorder + auto-record; short while recording → stop&save
 - [ ] **Recorder:** microSD present → New / G0 start → G0 or Enter stop&save → play → Del delete. No SD shows error.
 - [ ] **Tuner:** open string → letter + cents needle; quiet → `--`; within ±5¢ → `IN TUNE`
+- [ ] **Metro:** Enter start → 5 LEDs + click; Tempo/Beat/Vol with `←` `→`; Enter stop
 - [ ] **Battery:** header icon visible; lightning when USB is plugged (no CHG pin — USB presence is used as a hint)
 
 ### Requirements
@@ -373,6 +383,7 @@ M5Cardputer is declared in `platformio.ini`.
 │       ├── level/            # Split level (accelerometer)
 │       ├── seismo/           # Seismograph (accelerometer)
 │       ├── tuner/            # Guitar tuner (6 open strings)
+│       ├── metro/            # Metronome (ME-110–style LEDs)
 │       ├── web/              # HTTP commander (M2)
 │       ├── ssh/              # SSH commander (M3)
 │       ├── find/             # Find My Phone (M5)
@@ -412,7 +423,7 @@ Tune values in `include/config.h`:
   - [x] Voice recorder
   - [ ] Expression calculator
   - [ ] SD reader/writer
-  - [ ] Metronome
+  - [x] Metronome
   - [x] Tuner (six guitar-string pitches)
   - [x] Timer
   - [x] Stopwatch

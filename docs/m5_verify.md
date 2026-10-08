@@ -1,6 +1,6 @@
 # M5 verify — Find My Phone
 
-Requires a paired Android Companion **0.8.7** (or any build that includes Find handlers) and firmware with the **Find** app.
+Requires a paired Android Companion **0.8.8** (or any build that includes Find handlers) and firmware with the **Find** app.
 
 1. Settings → BLE paired and phone Companion running (background OK).
 2. Open **Find**. Default row **Sound Off**.
