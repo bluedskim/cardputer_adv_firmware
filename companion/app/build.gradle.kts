@@ -11,8 +11,8 @@ android {
         applicationId = "com.cardputer.companion"
         minSdk = 31
         targetSdk = 35
-        versionCode = 10
-        versionName = "0.8.8"
+        versionCode = 11
+        versionName = "0.8.9"
     }
 
     buildTypes {

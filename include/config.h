@@ -4,7 +4,7 @@
 
 namespace config {
 
-    constexpr const char* kFirmwareVersion = "0.8.8";
+    constexpr const char* kFirmwareVersion = "0.8.9";
 
 constexpr uint32_t kTorchDefaultTimeoutSec = 600;
 constexpr uint32_t kTorchMaxTimeoutSec = 3600;
@@ -44,6 +44,7 @@ constexpr const char* kWebStorageNamespace = "card_adv_web";
 constexpr const char* kSshStorageNamespace = "card_adv_ssh";
 constexpr const char* kFindStorageNamespace = "card_adv_find";
 constexpr const char* kMetroStorageNamespace = "card_adv_mt";
+constexpr const char* kTunerStorageNamespace = "card_adv_tn";
 
 constexpr uint8_t kHttpMaxPresets = 12;
 constexpr uint8_t kHttpNameMax = 20;

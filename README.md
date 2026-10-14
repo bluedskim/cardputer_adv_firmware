@@ -1,8 +1,8 @@
 # cardputer_adv_firmware
 
-Current release: **[v0.8.8](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.8)** · Companion `0.8.8` (M5 Find)
+Current release: **[v0.8.9](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.9)** · Companion `0.8.9` (M5 Find)
 
-Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like the stock UI. Includes **Torch**, **Timer**, **Stopwatch**, **Recorder** (microSD WAV), **Level** (two-axis spirit level), **Seismo** (vibration trace), **Tuner** (six guitar-string pitches), **Metro** (clip-on style metronome), **Web** (HTTP presets — not a browser), **SSH** (one-shot exec — not an interactive shell), **Find** (phone vibrate / optional sound), and **Settings**.
+Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like the stock UI. Includes **Torch**, **Timer**, **Stopwatch**, **Recorder** (microSD WAV), **Level** (two-axis spirit level), **Seismo** (vibration trace), **Tuner** (six guitar reference tones), **Metro** (clip-on style metronome), **Web** (HTTP presets — not a browser), **SSH** (one-shot exec — not an interactive shell), **Find** (phone vibrate / optional sound), and **Settings**.
 
 Primary development target is **Fedora**; setup and flash steps below prefer Fedora, with notes for other platforms.
 
@@ -239,11 +239,11 @@ Vibration trace from the accelerometer. The header name is **Seismo** (the full 
 
 ### Tuner
 
-Standard guitar tuner (EADGBE, A4=440). Listens on the built-in mic and maps the pitch to the nearest open string.
+Reference tones for Standard guitar open strings (EADGBE, A4=440). Plays a synth sine on the speaker — not a mic pitch detector.
 
-- Large string letter (`E` / `A` / `D` / `G` / `B` / `e`), cents readout, ±50¢ needle
-- Within **±5¢** → green needle and footer `IN TUNE`
-- Quiet / unclear → `--`; no mic (sim) → `No mic`
+- Large string letter (`E` / `A` / `D` / `G` / `B` / `e`) and frequency in Hz
+- `←` `→` — select string · `Enter` — play / stop (sustained tone)
+- Last string is saved in NVS
 - `↑` → header (app switch)
 
 ### Metro (metronome)
@@ -305,7 +305,7 @@ Last app in the order. Sleep, brightness, BLE link, **Apps** (show/hide), batter
 
 ## Desktop simulator
 
-Preview Torch / Timer / Stopwatch / Recorder / Level / Seismo / Tuner / Metro / Web / SSH / Find / Settings on a PC with `sim/`. Recorder has no real mic/SD (shows unavailable). Level has no accelerometer (stays at 0°). Seismo stays at 0 mg. Tuner shows `No mic`. Metro has no speaker click. Find cannot reach a phone. On Fedora, install the **system packages** above (`SDL2-devel`, `pkg-config`, …), then:
+Preview Torch / Timer / Stopwatch / Recorder / Level / Seismo / Tuner / Metro / Web / SSH / Find / Settings on a PC with `sim/`. Recorder has no real mic/SD (shows unavailable). Level has no accelerometer (stays at 0°). Seismo stays at 0 mg. Tuner / Metro have no real speaker tone. Find cannot reach a phone. On Fedora, install the **system packages** above (`SDL2-devel`, `pkg-config`, …), then:
 
 ```bash
 pio run -e sim -t upload
@@ -323,7 +323,7 @@ pio run -e m5stack-cardputer -t upload
 pio device monitor
 ```
 
-The build copies `dist/cardputer_adv_firmware.bin`. GitHub Release assets are versioned, e.g. **`cardputer_adv_firmware-0.8.8.bin`** and **`CardputerCompanion-0.8.8.apk`** (sideload; debug-signed until a store keystore is added).
+The build copies `dist/cardputer_adv_firmware.bin`. GitHub Release assets are versioned, e.g. **`cardputer_adv_firmware-0.8.9.bin`** and **`CardputerCompanion-0.8.9.apk`** (sideload; debug-signed until a store keystore is added).
 
 If upload fails: use a **data** cable, confirm the port in `pio device list`, re-login after adding `dialout`, and try bootloader mode (**RST**, etc.) on ESP32-S3.
 
@@ -340,7 +340,7 @@ After flashing (sim has no backlight hardware):
 - [ ] **Web M2 / SSH M3:** Linked Companion → open Web or SSH → list / Refresh / run. [docs/m2_verify.md](docs/m2_verify.md) · [docs/m3_verify.md](docs/m3_verify.md)
 - [ ] **G0:** Short from any app → Recorder + auto-record; short while recording → stop&save
 - [ ] **Recorder:** microSD present → New / G0 start → G0 or Enter stop&save → play → Del delete. No SD shows error.
-- [ ] **Tuner:** open string → letter + cents needle; quiet → `--`; within ±5¢ → `IN TUNE`
+- [ ] **Tuner:** `←` `→` pick string → Enter plays reference tone; Enter again stops
 - [ ] **Metro:** Enter start → 5 LEDs + click; Tempo/Beat/Vol with `←` `→`; Enter stop
 - [ ] **Battery:** header icon visible; lightning when USB is plugged (no CHG pin — USB presence is used as a hint)
 
@@ -382,7 +382,7 @@ M5Cardputer is declared in `platformio.ini`.
 │       ├── recorder/         # Voice recorder (SD WAV)
 │       ├── level/            # Split level (accelerometer)
 │       ├── seismo/           # Seismograph (accelerometer)
-│       ├── tuner/            # Guitar tuner (6 open strings)
+│       ├── tuner/            # Guitar reference tones (6 open strings)
 │       ├── metro/            # Metronome (ME-110–style LEDs)
 │       ├── web/              # HTTP commander (M2)
 │       ├── ssh/              # SSH commander (M3)
@@ -424,7 +424,7 @@ Tune values in `include/config.h`:
   - [ ] Expression calculator
   - [ ] SD reader/writer
   - [x] Metronome
-  - [x] Tuner (six guitar-string pitches)
+  - [x] Tuner (six guitar reference tones)
   - [x] Timer
   - [x] Stopwatch
   - [ ] Keyboard HID (Bluetooth, USB)
