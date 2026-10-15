@@ -1,6 +1,31 @@
 # cardputer_adv_firmware
 
-Current release: **[v0.8.9](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.9)** · Companion `0.8.9` (M5 Find)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
+[![Platform](https://img.shields.io/badge/Platform-ESP32--S3-orange)](https://docs.espressif.com/en/latest/esp32s3/index.html)
+[![Release](https://img.shields.io/github/v/release/bluedskim/cardputer_adv_firmware)](https://github.com/bluedskim/cardputer_adv_firmware/releases/latest)
+
+**Multi-app firmware for the M5Stack Cardputer-Adv** — stock-style app switching, on-device utilities, and BLE-backed **Web**, **SSH**, and **Find** through the Android companion.
+
+**Hardware:** [M5Stack Cardputer-Adv](https://docs.m5stack.com/en/core/Cardputer-Adv) (ESP32-S3, TCA8418 keyboard)
+
+**Current release:** **[v0.8.9](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.9)** · Companion `0.8.9` (M5 Find) · Assets: [`cardputer_adv_firmware-0.8.9.bin`](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.9) · [`CardputerCompanion-0.8.9.apk`](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.9)
+
+<!-- Add demo.gif here (10s app switch / Find phone) -->
+
+<p align="center">
+  <img src="docs/images/firmware-torch.png" alt="Torch app" width="32%" />
+  <img src="docs/images/firmware-web.png" alt="Web commander" width="32%" />
+  <img src="docs/images/firmware-ssh.png" alt="SSH result" width="32%" />
+</p>
+
+## Quick start
+
+| Goal | What to do |
+| ---- | ---------- |
+| **Flash firmware** | Download **`cardputer_adv_firmware-0.8.9.bin`** from [Releases](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.9) and flash over USB (see [Build](#build) for `pio run … -t upload` and Fedora USB permissions). |
+| **Android companion** | Sideload **`CardputerCompanion-0.8.9.apk`** from the same release; setup in [companion/](companion/) and [docs/m1_verify.md](docs/m1_verify.md). |
+| **Build from source** | [Development environment (Fedora)](#development-environment-fedora) → PlatformIO → `pio run -e m5stack-cardputer -t upload` ([Build](#build)). |
+| **Try without hardware** | Desktop simulator: `pio run -e sim -t upload` ([Desktop simulator](#desktop-simulator)). |
 
 Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like the stock UI. Includes **Torch**, **Timer**, **Stopwatch**, **Recorder** (microSD WAV), **Level** (two-axis spirit level), **Seismo** (vibration trace), **Tuner** (six guitar reference tones), **Metro** (clip-on style metronome), **Web** (HTTP presets — not a browser), **SSH** (one-shot exec — not an interactive shell), **Find** (phone vibrate / optional sound), and **Settings**.
 
@@ -10,7 +35,9 @@ Primary development target is **Fedora**; setup and flash steps below prefer Fed
 
 ### Cardputer firmware
 
-![Torch app on Cardputer](docs/images/firmware-torch.png)![Web commander list on Cardputer](docs/images/firmware-web.png)![SSH command result on Cardputer](docs/images/firmware-ssh.png)
+![Torch app on Cardputer](docs/images/firmware-torch.png)
+![Web commander list on Cardputer](docs/images/firmware-web.png)
+![SSH command result on Cardputer](docs/images/firmware-ssh.png)
 
 
 | Torch                           | Web list            | SSH result                  |
@@ -507,4 +534,4 @@ Keep calculator / metronome / tuner / HID / clock as offline utilities, separate
 
 ## License
 
-Unless stated otherwise, licensing follows the repository owner’s policy.
+[Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0) — see repository policy and per-file notices where applicable.
