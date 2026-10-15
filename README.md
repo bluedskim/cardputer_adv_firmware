@@ -507,4 +507,6 @@ Keep calculator / metronome / tuner / HID / clock as offline utilities, separate
 
 ## License
 
-Unless stated otherwise, licensing follows the repository owner’s policy.
+Copyright 2026 Dennis Kim ([bluedskim](https://github.com/bluedskim)).
+
+This project is licensed under the **Apache License, Version 2.0**. See [LICENSE](LICENSE) for the full text.
