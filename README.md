@@ -10,7 +10,7 @@
 
 **Current release:** **[v0.8.9](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.9)** · Companion `0.8.9` (M5 Find) · Assets: [`cardputer_adv_firmware-0.8.9.bin`](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.9) · [`CardputerCompanion-0.8.9.apk`](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.9)
 
-<!-- Add demo.gif here (10s app switch / Find phone) -->
+<p align="center"><img src="docs/images/demo.gif" alt="App switching demo (desktop simulator)" width="480" /><br/><sub>App switching in the desktop simulator</sub></p>
 
 <p align="center">
   <img src="docs/images/firmware-torch.png" alt="Torch app" width="32%" />
@@ -332,9 +332,7 @@ Last app in the order. Sleep, brightness, BLE link, **Apps** (show/hide), batter
 
 ## Desktop simulator
 
-Preview Torch / Timer / Stopwatch / Recorder / Level / Seismo / Tuner / Metro / Web / SSH / Find / Settings on a PC with `sim/`. Recorder has no real mic/SD (shows unavailable). Level has no accelerometer (stays at 0°). Seismo stays at 0 mg. Tuner / Metro have no real speaker tone. Find cannot reach a phone.
-
-<p align="center"><img src="docs/images/demo.gif" alt="App switching demo (desktop simulator)" width="480" /><br/><sub>App switching in the desktop simulator</sub></p>
+Preview Torch / Timer / Stopwatch / Recorder / Level / Seismo / Tuner / Metro / Web / SSH / Find / Settings on a PC with `sim/`. Recorder has no real mic/SD (shows unavailable). Level has no accelerometer (stays at 0°). Seismo stays at 0 mg. Tuner / Metro have no real speaker tone. Find cannot reach a phone. App-switching preview: [demo GIF](docs/images/demo.gif) at the top of this README.
 
 On Fedora, install the **system packages** above (`SDL2-devel`, `pkg-config`, …), then:
 
