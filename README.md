@@ -13,9 +13,9 @@
 <p align="center"><img src="docs/images/demo.gif" alt="App switching demo (desktop simulator)" width="480" /><br/><sub>App switching in the desktop simulator</sub></p>
 
 <p align="center">
-  <img src="docs/images/firmware-torch.png" alt="Torch app" width="32%" />
-  <img src="docs/images/firmware-web.png" alt="Web commander" width="32%" />
-  <img src="docs/images/firmware-ssh.png" alt="SSH result" width="32%" />
+  <img src="docs/images/firmware-torch.png" alt="Torch — brightness and timeout" width="32%" />
+  <img src="docs/images/firmware-web.png" alt="Web — HTTP preset list" width="32%" />
+  <img src="docs/images/firmware-ssh.png" alt="SSH — cached host list" width="32%" />
 </p>
 
 ## Quick start
@@ -35,14 +35,27 @@ Primary development target is **Fedora**; setup and flash steps below prefer Fed
 
 ### Cardputer firmware
 
-![Torch app on Cardputer](docs/images/firmware-torch.png)
-![Web commander list on Cardputer](docs/images/firmware-web.png)
-![SSH command result on Cardputer](docs/images/firmware-ssh.png)
+<sub>Firmware stills below are from the **desktop simulator** (`pio run -e sim`, SDL2). Web and SSH show built-in sample presets; BLE is stubbed in sim, so SSH/Web footers may prompt pairing instead of running against a phone.</sub>
 
+![Torch](docs/images/firmware-torch.png)
+![Timer](docs/images/firmware-timer.png)
+![Tuner](docs/images/firmware-tuner.png)
 
-| Torch                           | Web list            | SSH result                  |
-| ------------------------------- | ------------------- | --------------------------- |
-| Brightness / timeout flashlight | Pick an HTTP preset | Exit status + stdout paging |
+![Metro](docs/images/firmware-metro.png)
+![Web](docs/images/firmware-web.png)
+![SSH](docs/images/firmware-ssh.png)
+
+![Settings](docs/images/firmware-settings.png)
+
+| App | What you see |
+| --- | ------------ |
+| **Torch** | Brightness, auto-off timeout, blink toggle |
+| **Timer** | Countdown list (`+ New`) |
+| **Tuner** | Guitar string reference tones (E 82.4 Hz) |
+| **Metro** | Tempo / beat / volume before start |
+| **Web** | Sample HTTP presets (`ipify`, `httpbin get`) |
+| **SSH** | Sample host presets; sim shows “Pair phone in Settings” until BLE is paired |
+| **Settings** | Sleep, brightness, BLE, app visibility, battery, version |
 
 
 ### Android Companion
