@@ -534,4 +534,6 @@ Keep calculator / metronome / tuner / HID / clock as offline utilities, separate
 
 ## License
 
-[Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0) — see repository policy and per-file notices where applicable.
+Copyright 2026 Dennis Kim ([bluedskim](https://github.com/bluedskim)).
+
+This project is licensed under the **Apache License, Version 2.0**. See [LICENSE](LICENSE) for the full text.
