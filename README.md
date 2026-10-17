@@ -22,7 +22,7 @@
 
 | Goal | What to do |
 | ---- | ---------- |
-| **Flash firmware** | Download **`cardputer_adv_firmware-0.8.9.bin`** from [Releases](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.9) and flash over USB (see [Build](#build) for `pio run … -t upload` and Fedora USB permissions). |
+| **Flash firmware** | Pick a release asset (see [Install](#install)) and flash over USB, or use **bmorcelli Launcher** with the app-only `.bin` on SD/OTA. |
 | **Android companion** | Sideload **`CardputerCompanion-0.8.9.apk`** from the same release; setup in [companion/](companion/) and [docs/m1_verify.md](docs/m1_verify.md). |
 | **Build from source** | [Development environment (Fedora)](#development-environment-fedora) → PlatformIO → `pio run -e m5stack-cardputer -t upload` ([Build](#build)). |
 | **Try without hardware** | Desktop simulator: `pio run -e sim -t upload` ([Desktop simulator](#desktop-simulator)). |
@@ -30,6 +30,27 @@
 Custom firmware for the M5Stack **Cardputer-Adv**. Switch apps left/right like the stock UI. Includes **Torch**, **Timer**, **Stopwatch**, **Recorder** (microSD WAV), **Level** (two-axis spirit level), **Seismo** (vibration trace), **Tuner** (six guitar reference tones), **Metro** (clip-on style metronome), **Web** (HTTP presets — not a browser), **SSH** (one-shot exec — not an interactive shell), **Find** (phone vibrate / optional sound), and **Settings**.
 
 Primary development target is **Fedora**; setup and flash steps below prefer Fedora, with notes for other platforms.
+
+## Install
+
+Release assets include two firmware binaries (same build, different flash layout):
+
+| Asset | Flash address | Use when |
+| ----- | ------------- | -------- |
+| **`cardputer_adv_firmware-<ver>-merged.bin`** | **0x0** (full image) | [esptool](https://docs.espressif.com/projects/esptool/en/latest/esp32s3/esptool/flashing-firmware.html), [ESP Web Flasher](https://espressif.github.io/esptool-js/), **M5Burner** / bmorcelli Launcher catalog (full-chip publish) |
+| **`cardputer_adv_firmware-<ver>.bin`** | **0x10000** (app only) | USB update when bootloader/partitions are already correct; **bmorcelli Launcher** SD card or OTA app slot |
+
+Example full flash (replace port and paths):
+
+```bash
+esptool.py --chip esp32s3 --port /dev/ttyACM0 write_flash 0x0 cardputer_adv_firmware-0.8.9-merged.bin
+```
+
+App-only (partition table must already match this project’s `huge_app.csv` layout):
+
+```bash
+esptool.py --chip esp32s3 --port /dev/ttyACM0 write_flash 0x10000 cardputer_adv_firmware-0.8.9.bin
+```
 
 ## Screenshots
 
@@ -367,7 +388,7 @@ pio run -e m5stack-cardputer -t upload
 pio device monitor
 ```
 
-The build copies `dist/cardputer_adv_firmware.bin`. GitHub Release assets are versioned, e.g. **`cardputer_adv_firmware-0.8.9.bin`** and **`CardputerCompanion-0.8.9.apk`** (sideload; debug-signed until a store keystore is added).
+The build copies **`dist/cardputer_adv_firmware.bin`** (app at 0x10000) and **`dist/cardputer_adv_firmware-merged.bin`** (bootloader + partition table + `boot_app0` + app, flash at 0x0). GitHub Release assets are versioned, e.g. **`cardputer_adv_firmware-0.8.9.bin`**, **`cardputer_adv_firmware-0.8.9-merged.bin`**, and **`CardputerCompanion-0.8.9.apk`** (sideload; debug-signed until a store keystore is added).
 
 If upload fails: use a **data** cable, confirm the port in `pio device list`, re-login after adding `dialout`, and try bootloader mode (**RST**, etc.) on ESP32-S3.
 
@@ -402,7 +423,7 @@ M5Cardputer is declared in `platformio.ini`.
 .
 ├── platformio.ini
 ├── scripts/export_firmware_bin.py
-├── dist/                     # firmware.bin (after build)
+├── dist/                     # app + merged full-flash bins (after build)
 ├── docs/                     # ble_link.md · m1/m2/m3/m5 verify · images/
 ├── companion/                # Android companion (M1–M3, M5 Find)
 ├── sim/                      # Desktop simulator (SDL2, Arduino/M5 stubs)

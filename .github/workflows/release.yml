@@ -42,12 +42,16 @@ jobs:
           VER="${TAG#v}"
           mkdir -p dist
           test -f dist/cardputer_adv_firmware.bin
+          test -f dist/cardputer_adv_firmware-merged.bin
           test -f companion/app/build/outputs/apk/release/app-release.apk
           cp -f dist/cardputer_adv_firmware.bin \
             "dist/cardputer_adv_firmware-${VER}.bin"
+          cp -f dist/cardputer_adv_firmware-merged.bin \
+            "dist/cardputer_adv_firmware-${VER}-merged.bin"
           cp -f companion/app/build/outputs/apk/release/app-release.apk \
             "dist/CardputerCompanion-${VER}.apk"
           ls -la "dist/cardputer_adv_firmware-${VER}.bin" \
+            "dist/cardputer_adv_firmware-${VER}-merged.bin" \
             "dist/CardputerCompanion-${VER}.apk"
 
       - name: Create or update GitHub Release
@@ -60,6 +64,7 @@ jobs:
           NOTES_FILE=".github/RELEASE_NOTES/${TAG}.md"
           ASSETS=(
             "dist/cardputer_adv_firmware-${VER}.bin"
+            "dist/cardputer_adv_firmware-${VER}-merged.bin"
             "dist/CardputerCompanion-${VER}.apk"
           )
           for f in "${ASSETS[@]}"; do
