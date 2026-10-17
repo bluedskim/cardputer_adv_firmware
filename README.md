@@ -60,12 +60,14 @@ Primary development target is **Fedora**; setup and flash steps below prefer Fed
 
 ### Android Companion
 
-![Companion main screen with HTTP and SSH presets](docs/images/companion-main.png)    ![Companion SSH preset editor with Test run](docs/images/companion-ssh-dialog.png)
+Screenshots below are from the real **Cardputer Companion** debug APK (`companion/`, v0.8.9) on an Android 13 (API 33) emulator. BLE is not available on the emulator, so the UI shows the idle / unlinked state (no Cardputer connection). The main screen still shows the permission hint until grants are accepted on a physical device.
+
+![Companion main screen (idle, default HTTP presets, SSH list empty) on an emulator without BLE](docs/images/companion-main.png)    ![Add SSH preset dialog with sample host `pi` / command `uptime` (fake credentials) and Test run](docs/images/companion-ssh-dialog.png)
 
 
-| Main                                 | SSH preset                            |
+| Main (emulator, no BLE)              | SSH preset editor                     |
 | ------------------------------------ | ------------------------------------- |
-| Link / Scan / Stop, HTTP & SSH lists | Edit host + **Test run** before flash |
+| Link / Scan / Stop, HTTP & SSH lists | Name, host, user, command, **Test run** |
 
 
 ## Development environment (Fedora)
