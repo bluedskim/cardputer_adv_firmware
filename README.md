@@ -8,7 +8,7 @@
 
 **Hardware:** [M5Stack Cardputer-Adv](https://docs.m5stack.com/en/core/Cardputer-Adv) (ESP32-S3, TCA8418 keyboard)
 
-**Current release:** **[v0.8.9](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.9)** · Companion `0.8.9` (M5 Find) · Assets: [`cardputer_adv_firmware-0.8.9.bin`](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.9) · [`CardputerCompanion-0.8.9.apk`](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.9)
+**Current release:** **[v0.8.10](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.10)** · Companion `0.8.10` (M5 Find) · Assets: [`cardputer_adv_firmware-0.8.10.bin`](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.10) · [`CardputerCompanion-0.8.10.apk`](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.10)
 
 <p align="center"><img src="docs/images/demo.gif" alt="App switching demo (desktop simulator)" width="480" /><br/><sub>App switching in the desktop simulator</sub></p>
 
@@ -23,7 +23,7 @@
 | Goal | What to do |
 | ---- | ---------- |
 | **Flash firmware** | Pick a release asset (see [Install](#install)) and flash over USB, or use **bmorcelli Launcher** with the app-only `.bin` on SD/OTA. |
-| **Android companion** | Sideload **`CardputerCompanion-0.8.9.apk`** from the same release; setup in [companion/](companion/) and [docs/m1_verify.md](docs/m1_verify.md). |
+| **Android companion** | Sideload **`CardputerCompanion-0.8.10.apk`** from the same release; setup in [companion/](companion/) and [docs/m1_verify.md](docs/m1_verify.md). |
 | **Build from source** | [Development environment (Fedora)](#development-environment-fedora) → PlatformIO → `pio run -e m5stack-cardputer -t upload` ([Build](#build)). |
 | **Try without hardware** | Desktop simulator: `pio run -e sim -t upload` ([Desktop simulator](#desktop-simulator)). |
 
@@ -43,13 +43,13 @@ Release assets include two firmware binaries (same build, different flash layout
 Example full flash (replace port and paths):
 
 ```bash
-esptool.py --chip esp32s3 --port /dev/ttyACM0 write_flash 0x0 cardputer_adv_firmware-0.8.9-merged.bin
+esptool.py --chip esp32s3 --port /dev/ttyACM0 write_flash 0x0 cardputer_adv_firmware-0.8.10-merged.bin
 ```
 
 App-only (partition table must already match this project’s `huge_app.csv` layout):
 
 ```bash
-esptool.py --chip esp32s3 --port /dev/ttyACM0 write_flash 0x10000 cardputer_adv_firmware-0.8.9.bin
+esptool.py --chip esp32s3 --port /dev/ttyACM0 write_flash 0x10000 cardputer_adv_firmware-0.8.10.bin
 ```
 
 ## Screenshots
@@ -81,7 +81,7 @@ esptool.py --chip esp32s3 --port /dev/ttyACM0 write_flash 0x10000 cardputer_adv_
 
 ### Android Companion
 
-Screenshots below are from the real **Cardputer Companion** debug APK (`companion/`, v0.8.9) on an Android 12 (API 31) Google APIs x86_64 emulator (software CPU; nested KVM on the capture host did not expose a working `adbd`). BLE is not available on the emulator, so the UI shows the idle / unlinked state (no Cardputer connection).
+Screenshots below are from the real **Cardputer Companion** debug APK (`companion/`, v0.8.10) on an Android 12 (API 31) Google APIs x86_64 emulator (software CPU; nested KVM on the capture host did not expose a working `adbd`). BLE is not available on the emulator, so the UI shows the idle / unlinked state (no Cardputer connection).
 
 ![Companion main screen (idle, default HTTP presets, SSH list empty) on an emulator without BLE](docs/images/companion-main.png)    ![Add SSH preset dialog (empty fields, Test run, Save / Cancel)](docs/images/companion-ssh-dialog.png)
 
@@ -388,7 +388,7 @@ pio run -e m5stack-cardputer -t upload
 pio device monitor
 ```
 
-The build copies **`dist/cardputer_adv_firmware.bin`** (app at 0x10000) and **`dist/cardputer_adv_firmware-merged.bin`** (bootloader + partition table + `boot_app0` + app, flash at 0x0). GitHub Release assets are versioned, e.g. **`cardputer_adv_firmware-0.8.9.bin`**, **`cardputer_adv_firmware-0.8.9-merged.bin`**, and **`CardputerCompanion-0.8.9.apk`** (sideload; debug-signed until a store keystore is added).
+The build copies **`dist/cardputer_adv_firmware.bin`** (app at 0x10000) and **`dist/cardputer_adv_firmware-merged.bin`** (bootloader + partition table + `boot_app0` + app, flash at 0x0). GitHub Release assets are versioned, e.g. **`cardputer_adv_firmware-0.8.10.bin`**, **`cardputer_adv_firmware-0.8.10-merged.bin`**, and **`CardputerCompanion-0.8.10.apk`** (sideload; debug-signed until a store keystore is added).
 
 If upload fails: use a **data** cable, confirm the port in `pio device list`, re-login after adding `dialout`, and try bootloader mode (**RST**, etc.) on ESP32-S3.
 
