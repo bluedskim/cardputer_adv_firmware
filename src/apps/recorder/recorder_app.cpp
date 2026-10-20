@@ -9,6 +9,7 @@
 #include "config.h"
 #include "input/keyboard_input.h"
 #include "ui/fitted_text.h"
+#include "ui/frame.h"
 
 namespace {
 
@@ -145,6 +146,7 @@ NavRequest RecorderApp::onUpdate(const Keyboard_Class::KeysState* keys, const bo
 
     if (dirty_) {
         draw();
+        ui::presentContent();
         dirty_ = false;
     }
     if (pending_header_focus_) {
@@ -675,7 +677,7 @@ NavRequest RecorderApp::handleInput(const Keyboard_Class::KeysState& status) {
 }
 
 void RecorderApp::draw() const {
-    auto& display = M5Cardputer.Display;
+    auto& display = ui::frame();
     display.fillRect(0, kContentTop, display.width(), display.height() - kContentTop, TFT_BLACK);
     display.setTextSize(2);
     display.setTextDatum(top_left);

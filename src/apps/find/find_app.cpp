@@ -9,6 +9,7 @@
 #include "config.h"
 #include "input/keyboard_input.h"
 #include "ui/fitted_text.h"
+#include "ui/frame.h"
 
 namespace {
 
@@ -230,6 +231,7 @@ NavRequest FindApp::onUpdate(const Keyboard_Class::KeysState* keys, const bool h
 
     if (dirty_) {
         draw();
+        ui::presentContent();
         dirty_ = false;
     }
     if (pending_header_focus_) {
@@ -284,7 +286,7 @@ NavRequest FindApp::handleInput(const Keyboard_Class::KeysState& status) {
 }
 
 void FindApp::draw() const {
-    auto& display = M5Cardputer.Display;
+    auto& display = ui::frame();
     display.fillRect(0, kContentTop, display.width(), display.height() - kContentTop, TFT_BLACK);
     display.setTextSize(2);
     display.setTextDatum(top_left);

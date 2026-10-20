@@ -10,6 +10,7 @@
 #include "ble/ble_protocol.h"
 #include "input/keyboard_input.h"
 #include "ui/fitted_text.h"
+#include "ui/frame.h"
 
 namespace {
 
@@ -608,6 +609,7 @@ NavRequest SshApp::onUpdate(const Keyboard_Class::KeysState* keys, bool header_f
 
     if (dirty_) {
         draw();
+        ui::presentContent();
         dirty_ = false;
     }
     if (pending_content_focus_) {
@@ -691,7 +693,7 @@ NavRequest SshApp::handleInput(const Keyboard_Class::KeysState& status) {
 }
 
 void SshApp::draw() const {
-    auto& display = M5Cardputer.Display;
+    auto& display = ui::frame();
     display.fillRect(0, kContentTop, display.width(), display.height() - kContentTop, TFT_BLACK);
     switch (screen_) {
         case Screen::List:
@@ -712,7 +714,7 @@ void SshApp::drawFooter() const {
 }
 
 void SshApp::drawList() const {
-    auto& display = M5Cardputer.Display;
+    auto& display = ui::frame();
     const int width = display.width();
     const int vis = listVisibleRows();
     const uint8_t rows = listRowCount();
@@ -743,7 +745,7 @@ void SshApp::drawList() const {
 }
 
 void SshApp::drawRunning() const {
-    auto& display = M5Cardputer.Display;
+    auto& display = ui::frame();
     display.setTextSize(2);
     display.setTextColor(TFT_YELLOW, TFT_BLACK);
     display.setCursor(8, kListTop);
@@ -752,7 +754,7 @@ void SshApp::drawRunning() const {
 }
 
 void SshApp::drawResult() const {
-    auto& display = M5Cardputer.Display;
+    auto& display = ui::frame();
     display.setTextSize(2);
 
     // Row 0: host/preset name only.

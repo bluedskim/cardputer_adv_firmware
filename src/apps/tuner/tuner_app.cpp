@@ -8,6 +8,7 @@
 #include "config.h"
 #include "input/keyboard_input.h"
 #include "ui/fitted_text.h"
+#include "ui/frame.h"
 
 namespace {
 
@@ -171,7 +172,7 @@ void TunerApp::paintFooter() const {
 }
 
 void TunerApp::draw() {
-    auto& display = M5Cardputer.Display;
+    auto& display = ui::frame();
     display.startWrite();
     display.fillRect(0, kContentTop, display.width(), display.height() - kContentTop, TFT_BLACK);
 
@@ -231,6 +232,7 @@ NavRequest TunerApp::onUpdate(const Keyboard_Class::KeysState* keys, const bool 
 
     if (dirty_) {
         draw();
+        ui::presentContent();
         dirty_ = false;
     }
     return req;

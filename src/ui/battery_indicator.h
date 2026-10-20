@@ -18,4 +18,4 @@ struct BatterySnapshot {
 };
 
 BatterySnapshot readBatterySnapshot();
-void drawBatteryIndicator(M5GFX& display, int x, int y, const BatterySnapshot& battery);
+void drawBatteryIndicator(lgfx::LovyanGFX& display, int x, int y, const BatterySnapshot& battery);
