@@ -40,11 +40,13 @@ uint32_t TimerApp::remainingMs(const TimerEntry& entry) const {
 }
 
 void TimerApp::formatPreset(char* buf, const std::size_t len, const uint8_t hours,
-                            const uint8_t minutes) const {
+                            const uint8_t minutes, const uint8_t seconds) const {
     if (hours > 0) {
-        std::snprintf(buf, len, "%uh %02um", hours, minutes);
+        std::snprintf(buf, len, seconds > 0 ? "%uh%02um%02us" : "%uh%02um", hours, minutes, seconds);
+    } else if (minutes > 0) {
+        std::snprintf(buf, len, seconds > 0 ? "%um%02us" : "%um", minutes, seconds);
     } else {
-        std::snprintf(buf, len, "%um", minutes);
+        std::snprintf(buf, len, "%us", seconds);
     }
 }
 
@@ -57,6 +59,21 @@ void TimerApp::formatRemaining(char* buf, const std::size_t len, const uint32_t 
         std::snprintf(buf, len, "%u:%02u:%02u", hours, minutes, seconds);
     } else {
         std::snprintf(buf, len, "%u:%02u", minutes, seconds);
+    }
+}
+
+void TimerApp::adjustEditField(const int delta) {
+    // Wraps within the field: 0-99 h, 0-59 m, 0-55 s in kTimerSecondsStep steps.
+    auto wrap = [delta](std::size_t& value, const int step, const int modulo) {
+        value = static_cast<std::size_t>((static_cast<int>(value) + delta * step + modulo) % modulo);
+    };
+    if (edit_field_ == 0) {
+        wrap(edit_hours_, 1, config::kTimerMaxHours + 1);
+    } else if (edit_field_ == 1) {
+        wrap(edit_minutes_, 1, 60);
+    } else if (edit_field_ == 2) {
+        edit_seconds_ -= edit_seconds_ % config::kTimerSecondsStep;
+        wrap(edit_seconds_, config::kTimerSecondsStep, 60);
     }
 }
 
@@ -82,7 +99,9 @@ void TimerApp::enterEdit(const std::size_t index) {
         const auto& entry = storage_.timers()[index];
         edit_hours_ = entry.hours;
         edit_minutes_ = entry.minutes;
+        edit_seconds_ = entry.seconds;
     }
+    edit_field_ = -1;
     cursor_ = 1;
     scroll_ = 0;
     markDirty();
@@ -113,7 +132,7 @@ std::size_t TimerApp::listRowCount() const {
         return storage_.timers().size() + 1;
     }
     if (screen_ == Screen::Edit) {
-        return 4;
+        return 3;
     }
     return 0;
 }
@@ -130,13 +149,13 @@ bool TimerApp::isActionRow(const std::size_t index, ListAction* out) const {
     }
 
     if (screen_ == Screen::Edit) {
-        if (index == 2) {
+        if (index == 1) {
             if (out) {
                 *out = ListAction::Start;
             }
             return true;
         }
-        if (index == 3) {
+        if (index == 2) {
             if (out) {
                 *out = ListAction::Remove;
             }
@@ -219,15 +238,17 @@ void TimerApp::startSelected() {
         return;
     }
 
-    uint8_t hours = static_cast<uint8_t>(edit_hours_);
-    uint8_t minutes = static_cast<uint8_t>(edit_minutes_);
-    if (hours == 0 && minutes == 0) {
-        minutes = 1;
+    const uint8_t hours = static_cast<uint8_t>(edit_hours_);
+    const uint8_t minutes = static_cast<uint8_t>(edit_minutes_);
+    uint8_t seconds = static_cast<uint8_t>(edit_seconds_);
+    if (hours == 0 && minutes == 0 && seconds < config::kTimerMinSec) {
+        seconds = config::kTimerMinSec;
     }
 
-    storage_.updateTimer(selected_, hours, minutes);
-    const uint32_t duration_ms =
-        (static_cast<uint32_t>(hours) * 3600U + static_cast<uint32_t>(minutes) * 60U) * 1000U;
+    storage_.updateTimer(selected_, hours, minutes, seconds);
+    const uint32_t duration_ms = (static_cast<uint32_t>(hours) * 3600U +
+                                  static_cast<uint32_t>(minutes) * 60U + seconds) *
+                                 1000U;
     storage_.setTimerEnd(selected_, millis() + duration_ms, false);
     enterList();
 }
@@ -284,12 +305,8 @@ void TimerApp::activateSelection() {
         return;
     }
 
-    if (screen_ == Screen::Edit) {
-        if (cursor_ == 1) {
-            edit_hours_ = (edit_hours_ + 1) % (config::kTimerMaxHours + 1);
-        } else if (cursor_ == 2) {
-            edit_minutes_ = (edit_minutes_ + 1) % 60;
-        }
+    if (screen_ == Screen::Edit && cursor_ == 1) {
+        edit_field_ = 0;
         markDirty();
     }
 }
@@ -302,7 +319,8 @@ void TimerApp::goBack() {
     if (screen_ == Screen::Edit) {
         if (selected_ < storage_.timers().size()) {
             storage_.updateTimer(selected_, static_cast<uint8_t>(edit_hours_),
-                                 static_cast<uint8_t>(edit_minutes_));
+                                 static_cast<uint8_t>(edit_minutes_),
+                                 static_cast<uint8_t>(edit_seconds_));
         }
         enterList();
     }
@@ -329,25 +347,27 @@ NavRequest TimerApp::handleInput(const Keyboard_Class::KeysState& status) {
             goBack();
             return NavRequest::None;
         }
-        if (cursor_ == 1 || cursor_ == 2) {
+        if (edit_field_ >= 0) {
             switch (detectArrowKey(status)) {
                 case ArrowKey::Left:
-                    if (cursor_ == 1) {
-                        edit_hours_ = edit_hours_ == 0 ? config::kTimerMaxHours : edit_hours_ - 1;
-                    } else {
-                        edit_minutes_ = edit_minutes_ == 0 ? 59 : edit_minutes_ - 1;
-                    }
-                    return NavRequest::None;
+                    edit_field_ = std::max(0, edit_field_ - 1);
+                    break;
                 case ArrowKey::Right:
-                    if (cursor_ == 1) {
-                        edit_hours_ = (edit_hours_ + 1) % (config::kTimerMaxHours + 1);
-                    } else {
-                        edit_minutes_ = (edit_minutes_ + 1) % 60;
-                    }
-                    return NavRequest::None;
+                    edit_field_ = std::min(2, edit_field_ + 1);
+                    break;
+                case ArrowKey::Up:
+                    adjustEditField(1);
+                    break;
+                case ArrowKey::Down:
+                    adjustEditField(-1);
+                    break;
                 default:
+                    if (status.enter) {
+                        edit_field_ = -1;
+                    }
                     break;
             }
+            return NavRequest::None;
         }
     }
 
@@ -374,7 +394,7 @@ NavRequest TimerApp::handleInput(const Keyboard_Class::KeysState& status) {
             if (screen_ == Screen::Edit) {
                 if (cursor_ == 0) {
                     cursor_ = 1;
-                } else if (cursor_ < 4) {
+                } else if (cursor_ < 3) {
                     ++cursor_;
                 }
                 ensureCursorVisible();
@@ -427,10 +447,16 @@ void TimerApp::drawListRow(const int y, const std::size_t index, const bool sele
 
     if (screen_ == Screen::Edit) {
         if (index == 0) {
-            display.printf("%c Hours   %02u", selected ? '>' : ' ', static_cast<unsigned>(edit_hours_));
-        } else if (index == 1) {
-            display.printf("%c Minutes %02u", selected ? '>' : ' ',
-                           static_cast<unsigned>(edit_minutes_));
+            const std::size_t values[] = {edit_hours_, edit_minutes_, edit_seconds_};
+            const char units[] = {'h', 'm', 's'};
+            display.printf("%c Time", selected ? '>' : ' ');
+            for (int field = 0; field < 3; ++field) {
+                const bool editing = field == edit_field_;
+                display.setTextColor(fg, bg);
+                display.print(' ');
+                display.setTextColor(editing ? TFT_BLACK : fg, editing ? TFT_YELLOW : bg);
+                display.printf("%02u%c", static_cast<unsigned>(values[field]), units[field]);
+            }
         }
         return;
     }
@@ -447,7 +473,7 @@ void TimerApp::drawListRow(const int y, const std::size_t index, const bool sele
     } else if (isRunning(entry)) {
         formatRemaining(detail, sizeof(detail), remainingMs(entry));
     } else {
-        formatPreset(detail, sizeof(detail), entry.hours, entry.minutes);
+        formatPreset(detail, sizeof(detail), entry.hours, entry.minutes, entry.seconds);
     }
     display.printf("%c %s  %s", selected ? '>' : ' ', entry.name.c_str(), detail);
 }
