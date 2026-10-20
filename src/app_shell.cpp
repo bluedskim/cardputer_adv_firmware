@@ -432,6 +432,8 @@ void AppShell::drawHeader() const {
     const int title_x = 4 + 2 * kCharWidth;
     const uint16_t bar = header_focused_ ? TFT_NAVY : TFT_DARKGREY;
     const uint16_t title = header_focused_ ? TFT_YELLOW : TFT_WHITE;
+    // Inactive dots must contrast with the bar; dark grey vanishes on the dark grey bar.
+    const uint16_t dot = header_focused_ ? TFT_DARKGREY : TFT_BLACK;
 
     display.fillRect(0, 0, width, config::kHeaderHeight, bar);
     display.setTextSize(2);
@@ -464,7 +466,7 @@ void AppShell::drawHeader() const {
         const int dot_x = width - kDotsRightMargin - kDotRadius -
                           static_cast<int>((visible_count - 1 - i) * kDotSpacing);
         const bool current = isAppVisible(current_index_) && i == visible_current;
-        const uint16_t color = current ? TFT_YELLOW : TFT_DARKGREY;
+        const uint16_t color = current ? TFT_YELLOW : dot;
         display.fillCircle(dot_x, 11, kDotRadius, color);
         if (current) {
             display.drawCircle(dot_x, 11, kDotActiveRing, TFT_WHITE);
