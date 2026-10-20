@@ -28,6 +28,8 @@ public:
     virtual void onBackgroundTick() {}
     // True while the app needs frequent CPU (e.g. running timer/stopwatch).
     virtual bool hasActiveBackgroundWork() const { return false; }
+    // True while the app paints the whole screen; the shell then skips the header.
+    virtual bool hidesHeader() const { return false; }
 
     // Global G0 short-press record hotkey (AppShell routes here).
     virtual bool isVoiceRecorder() const { return false; }

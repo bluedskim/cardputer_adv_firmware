@@ -2,6 +2,7 @@
 
 #include <M5Cardputer.h>
 
+#include "app_shell.h"
 #include "config.h"
 #include "input/keyboard_input.h"
 #include "system_settings.h"
@@ -14,6 +15,21 @@ namespace {
 constexpr uint32_t kBlinkPeriodMs = 500;
 constexpr int kLineStep = 18;
 constexpr uint32_t kTimeoutStepSec = 60;
+
+struct LightColor {
+    const char* name;
+    uint16_t light;  // torch fill
+    uint16_t ink;    // row text drawn on the fill
+};
+
+constexpr LightColor kColors[] = {
+    {"White", TFT_WHITE, TFT_BLACK},
+    {"Red", TFT_RED, TFT_BLACK},
+    {"Green", TFT_GREEN, TFT_BLACK},
+    {"Blue", TFT_BLUE, TFT_WHITE},
+    {"Yellow", TFT_YELLOW, TFT_BLACK},
+};
+constexpr uint8_t kColorCount = sizeof(kColors) / sizeof(kColors[0]);
 
 }  // namespace
 
@@ -30,11 +46,9 @@ void TorchApp::onEnter() {
     last_blink_ms_ = started_ms_;
     auto_off_ = false;
     auto_off_until_ms_ = 0;
+    full_screen_ = false;
     applyBrightness();
-    auto& display = M5Cardputer.Display;
-    display.fillRect(0, config::kContentTop, display.width(),
-                     display.height() - config::kContentTop, TFT_WHITE);
-    draw();
+    paintLight();
 }
 
 void TorchApp::onExit() {
@@ -44,10 +58,7 @@ void TorchApp::onExit() {
 
 void TorchApp::onDisplayWake() {
     applyBrightness();
-    auto& display = M5Cardputer.Display;
-    display.fillRect(0, config::kContentTop, display.width(),
-                     display.height() - config::kContentTop, TFT_WHITE);
-    draw();
+    paintLight();
 }
 
 NavRequest TorchApp::onUpdate(const Keyboard_Class::KeysState* keys, bool header_focused) {
@@ -79,7 +90,9 @@ NavRequest TorchApp::onUpdate(const Keyboard_Class::KeysState* keys, bool header
             blink_on_ = !blink_on_;
             last_blink_ms_ = now;
             applyBrightness();
-            need_draw = true;
+            if (blink_on_) {
+                paintLight();
+            }
         }
     }
 
@@ -99,9 +112,16 @@ NavRequest TorchApp::onUpdate(const Keyboard_Class::KeysState* keys, bool header
     return req;
 }
 
+void TorchApp::paintLight() const {
+    auto& display = M5Cardputer.Display;
+    const int top = full_screen_ ? 0 : config::kContentTop;
+    display.fillRect(0, top, display.width(), display.height() - top, kColors[color_].light);
+    draw();
+}
+
 void TorchApp::draw() const {
     auto& display = M5Cardputer.Display;
-    if (blinker_enabled_ && !blink_on_) {
+    if (full_screen_ || (blinker_enabled_ && !blink_on_)) {
         return;
     }
 
@@ -109,10 +129,10 @@ void TorchApp::draw() const {
     const int center_x = width / 2;
     const int base_y = config::kContentTop + 12;
 
-    auto drawRow = [&](Focus row, int y, const String& text, uint16_t idle_fg = TFT_BLACK) {
+    auto drawRow = [&](Focus row, int y, const String& text) {
         const bool selected = focus_ == row && !header_focused_;
-        const uint16_t fg = selected ? TFT_YELLOW : idle_fg;
-        const uint16_t bg = selected ? TFT_NAVY : TFT_WHITE;
+        const uint16_t fg = selected ? TFT_YELLOW : kColors[color_].ink;
+        const uint16_t bg = selected ? TFT_NAVY : kColors[color_].light;
         display.fillRect(0, y - 8, width, 16, bg);
         display.setTextDatum(middle_center);
         display.setTextColor(fg, bg);
@@ -126,14 +146,15 @@ void TorchApp::draw() const {
     drawCountdown();
 
     drawRow(Focus::Blink, base_y + kLineStep * 3,
-            String("BLINK ") + (blinker_enabled_ ? "ON" : "OFF"),
-            blinker_enabled_ ? TFT_RED : TFT_DARKGREY);
+            String("BLINK ") + (blinker_enabled_ ? "ON" : "OFF"));
+    drawRow(Focus::Color, base_y + kLineStep * 4, String("Color ") + kColors[color_].name);
+    drawRow(Focus::FullScreen, base_y + kLineStep * 5, "Full screen");
     display.setTextDatum(top_left);
 }
 
 void TorchApp::drawCountdown() const {
     auto& display = M5Cardputer.Display;
-    if (blinker_enabled_ && !blink_on_) {
+    if (full_screen_ || (blinker_enabled_ && !blink_on_)) {
         return;
     }
 
@@ -145,9 +166,9 @@ void TorchApp::drawCountdown() const {
     const uint32_t elapsed_sec = (millis() - started_ms_) / 1000;
     const uint32_t remaining = elapsed_sec >= timeout_sec_ ? 0 : timeout_sec_ - elapsed_sec;
 
-    display.fillRect(0, y - 8, width, 16, TFT_WHITE);
+    display.fillRect(0, y - 8, width, 16, kColors[color_].light);
     display.setTextDatum(middle_center);
-    display.setTextColor(TFT_DARKGREY, TFT_WHITE);
+    display.setTextColor(kColors[color_].ink, kColors[color_].light);
     display.setTextSize(2);
     display.drawString(String("Left ") + String(static_cast<unsigned>(remaining)) + "s", center_x, y);
     display.setTextDatum(top_left);
@@ -195,12 +216,29 @@ void TorchApp::adjustFocused(const int delta) {
             last_blink_ms_ = millis();
             applyBrightness();
             break;
+        case Focus::Color:
+            color_ = static_cast<uint8_t>((color_ + kColorCount + delta) % kColorCount);
+            paintLight();
+            break;
         default:
             break;
     }
 }
 
+void TorchApp::setFullScreen(const bool on) {
+    full_screen_ = on;
+    paintLight();
+    if (!on && AppShell::instance() != nullptr) {
+        AppShell::instance()->markHeaderDirty();
+    }
+}
+
 NavRequest TorchApp::handleInput(const Keyboard_Class::KeysState& status) {
+    if (full_screen_) {
+        setFullScreen(false);  // any key brings the controls back
+        return NavRequest::None;
+    }
+
     switch (detectArrowKey(status)) {
         case ArrowKey::Up:
             if (focus_ == Focus::Bright) {
@@ -225,6 +263,8 @@ NavRequest TorchApp::handleInput(const Keyboard_Class::KeysState& status) {
 
     if (status.enter && focus_ == Focus::Blink) {
         adjustFocused(1);
+    } else if (status.enter && focus_ == Focus::FullScreen) {
+        setFullScreen(true);
     }
 
     return NavRequest::None;
@@ -243,6 +283,9 @@ void TorchApp::checkTimeout() {
         return;
     }
 
+    if (full_screen_) {
+        setFullScreen(false);
+    }
     auto_off_ = true;
     auto_off_until_ms_ = millis() + 1200;
     M5Cardputer.Display.setBrightness(128);
