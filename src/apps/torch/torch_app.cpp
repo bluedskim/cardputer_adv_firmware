@@ -2,6 +2,7 @@
 
 #include <M5Cardputer.h>
 
+#include "app_shell.h"
 #include "config.h"
 #include "input/keyboard_input.h"
 #include "system_settings.h"
@@ -43,6 +44,10 @@ void TorchApp::onExit() {
 }
 
 void TorchApp::onDisplayWake() {
+    if (auto_off_) {
+        onEnter();  // the key that ends auto-off relights the torch
+        return;
+    }
     applyBrightness();
     auto& display = M5Cardputer.Display;
     display.fillRect(0, config::kContentTop, display.width(),
@@ -232,8 +237,9 @@ NavRequest TorchApp::handleInput(const Keyboard_Class::KeysState& status) {
 
 void TorchApp::checkTimeout() {
     if (auto_off_) {
-        if (millis() >= auto_off_until_ms_) {
-            onEnter();
+        // After the notice, stay off: hand over to display sleep until a key is pressed.
+        if (millis() >= auto_off_until_ms_ && AppShell::instance() != nullptr) {
+            AppShell::instance()->sleepDisplay();
         }
         return;
     }
@@ -254,7 +260,7 @@ void TorchApp::checkTimeout() {
     display.setTextColor(TFT_ORANGE, TFT_BLACK);
     display.drawString("Torch auto-off", display.width() / 2, display.height() / 2 - 12);
     display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    ui::fitTextSize("any key / wait", display.width() - 8);
-    display.drawString("any key / wait", display.width() / 2, display.height() / 2 + 16);
+    ui::fitTextSize("any key to relight", display.width() - 8);
+    display.drawString("any key to relight", display.width() / 2, display.height() / 2 + 16);
     display.setTextDatum(top_left);
 }
