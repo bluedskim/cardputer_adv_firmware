@@ -16,6 +16,12 @@ constexpr int kListTop = kContentTop + 4;
 constexpr int kListTopWithTitle = kContentTop + 22;
 constexpr int kFooterReserve = 0;
 
+// Full-time whistle: two short pips in the last two seconds, then a long one at zero.
+constexpr uint32_t kBeepHz = 2000;
+constexpr uint32_t kPipMs = 150;
+constexpr uint32_t kFinalMs = 1000;
+constexpr uint8_t kBeepVolume = 200;  // 255 clips on the Cardputer speaker
+
 }  // namespace
 
 TimerApp::TimerApp() { storage_.begin(); }
@@ -148,17 +154,26 @@ bool TimerApp::isActionRow(const std::size_t index, ListAction* out) const {
 
 void TimerApp::tickTimers() {
     const uint32_t now = millis();
+    const uint32_t prev = last_cue_ms_;
+    last_cue_ms_ = now;
+    auto crossed = [&](const uint32_t t) { return prev < t && now >= t; };
     bool changed = false;
 
     for (std::size_t i = 0; i < storage_.timers().size(); ++i) {
         auto& entry = storage_.timers()[i];
+        if (entry.end_ms != 0 && !entry.done &&
+            (crossed(entry.end_ms - 2000) || crossed(entry.end_ms - 1000))) {
+            beep(kPipMs);
+        }
         if (entry.end_ms != 0 && !entry.done && now >= entry.end_ms) {
             entry.end_ms = 0;
             entry.done = true;
             storage_.setTimerEnd(i, 0, true);
             changed = true;
+            beep(kFinalMs);
         }
     }
+    releaseSpeakerWhenDone(now);
 
     const uint32_t sec = now / 1000;
     if (sec != last_tick_sec_) {
@@ -183,12 +198,45 @@ void TimerApp::onBackgroundTick() {
 }
 
 bool TimerApp::hasActiveBackgroundWork() const {
+    if (owns_speaker_) {
+        return true;  // keep ticking (no light sleep) until the last beep has played
+    }
     for (const auto& entry : storage_.timers()) {
         if (isRunning(entry)) {
             return true;
         }
     }
     return false;
+}
+
+void TimerApp::beep(const uint32_t duration_ms) {
+#ifndef CARDPUTER_SIM
+    if (M5Cardputer.Mic.isRunning()) {
+        return;  // the recorder owns the codec
+    }
+    if (!M5Cardputer.Speaker.isRunning()) {
+        if (!M5Cardputer.Speaker.begin()) {
+            return;
+        }
+        M5Cardputer.Speaker.setVolume(kBeepVolume);
+        owns_speaker_ = true;
+    }
+    M5Cardputer.Speaker.tone(kBeepHz, duration_ms);
+    speaker_release_ms_ = millis() + duration_ms + 100;
+#else
+    (void)duration_ms;
+#endif
+}
+
+void TimerApp::releaseSpeakerWhenDone(const uint32_t now) {
+#ifndef CARDPUTER_SIM
+    if (owns_speaker_ && now >= speaker_release_ms_) {
+        M5Cardputer.Speaker.end();
+        owns_speaker_ = false;
+    }
+#else
+    (void)now;
+#endif
 }
 
 NavRequest TimerApp::onUpdate(const Keyboard_Class::KeysState* keys, bool header_focused) {
