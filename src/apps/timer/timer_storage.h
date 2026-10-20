@@ -10,6 +10,7 @@ struct TimerEntry {
     std::string name;
     uint8_t hours = 0;
     uint8_t minutes = 5;
+    uint8_t seconds = 0;
     uint32_t end_ms = 0;  // 0 = not running
     bool done = false;
 };
@@ -25,7 +26,7 @@ public:
 
     bool addTimer(const std::string& name, uint8_t hours, uint8_t minutes);
     bool removeTimer(std::size_t index);
-    bool updateTimer(std::size_t index, uint8_t hours, uint8_t minutes);
+    bool updateTimer(std::size_t index, uint8_t hours, uint8_t minutes, uint8_t seconds);
     bool setTimerEnd(std::size_t index, uint32_t end_ms, bool done);
 
 private:
