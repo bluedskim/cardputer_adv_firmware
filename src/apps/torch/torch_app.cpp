@@ -113,10 +113,11 @@ void TorchApp::draw() const {
         const bool selected = focus_ == row && !header_focused_;
         const uint16_t fg = selected ? TFT_YELLOW : idle_fg;
         const uint16_t bg = selected ? TFT_NAVY : TFT_WHITE;
-        display.fillRect(0, y - 8, width, 16, bg);
+        // Text background + full-width padding repaint the row in one pass (no blank flash).
         display.setTextDatum(middle_center);
         display.setTextColor(fg, bg);
         display.setTextSize(2);
+        display.setTextPadding(width);
         display.drawString(text, center_x, y);
     };
 
@@ -128,6 +129,7 @@ void TorchApp::draw() const {
     drawRow(Focus::Blink, base_y + kLineStep * 3,
             String("BLINK ") + (blinker_enabled_ ? "ON" : "OFF"),
             blinker_enabled_ ? TFT_RED : TFT_DARKGREY);
+    display.setTextPadding(0);
     display.setTextDatum(top_left);
 }
 
@@ -145,11 +147,12 @@ void TorchApp::drawCountdown() const {
     const uint32_t elapsed_sec = (millis() - started_ms_) / 1000;
     const uint32_t remaining = elapsed_sec >= timeout_sec_ ? 0 : timeout_sec_ - elapsed_sec;
 
-    display.fillRect(0, y - 8, width, 16, TFT_WHITE);
     display.setTextDatum(middle_center);
     display.setTextColor(TFT_DARKGREY, TFT_WHITE);
     display.setTextSize(2);
+    display.setTextPadding(width);
     display.drawString(String("Left ") + String(static_cast<unsigned>(remaining)) + "s", center_x, y);
+    display.setTextPadding(0);
     display.setTextDatum(top_left);
 }
 
