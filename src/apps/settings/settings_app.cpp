@@ -12,6 +12,7 @@
 #include "config.h"
 #include "input/keyboard_input.h"
 #include "system_settings.h"
+#include "ui/frame.h"
 
 namespace {
 
@@ -168,6 +169,7 @@ NavRequest SettingsApp::onUpdate(const Keyboard_Class::KeysState* keys, bool hea
 
     if (dirty_) {
         draw();
+        ui::presentContent();
         dirty_ = false;
     }
     if (pending_header_focus_) {
@@ -342,7 +344,7 @@ NavRequest SettingsApp::handleAppsInput(const Keyboard_Class::KeysState& status)
 }
 
 void SettingsApp::draw() const {
-    auto& display = M5Cardputer.Display;
+    auto& display = ui::frame();
     display.fillRect(0, kContentTop, display.width(), display.height() - kContentTop, TFT_BLACK);
 
     switch (screen_) {
@@ -362,7 +364,7 @@ void SettingsApp::draw() const {
 }
 
 void SettingsApp::drawMain() const {
-    auto& display = M5Cardputer.Display;
+    auto& display = ui::frame();
     const int width = display.width();
     int y = kListTop;
 
@@ -432,7 +434,7 @@ void SettingsApp::drawMain() const {
 }
 
 void SettingsApp::drawBle() const {
-    auto& display = M5Cardputer.Display;
+    auto& display = ui::frame();
     const int width = display.width();
     int y = kListTop;
 
@@ -480,7 +482,7 @@ void SettingsApp::drawBle() const {
 }
 
 void SettingsApp::drawBleForgetConfirm() const {
-    auto& display = M5Cardputer.Display;
+    auto& display = ui::frame();
     int y = kListTop;
     display.setTextColor(TFT_WHITE, TFT_BLACK);
     display.setTextSize(2);
@@ -497,7 +499,7 @@ void SettingsApp::drawBleForgetConfirm() const {
 }
 
 void SettingsApp::drawApps() const {
-    auto& display = M5Cardputer.Display;
+    auto& display = ui::frame();
     const int width = display.width();
     const auto& vis = AppVisibility::instance();
     const int count = static_cast<int>(vis.hideableCount());

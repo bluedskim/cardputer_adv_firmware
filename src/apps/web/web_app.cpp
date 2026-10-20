@@ -10,6 +10,7 @@
 #include "ble/ble_protocol.h"
 #include "input/keyboard_input.h"
 #include "ui/fitted_text.h"
+#include "ui/frame.h"
 
 namespace {
 
@@ -603,6 +604,7 @@ NavRequest WebApp::onUpdate(const Keyboard_Class::KeysState* keys, bool header_f
 
     if (dirty_) {
         draw();
+        ui::presentContent();
         dirty_ = false;
     }
     if (pending_content_focus_) {
@@ -691,7 +693,7 @@ NavRequest WebApp::handleInput(const Keyboard_Class::KeysState& status) {
 }
 
 void WebApp::draw() const {
-    auto& display = M5Cardputer.Display;
+    auto& display = ui::frame();
     display.fillRect(0, kContentTop, display.width(), display.height() - kContentTop, TFT_BLACK);
     switch (screen_) {
         case Screen::List:
@@ -712,7 +714,7 @@ void WebApp::drawFooter() const {
 }
 
 void WebApp::drawList() const {
-    auto& display = M5Cardputer.Display;
+    auto& display = ui::frame();
     const int width = display.width();
     const int vis = listVisibleRows();
     const uint8_t rows = listRowCount();
@@ -743,7 +745,7 @@ void WebApp::drawList() const {
 }
 
 void WebApp::drawRunning() const {
-    auto& display = M5Cardputer.Display;
+    auto& display = ui::frame();
     display.setTextSize(2);
     display.setTextColor(TFT_YELLOW, TFT_BLACK);
     display.setCursor(8, kListTop);
@@ -789,7 +791,7 @@ uint16_t WebApp::resultBodyRows() const {
 }
 
 void WebApp::drawResult() const {
-    auto& display = M5Cardputer.Display;
+    auto& display = ui::frame();
     display.setTextSize(2);
 
     // Row 0: site name only (never HTTP/timeout text).
