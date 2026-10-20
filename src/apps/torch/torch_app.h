@@ -11,20 +11,25 @@ public:
     void onExit() override;
     void onDisplayWake() override;
     NavRequest onUpdate(const Keyboard_Class::KeysState* keys, bool header_focused) override;
+    bool hidesHeader() const override { return full_screen_; }
 
 private:
     enum class Focus : uint8_t {
         Bright = 0,
         Timeout = 1,
         Blink = 2,
-        Count = 3,
+        Color = 3,
+        FullScreen = 4,
+        Count = 5,
     };
 
+    void paintLight() const;
     void draw() const;
     void drawCountdown() const;
     void applyBrightness() const;
     NavRequest handleInput(const Keyboard_Class::KeysState& status);
     void adjustFocused(int delta);
+    void setFullScreen(bool on);
     void checkTimeout();
 
     uint8_t brightness_ = 255;
@@ -38,4 +43,6 @@ private:
     bool auto_off_ = false;
     uint32_t auto_off_until_ms_ = 0;
     bool header_focused_ = false;
+    uint8_t color_ = 0;  // kColors index; kept when leaving the app (not across reboot)
+    bool full_screen_ = false;
 };
