@@ -20,6 +20,7 @@ public:
     void update();
     uint32_t loopDelayMs() const;
     void markHeaderDirty() { header_dirty_ = true; }
+    void sleepDisplay();
 
 private:
     void switchTo(std::size_t index);
@@ -32,7 +33,6 @@ private:
     bool consumeHeaderKeys(const Keyboard_Class::KeysState& status);
     void noteUserActivity();
     void maybeSleepDisplay();
-    void sleepDisplay();
     void wakeDisplay();
     bool anyBackgroundWork() const;
     void enterLowPowerWait() const;
