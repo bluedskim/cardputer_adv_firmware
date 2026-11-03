@@ -10,7 +10,7 @@
 
 **Current release:** **[v0.8.10](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.10)** · Companion `0.8.10` (M5 Find) · Assets: [`cardputer_adv_firmware-0.8.10.bin`](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.10) · [`CardputerCompanion-0.8.10.apk`](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.10)
 
-**Flash via M5Burner:** **[shed's Cardputer adv firmware](https://burner.m5stack.com/W2J6VC)** — [M5Burner](https://docs.m5stack.com/en/advanced/burn) web or app, USB, full merged image (see [Install](#install)).
+**Install:** **[M5Burner share link](https://burner.m5stack.com/W2J6VC)** (**shed's Cardputer adv firmware**) · **[GitHub Releases](https://github.com/bluedskim/cardputer_adv_firmware/releases/tag/v0.8.10)** — flash steps in [Install](#install).
 
 <p align="center"><img src="docs/images/demo.gif" alt="App switching demo (desktop simulator)" width="480" /><br/><sub>App switching in the desktop simulator</sub></p>
 
@@ -24,7 +24,7 @@
 
 | Goal | What to do |
 | ---- | ---------- |
-| **Flash firmware** | **[M5Burner](https://burner.m5stack.com/W2J6VC)** (web/app), GitHub Release assets over USB (see [Install](#install)), or **bmorcelli Launcher** with the app-only `.bin` on SD/OTA. |
+| **Flash firmware** | **[M5Burner share link](https://burner.m5stack.com/W2J6VC)** (recommended) or **[GitHub Release](https://github.com/bluedskim/cardputer_adv_firmware/releases/latest)** `-merged.bin` / esptool over USB ([Install](#install)); **bmorcelli Launcher** with the app-only `.bin` on SD/OTA. |
 | **Android companion** | Sideload **`CardputerCompanion-0.8.10.apk`** from the same release; setup in [companion/](companion/) and [docs/m1_verify.md](docs/m1_verify.md). |
 | **Build from source** | [Development environment (Fedora)](#development-environment-fedora) → PlatformIO → `pio run -e m5stack-cardputer -t upload` ([Build](#build)). |
 | **Try without hardware** | Desktop simulator: `pio run -e sim -t upload` ([Desktop simulator](#desktop-simulator)). |
@@ -35,13 +35,15 @@ Primary development target is **Fedora**; setup and flash steps below prefer Fed
 
 ## Install
 
-**M5Burner (recommended for most users):** Open **[shed's Cardputer adv firmware](https://burner.m5stack.com/W2J6VC)** in the [M5Burner](https://docs.m5stack.com/en/advanced/burn) web flasher or desktop/mobile app, connect the Cardputer-Adv over USB, and burn. Same full-chip merged image as the GitHub **`-merged.bin`** at **0x0** — no manual download.
+**M5Burner (recommended):** Open the **[M5Burner share link](https://burner.m5stack.com/W2J6VC)** for **shed's Cardputer adv firmware** in the [M5Burner](https://docs.m5stack.com/en/advanced/burn) web flasher or app, connect the Cardputer-Adv over USB, and burn. Not in the public M5Burner firmware list — open this link directly; **search in the M5Burner app will not find it.** Same full-chip merged image as **`-merged.bin`** at **0x0**.
 
-**GitHub Releases** ship two firmware binaries (same build, different flash layout):
+**GitHub Releases:** Download the same builds from **[releases/latest](https://github.com/bluedskim/cardputer_adv_firmware/releases/latest)** — flash **`-merged.bin`** at **0x0** with [esptool](https://docs.espressif.com/projects/esptool/en/latest/esp32s3/esptool/flashing-firmware.html) or [ESP Web Flasher](https://espressif.github.io/esptool-js/), or the app-only **`.bin`** at **0x10000** when partitions already match this project.
+
+Release assets (same build, different flash layout):
 
 | Asset | Flash address | Use when |
 | ----- | ------------- | -------- |
-| **`cardputer_adv_firmware-<ver>-merged.bin`** | **0x0** (full image) | [M5Burner](https://burner.m5stack.com/W2J6VC) · [esptool](https://docs.espressif.com/projects/esptool/en/latest/esp32s3/esptool/flashing-firmware.html) · [ESP Web Flasher](https://espressif.github.io/esptool-js/) · bmorcelli Launcher catalog |
+| **`cardputer_adv_firmware-<ver>-merged.bin`** | **0x0** (full image) | [M5Burner share link](https://burner.m5stack.com/W2J6VC) · [esptool](https://docs.espressif.com/projects/esptool/en/latest/esp32s3/esptool/flashing-firmware.html) · [ESP Web Flasher](https://espressif.github.io/esptool-js/) |
 | **`cardputer_adv_firmware-<ver>.bin`** | **0x10000** (app only) | USB update when bootloader/partitions are already correct; **bmorcelli Launcher** SD card or OTA app slot |
 
 Example full flash (replace port and paths):
