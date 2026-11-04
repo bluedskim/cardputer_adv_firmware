@@ -40,6 +40,13 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".SshHostKeyPromptActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.CardputerCompanion.Transparent" />
+
         <service
             android:name=".BleLinkService"
             android:exported="false"

@@ -63,7 +63,7 @@ See [docs/m2_verify.md](../docs/m2_verify.md).
 2. Open **SSH** on Cardputer → list / **Refresh hosts...** / run.
 3. Phone runs SSH exec via **sshj** + bundled BouncyCastle (`authPassword` or `authPublickey`); combined stdout/stderr ≤512 B over BLE.
 
-Supported private key formats (detected automatically): OpenSSH `BEGIN OPENSSH PRIVATE KEY` (ed25519, RSA, ECDSA via OpenSSH v1), PKCS#8 / traditional PEM (`BEGIN PRIVATE KEY`, `BEGIN RSA PRIVATE KEY`, `BEGIN EC PRIVATE KEY`, encrypted PKCS#8). PuTTY `.ppk` is not supported — convert with `ssh-keygen -p`. Wrong passphrase or corrupt key surfaces in **Test run** and notifications (logs never include key material).
+**Host keys (TOFU):** first connect to a host:port prompts for **Trust and connect** with key type + `SHA256:` fingerprint (stored in plain `SharedPreferences` `ssh_known_hosts`). Later connects match silently; a changed key blocks the session and shows a MITM warning — use **Forget pinned host key** in the preset editor to re-trust. Works for **Test run**, Cardputer-triggered runs (dialog via `SshHostKeyPromptActivity`), password and key auth.
 
 See [docs/m3_verify.md](../docs/m3_verify.md).
 

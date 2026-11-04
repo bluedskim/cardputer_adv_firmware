@@ -118,20 +118,3 @@ class SshPresetStore(context: Context) {
         }
     }
 }
-
-/** TOFU host key fingerprints: "host:port" → fingerprint hex. */
-class SshHostKeyStore(context: Context) {
-    private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-
-    fun getFingerprint(host: String, port: Int): String? =
-        prefs.getString(key(host, port), null)
-
-    fun putFingerprint(host: String, port: Int, fingerprint: String) {
-        prefs.edit().putString(key(host, port), fingerprint).apply()
-    }
-
-    companion object {
-        private const val PREFS = "ssh_known_hosts"
-        private fun key(host: String, port: Int) = "${host.lowercase()}:$port"
-    }
-}

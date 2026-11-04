@@ -43,6 +43,7 @@ class BleLinkClient(
     private val adapter: BluetoothAdapter? = bluetoothManager.adapter
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     private val sshHostKeys = SshHostKeyStore(context)
+    private val sshHostKeyPrompter = AndroidSshHostKeyTrustPrompter(context.applicationContext)
     private val wakeLock: PowerManager.WakeLock =
         (context.getSystemService(Context.POWER_SERVICE) as PowerManager)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "CardputerCompanion:BleLink")
@@ -935,7 +936,7 @@ class BleLinkClient(
         }
         val preset = presets[index]
         handler.post { listener.onDetail("SshRunReq → ${preset.name}") }
-        SshExecutor.executeAsync(preset, sshHostKeys) { result ->
+        SshExecutor.executeAsync(preset, sshHostKeys, sshHostKeyPrompter) { result ->
             handler.post {
                 sendSshRunResult(frame.reqId, preset.name, result)
             }

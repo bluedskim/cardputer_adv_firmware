@@ -37,6 +37,7 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
     private lateinit var store: PresetStore
     private lateinit var sshStore: SshPresetStore
     private lateinit var sshHostKeys: SshHostKeyStore
+    private lateinit var sshHostKeyPrompter: AndroidSshHostKeyTrustPrompter
     private val presets = mutableListOf<HttpPreset>()
     private val sshPresets = mutableListOf<SshPreset>()
     private lateinit var listAdapter: ArrayAdapter<String>
@@ -144,6 +145,7 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
         store = PresetStore(this)
         sshStore = SshPresetStore(this)
         sshHostKeys = SshHostKeyStore(this)
+        sshHostKeyPrompter = AndroidSshHostKeyTrustPrompter(applicationContext)
         presets.clear()
         presets.addAll(store.load())
         sshPresets.clear()
@@ -382,6 +384,30 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
             sshKeyImportBinding = dialogBinding
             importSshKeyLauncher.launch(arrayOf("*/*"))
         }
+        val refreshHostKeyUi = {
+            refreshSshHostKeyUi(
+                dialogBinding,
+                dialogBinding.editHost.text?.toString()?.trim().orEmpty(),
+                dialogBinding.editPort.text?.toString()?.trim()?.toIntOrNull() ?: 22
+            )
+        }
+        refreshHostKeyUi()
+        dialogBinding.editHost.addTextChangedListener(simpleTextWatcher { refreshHostKeyUi() })
+        dialogBinding.editPort.addTextChangedListener(simpleTextWatcher { refreshHostKeyUi() })
+        dialogBinding.forgetHostKeyButton.setOnClickListener {
+            val host = dialogBinding.editHost.text?.toString()?.trim().orEmpty()
+            val port = dialogBinding.editPort.text?.toString()?.trim()?.toIntOrNull() ?: 22
+            if (host.isEmpty()) return@setOnClickListener
+            AlertDialog.Builder(this)
+                .setMessage(getString(R.string.ssh_hostkey_forget_confirm, host, port))
+                .setPositiveButton(R.string.ssh_hostkey_forget) { _, _ ->
+                    sshHostKeys.remove(host, port.coerceIn(1, 65535))
+                    Toast.makeText(this, R.string.ssh_hostkey_forgotten, Toast.LENGTH_SHORT).show()
+                    refreshHostKeyUi()
+                }
+                .setNegativeButton(R.string.cancel, null)
+                .show()
+        }
         val builder = AlertDialog.Builder(this)
             .setTitle(if (editIndex == null) R.string.add_ssh_preset else R.string.edit_ssh_preset)
             .setView(dialogBinding.root)
@@ -431,6 +457,36 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
             if (keyAuth) android.view.View.GONE else android.view.View.VISIBLE
         binding.keyAuthSection.visibility =
             if (keyAuth) android.view.View.VISIBLE else android.view.View.GONE
+    }
+
+    private fun refreshSshHostKeyUi(binding: DialogSshPresetBinding, host: String, port: Int) {
+        if (host.isBlank()) {
+            binding.hostKeyStatus.setText(R.string.ssh_hostkey_none)
+            binding.forgetHostKeyButton.isEnabled = false
+            return
+        }
+        val pin = sshHostKeys.getPin(host, port.coerceIn(1, 65535))
+        if (pin == null) {
+            binding.hostKeyStatus.setText(R.string.ssh_hostkey_none)
+            binding.forgetHostKeyButton.isEnabled = false
+        } else {
+            binding.hostKeyStatus.text = getString(
+                R.string.ssh_hostkey_pinned,
+                pin.keyType,
+                pin.displayFingerprint()
+            )
+            binding.forgetHostKeyButton.isEnabled = true
+        }
+    }
+
+    private fun simpleTextWatcher(after: () -> Unit): android.text.TextWatcher {
+        return object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                after()
+            }
+        }
     }
 
     private fun buildSshPresetFromDialog(
@@ -520,7 +576,7 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
         val label = button.text
         button.isEnabled = false
         button.setText(R.string.test_run_running)
-        SshExecutor.executeAsync(preset, sshHostKeys) { result ->
+        SshExecutor.executeAsync(preset, sshHostKeys, sshHostKeyPrompter) { result ->
             runOnUiThread {
                 testRunInFlight = false
                 button.isEnabled = true

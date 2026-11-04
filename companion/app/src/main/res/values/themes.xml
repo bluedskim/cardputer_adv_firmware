@@ -21,4 +21,10 @@
     <style name="Widget.CardputerCompanion.Button.Text" parent="Widget.MaterialComponents.Button.TextButton">
         <item name="android:textStyle">bold</item>
     </style>
+
+    <style name="Theme.CardputerCompanion.Transparent" parent="Theme.CardputerCompanion">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
 </resources>
