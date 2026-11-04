@@ -5,12 +5,9 @@ import net.schmizz.sshj.SSHClient
 import net.schmizz.sshj.common.IOUtils
 import net.schmizz.sshj.common.SecurityUtils
 import net.schmizz.sshj.connection.channel.direct.Session
-import net.schmizz.sshj.transport.verification.HostKeyVerifier
 import net.schmizz.sshj.userauth.UserAuthException
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import android.util.Log
-import java.security.MessageDigest
-import java.security.PublicKey
 import java.security.Security
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -20,7 +17,9 @@ data class SshExecResult(
     val exitStatus: Int,
     val errCode: Int,
     val body: ByteArray,
-    val log: String = ""
+    val log: String = "",
+    /** User-facing detail for test UI / notifications; never contains secrets. */
+    val detail: String = ""
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -30,6 +29,7 @@ data class SshExecResult(
         if (errCode != other.errCode) return false
         if (!body.contentEquals(other.body)) return false
         if (log != other.log) return false
+        if (detail != other.detail) return false
         return true
     }
 
@@ -38,6 +38,7 @@ data class SshExecResult(
         result = 31 * result + errCode
         result = 31 * result + body.contentHashCode()
         result = 31 * result + log.hashCode()
+        result = 31 * result + detail.hashCode()
         return result
     }
 }
@@ -50,14 +51,19 @@ object SshExecutor {
     fun executeAsync(
         preset: SshPreset,
         hostKeys: SshHostKeyStore,
+        hostKeyPrompter: SshHostKeyTrustPrompter,
         callback: (SshExecResult) -> Unit
     ) {
         executor.execute {
-            callback(execute(preset, hostKeys))
+            callback(execute(preset, hostKeys, hostKeyPrompter))
         }
     }
 
-    fun execute(preset: SshPreset, hostKeys: SshHostKeyStore): SshExecResult {
+    fun execute(
+        preset: SshPreset,
+        hostKeys: SshHostKeyStore,
+        hostKeyPrompter: SshHostKeyTrustPrompter
+    ): SshExecResult {
         val log = StringBuilder()
         fun line(msg: String) {
             log.append(msg).append('\n')
@@ -70,12 +76,48 @@ object SshExecutor {
         return try {
             line("SSH ${preset.user}@${preset.host}:${preset.port}")
             line("command: ${preset.command}")
-            line("password: ${if (preset.password.isEmpty()) "(empty)" else "(set)"}")
-            client.addHostKeyVerifier(TofuVerifier(preset.host, preset.port, hostKeys, ::line))
+            when (preset.authMethod) {
+                SshAuthMethod.PASSWORD ->
+                    line("auth: password ${if (preset.password.isEmpty()) "(empty)" else "(set)"}")
+                SshAuthMethod.PRIVATE_KEY -> {
+                    if (preset.privateKeyPem.isBlank()) {
+                        line("auth: private key missing")
+                        return SshExecResult(
+                            0,
+                            BleProtocol.ERR_SSH_FAILED,
+                            ByteArray(0),
+                            log.toString().trimEnd(),
+                            "Private key not configured"
+                        )
+                    }
+                    line("auth: ${SshKeyLoader.keyTypeLabel(preset.privateKeyPem)}")
+                }
+            }
+            client.addHostKeyVerifier(
+                InteractiveTofuHostKeyVerifier(preset.host, preset.port, hostKeys, hostKeyPrompter, ::line)
+            )
             line("connecting…")
             client.connect(preset.host, preset.port)
             line("connected, authenticating…")
-            client.authPassword(preset.user, preset.password)
+            when (preset.authMethod) {
+                SshAuthMethod.PASSWORD ->
+                    client.authPassword(preset.user, preset.password)
+                SshAuthMethod.PRIVATE_KEY -> {
+                    val keyProvider = try {
+                        SshKeyLoader.loadKeyProvider(preset.privateKeyPem, preset.keyPassphrase)
+                    } catch (e: SshKeyLoader.ParseException) {
+                        line("key error: ${e.message ?: "invalid key"}")
+                        return SshExecResult(
+                            0,
+                            BleProtocol.ERR_SSH_FAILED,
+                            ByteArray(0),
+                            log.toString().trimEnd(),
+                            e.message ?: "Invalid private key"
+                        )
+                    }
+                    client.authPublickey(preset.user, keyProvider)
+                }
+            }
             line("auth ok, exec…")
             client.startSession().use { session ->
                 val cmd: Session.Command = session.exec(preset.command)
@@ -94,7 +136,13 @@ object SshExecutor {
             }
         } catch (e: UserAuthException) {
             line("auth failed: ${e.message ?: e.javaClass.simpleName}")
-            SshExecResult(0, BleProtocol.ERR_SSH_AUTH_FAILED, ByteArray(0), log.toString().trimEnd())
+            SshExecResult(
+                0,
+                BleProtocol.ERR_SSH_AUTH_FAILED,
+                ByteArray(0),
+                log.toString().trimEnd(),
+                "SSH authentication failed (wrong password or key rejected by server)"
+            )
         } catch (e: java.net.SocketTimeoutException) {
             line("timeout: ${e.message ?: e.javaClass.simpleName}")
             SshExecResult(0, BleProtocol.ERR_SSH_TIMEOUT, ByteArray(0), log.toString().trimEnd())
@@ -114,12 +162,31 @@ object SshExecutor {
                 else ->
                     BleProtocol.ERR_SSH_FAILED
             }
-            SshExecResult(0, code, ByteArray(0), log.toString().trimEnd())
+            SshExecResult(
+                0,
+                code,
+                ByteArray(0),
+                log.toString().trimEnd(),
+                hostKeyDetailFromLog(log.toString(), code)
+            )
         } finally {
             try {
                 client.disconnect()
             } catch (_: Exception) {
             }
+        }
+    }
+
+    private fun hostKeyDetailFromLog(log: String, code: Int): String {
+        if (code != BleProtocol.ERR_SSH_HOST_KEY) return ""
+        return when {
+            log.contains("trust declined") ->
+                "SSH host key not trusted (connection cancelled)"
+            log.contains("MISMATCH") ->
+                "SSH host key changed — possible MITM (forget pinned key in preset to re-trust)"
+            log.contains("unknown") && log.contains("prompting") ->
+                "SSH host key not trusted (connection cancelled)"
+            else -> "SSH host key verification failed"
         }
     }
 
@@ -154,46 +221,5 @@ object SshExecutor {
             }
             bcReady.set(true)
         }
-    }
-
-    private class TofuVerifier(
-        private val host: String,
-        private val port: Int,
-        private val store: SshHostKeyStore,
-        private val logLine: (String) -> Unit
-    ) : HostKeyVerifier {
-        override fun verify(hostname: String?, port: Int, key: PublicKey?): Boolean {
-            if (key == null) {
-                logLine("host key missing")
-                return false
-            }
-            val fp = fingerprint(key)
-            val shortFp = if (fp.length > 16) fp.take(16) + "…" else fp
-            val stored = store.getFingerprint(host, this.port)
-                ?: store.getFingerprint(hostname ?: host, port)
-            return when {
-                stored == null -> {
-                    store.putFingerprint(host, this.port, fp)
-                    logLine("host key TOFU accept sha256=$shortFp")
-                    true
-                }
-                stored.equals(fp, ignoreCase = true) -> {
-                    logLine("host key ok sha256=$shortFp")
-                    true
-                }
-                else -> {
-                    logLine("host key MISMATCH sha256=$shortFp")
-                    false
-                }
-            }
-        }
-
-        override fun findExistingAlgorithms(hostname: String?, port: Int): MutableList<String> =
-            mutableListOf()
-    }
-
-    private fun fingerprint(key: PublicKey): String {
-        val digest = MessageDigest.getInstance("SHA-256").digest(key.encoded)
-        return digest.joinToString("") { b -> "%02x".format(b) }
     }
 }

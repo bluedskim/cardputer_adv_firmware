@@ -66,6 +66,17 @@
     <string name="ssh_user">User</string>
     <string name="ssh_command">Command</string>
     <string name="ssh_password">Password</string>
+    <string name="ssh_auth_method_title">Authentication</string>
+    <string name="ssh_auth_password">Password</string>
+    <string name="ssh_auth_private_key">Private key</string>
+    <string name="ssh_private_key">Private key (PEM / OpenSSH)</string>
+    <string name="ssh_key_passphrase">Key passphrase (optional)</string>
+    <string name="ssh_import_key_file">Import key file…</string>
+    <string name="ssh_key_stored_hint">A key is saved — paste or import to replace it</string>
+    <string name="ssh_key_required">Private key required (paste or import)</string>
+    <string name="ssh_key_import_failed">Could not read key file</string>
+    <string name="ssh_list_auth_password">password</string>
+    <string name="ssh_list_auth_key">key</string>
     <string name="ssh_fields_required">Name, host, user, and command required</string>
     <string name="test_run">Test run</string>
     <string name="test_run_running">Running…</string>
@@ -86,5 +97,16 @@
     <string name="ssh_err_timeout">SSH timed out</string>
     <string name="ssh_err_auth">SSH auth failed</string>
     <string name="ssh_err_host_key">SSH host key error</string>
+    <string name="ssh_hostkey_section_title">Server host key (TOFU)</string>
+    <string name="ssh_hostkey_none">No pinned key for this host:port yet.</string>
+    <string name="ssh_hostkey_pinned">Pinned %1$s\n%2$s</string>
+    <string name="ssh_hostkey_forget">Forget pinned host key</string>
+    <string name="ssh_hostkey_forgotten">Pinned host key removed</string>
+    <string name="ssh_hostkey_forget_confirm">Remove the pinned SSH host key for %1$s:%2$d?\n\nNext connect will ask you to trust the server key again.</string>
+    <string name="ssh_hostkey_trust_title">Trust SSH server?</string>
+    <string name="ssh_hostkey_trust_message">First connection to %1$s:%2$d.\n\nKey type: %3$s\nFingerprint: %4$s\n\nTrust this key and continue?</string>
+    <string name="ssh_hostkey_trust_accept">Trust and connect</string>
+    <string name="ssh_hostkey_mismatch_title">SSH host key changed</string>
+    <string name="ssh_hostkey_mismatch_message">Host %1$s:%2$d presented a different key (possible MITM or server rebuild).\n\nPinned: %3$s\n%4$s\n\nOffered: %5$s\n%6$s\n\nConnection blocked. To trust a new key, use Forget pinned host key in the preset, then connect again.</string>
     <string name="ok">OK</string>
 </resources>
