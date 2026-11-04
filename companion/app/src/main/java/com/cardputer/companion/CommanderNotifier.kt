@@ -41,10 +41,11 @@ object CommanderNotifier {
         val title = if (ok) {
             app.getString(R.string.commander_ssh_ok_title, presetName, result.exitStatus)
         } else {
+            val errLabel = result.detail.ifBlank { sshErrLabel(app, result.errCode) }
             app.getString(
                 R.string.commander_ssh_err_title,
                 presetName,
-                sshErrLabel(app, result.errCode)
+                errLabel
             )
         }
         val body = if (ok) bodyText(app, result.body) else null

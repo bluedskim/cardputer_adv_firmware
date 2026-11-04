@@ -20,7 +20,9 @@ data class SshExecResult(
     val exitStatus: Int,
     val errCode: Int,
     val body: ByteArray,
-    val log: String = ""
+    val log: String = "",
+    /** User-facing detail for test UI / notifications; never contains secrets. */
+    val detail: String = ""
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -30,6 +32,7 @@ data class SshExecResult(
         if (errCode != other.errCode) return false
         if (!body.contentEquals(other.body)) return false
         if (log != other.log) return false
+        if (detail != other.detail) return false
         return true
     }
 
@@ -38,6 +41,7 @@ data class SshExecResult(
         result = 31 * result + errCode
         result = 31 * result + body.contentHashCode()
         result = 31 * result + log.hashCode()
+        result = 31 * result + detail.hashCode()
         return result
     }
 }
@@ -70,12 +74,46 @@ object SshExecutor {
         return try {
             line("SSH ${preset.user}@${preset.host}:${preset.port}")
             line("command: ${preset.command}")
-            line("password: ${if (preset.password.isEmpty()) "(empty)" else "(set)"}")
+            when (preset.authMethod) {
+                SshAuthMethod.PASSWORD ->
+                    line("auth: password ${if (preset.password.isEmpty()) "(empty)" else "(set)"}")
+                SshAuthMethod.PRIVATE_KEY -> {
+                    if (preset.privateKeyPem.isBlank()) {
+                        line("auth: private key missing")
+                        return SshExecResult(
+                            0,
+                            BleProtocol.ERR_SSH_FAILED,
+                            ByteArray(0),
+                            log.toString().trimEnd(),
+                            "Private key not configured"
+                        )
+                    }
+                    line("auth: ${SshKeyLoader.keyTypeLabel(preset.privateKeyPem)}")
+                }
+            }
             client.addHostKeyVerifier(TofuVerifier(preset.host, preset.port, hostKeys, ::line))
             line("connecting…")
             client.connect(preset.host, preset.port)
             line("connected, authenticating…")
-            client.authPassword(preset.user, preset.password)
+            when (preset.authMethod) {
+                SshAuthMethod.PASSWORD ->
+                    client.authPassword(preset.user, preset.password)
+                SshAuthMethod.PRIVATE_KEY -> {
+                    val keyProvider = try {
+                        SshKeyLoader.loadKeyProvider(preset.privateKeyPem, preset.keyPassphrase)
+                    } catch (e: SshKeyLoader.ParseException) {
+                        line("key error: ${e.message ?: "invalid key"}")
+                        return SshExecResult(
+                            0,
+                            BleProtocol.ERR_SSH_FAILED,
+                            ByteArray(0),
+                            log.toString().trimEnd(),
+                            e.message ?: "Invalid private key"
+                        )
+                    }
+                    client.authPublickey(preset.user, keyProvider)
+                }
+            }
             line("auth ok, exec…")
             client.startSession().use { session ->
                 val cmd: Session.Command = session.exec(preset.command)
@@ -94,7 +132,13 @@ object SshExecutor {
             }
         } catch (e: UserAuthException) {
             line("auth failed: ${e.message ?: e.javaClass.simpleName}")
-            SshExecResult(0, BleProtocol.ERR_SSH_AUTH_FAILED, ByteArray(0), log.toString().trimEnd())
+            SshExecResult(
+                0,
+                BleProtocol.ERR_SSH_AUTH_FAILED,
+                ByteArray(0),
+                log.toString().trimEnd(),
+                "SSH authentication failed (wrong password or key rejected by server)"
+            )
         } catch (e: java.net.SocketTimeoutException) {
             line("timeout: ${e.message ?: e.javaClass.simpleName}")
             SshExecResult(0, BleProtocol.ERR_SSH_TIMEOUT, ByteArray(0), log.toString().trimEnd())

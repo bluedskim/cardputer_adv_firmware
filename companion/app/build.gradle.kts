@@ -37,6 +37,9 @@ android {
     buildFeatures {
         viewBinding = true
     }
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -50,4 +53,5 @@ dependencies {
     // Explicit BC so Android's incomplete system "BC" provider can be replaced at runtime.
     implementation("org.bouncycastle:bcprov-jdk18on:1.75")
     implementation("org.bouncycastle:bcpkix-jdk18on:1.75")
+    testImplementation("junit:junit:4.13.2")
 }

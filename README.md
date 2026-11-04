@@ -543,7 +543,7 @@ Verify: [docs/m2_verify.md](docs/m2_verify.md) · protocol: [docs/ble_link.md](d
 
 #### M3 — SSH commander (exec-only)
 
-- [x] Phone host presets: host, user, password (secure storage; key auth out of scope for v1)
+- [x] Phone host presets: host, user, password or private key (EncryptedSharedPreferences on phone; never over BLE)
 - [x] Non-interactive exec: one-line command → stdout/stderr paging
 - [x] known_hosts / first-connect handling on companion (TOFU)
 - [x] On-demand link only (preserve standby life)

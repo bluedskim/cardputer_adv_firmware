@@ -15,11 +15,14 @@ data class SshPreset(
     val port: Int = 22,
     val user: String,
     val command: String,
-    val password: String = ""
+    val authMethod: SshAuthMethod = SshAuthMethod.PASSWORD,
+    val password: String = "",
+    val privateKeyPem: String = "",
+    val keyPassphrase: String = ""
 )
 
 /**
- * Non-secret fields in normal prefs JSON; passwords in EncryptedSharedPreferences.
+ * Non-secret fields in normal prefs JSON; passwords / keys / passphrases in EncryptedSharedPreferences.
  */
 class SshPresetStore(context: Context) {
     private val metaPrefs = context.getSharedPreferences(META_PREFS, Context.MODE_PRIVATE)
@@ -39,7 +42,10 @@ class SshPresetStore(context: Context) {
                     port = o.optInt("port", 22).coerceIn(1, 65535),
                     user = o.optString("user"),
                     command = o.optString("command"),
-                    password = secretPrefs.getString(secretKey(id), "") ?: ""
+                    authMethod = SshAuthMethod.fromStored(o.optString("auth")),
+                    password = secretPrefs.getString(passwordKey(id), "") ?: "",
+                    privateKeyPem = secretPrefs.getString(privateKeyKey(id), "") ?: "",
+                    keyPassphrase = secretPrefs.getString(keyPassphraseKey(id), "") ?: ""
                 )
             }.filter {
                 it.name.isNotBlank() && it.host.isNotBlank() &&
@@ -65,15 +71,15 @@ class SshPresetStore(context: Context) {
                     .put("port", p.port.coerceIn(1, 65535))
                     .put("user", p.user)
                     .put("command", p.command)
+                    .put("auth", SshAuthMethod.toStored(p.authMethod))
             )
-            secretEditor.putString(secretKey(p.id), p.password)
+            secretEditor.putString(passwordKey(p.id), p.password)
+            secretEditor.putString(privateKeyKey(p.id), p.privateKeyPem)
+            secretEditor.putString(keyPassphraseKey(p.id), p.keyPassphrase)
         }
-        // Drop orphaned password entries.
         for (key in secretPrefs.all.keys) {
-            if (key.startsWith(SECRET_PREFIX)) {
-                val id = key.removePrefix(SECRET_PREFIX)
-                if (id !in keepIds) secretEditor.remove(key)
-            }
+            val id = secretEntryId(key) ?: continue
+            if (id !in keepIds) secretEditor.remove(key)
         }
         secretEditor.apply()
         metaPrefs.edit().putString(KEY_META, arr.toString()).apply()
@@ -84,8 +90,19 @@ class SshPresetStore(context: Context) {
         private const val KEY_META = "presets_json"
         private const val SECRET_PREFS = "ssh_presets_secret"
         private const val SECRET_PREFIX = "pw_"
+        private const val KEY_PREFIX = "key_"
+        private const val KPP_PREFIX = "kpp_"
 
-        private fun secretKey(id: String) = SECRET_PREFIX + id
+        internal fun passwordKey(id: String) = SECRET_PREFIX + id
+        internal fun privateKeyKey(id: String) = KEY_PREFIX + id
+        internal fun keyPassphraseKey(id: String) = KPP_PREFIX + id
+
+        private fun secretEntryId(key: String): String? = when {
+            key.startsWith(SECRET_PREFIX) -> key.removePrefix(SECRET_PREFIX)
+            key.startsWith(KEY_PREFIX) -> key.removePrefix(KEY_PREFIX)
+            key.startsWith(KPP_PREFIX) -> key.removePrefix(KPP_PREFIX)
+            else -> null
+        }
 
         private fun createSecretPrefs(context: Context): SharedPreferences {
             val masterKey = MasterKey.Builder(context)

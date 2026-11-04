@@ -66,6 +66,17 @@
     <string name="ssh_user">User</string>
     <string name="ssh_command">Command</string>
     <string name="ssh_password">Password</string>
+    <string name="ssh_auth_method_title">Authentication</string>
+    <string name="ssh_auth_password">Password</string>
+    <string name="ssh_auth_private_key">Private key</string>
+    <string name="ssh_private_key">Private key (PEM / OpenSSH)</string>
+    <string name="ssh_key_passphrase">Key passphrase (optional)</string>
+    <string name="ssh_import_key_file">Import key file…</string>
+    <string name="ssh_key_stored_hint">A key is saved — paste or import to replace it</string>
+    <string name="ssh_key_required">Private key required (paste or import)</string>
+    <string name="ssh_key_import_failed">Could not read key file</string>
+    <string name="ssh_list_auth_password">password</string>
+    <string name="ssh_list_auth_key">key</string>
     <string name="ssh_fields_required">Name, host, user, and command required</string>
     <string name="test_run">Test run</string>
     <string name="test_run_running">Running…</string>

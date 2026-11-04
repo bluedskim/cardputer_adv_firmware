@@ -29,6 +29,7 @@ Protocol: [docs/ble_link.md](../docs/ble_link.md). UUIDs must match `include/ble
 ```bash
 cd companion
 ./gradlew :app:assembleDebug
+./gradlew :app:testDebugUnitTest
 # or release (debug-signed until a store keystore is configured):
 ./gradlew :app:assembleRelease
 ```
@@ -58,9 +59,11 @@ See [docs/m2_verify.md](../docs/m2_verify.md).
 
 ## SSH commander
 
-1. Add SSH presets: name, host, port, user, command, password (encrypted). Use **Test run** (TOFU host keys on first connect).
+1. Add SSH presets: name, host, port, user, command, and **authentication** — **password** (default, same as older builds) or **private key** (paste PEM/OpenSSH text or **Import key file…** via Storage Access Framework; optional key passphrase). Secrets stay in **EncryptedSharedPreferences** on the phone (never sent over BLE). Use **Test run** (TOFU host keys on first connect).
 2. Open **SSH** on Cardputer → list / **Refresh hosts...** / run.
-3. Phone runs password SSH exec via sshj; combined stdout/stderr ≤512 B over BLE.
+3. Phone runs SSH exec via **sshj** + bundled BouncyCastle (`authPassword` or `authPublickey`); combined stdout/stderr ≤512 B over BLE.
+
+Supported private key formats (detected automatically): OpenSSH `BEGIN OPENSSH PRIVATE KEY` (ed25519, RSA, ECDSA via OpenSSH v1), PKCS#8 / traditional PEM (`BEGIN PRIVATE KEY`, `BEGIN RSA PRIVATE KEY`, `BEGIN EC PRIVATE KEY`, encrypted PKCS#8). PuTTY `.ppk` is not supported — convert with `ssh-keygen -p`. Wrong passphrase or corrupt key surfaces in **Test run** and notifications (logs never include key material).
 
 See [docs/m3_verify.md](../docs/m3_verify.md).
 

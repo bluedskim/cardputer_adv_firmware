@@ -45,6 +45,21 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
     private var forceRescanPending = false
     private var associateAfterBt = false
     private var testRunInFlight = false
+    private var sshKeyImportBinding: DialogSshPresetBinding? = null
+
+    private val importSshKeyLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            val dialogBinding = sshKeyImportBinding
+            if (uri == null || dialogBinding == null) return@registerForActivityResult
+            try {
+                contentResolver.openInputStream(uri)?.use { stream ->
+                    dialogBinding.editPrivateKey.setText(stream.bufferedReader().readText())
+                    dialogBinding.keyStoredHint.visibility = android.view.View.GONE
+                } ?: Toast.makeText(this, R.string.ssh_key_import_failed, Toast.LENGTH_SHORT).show()
+            } catch (_: Exception) {
+                Toast.makeText(this, R.string.ssh_key_import_failed, Toast.LENGTH_SHORT).show()
+            }
+        }
 
     private var bleService: BleLinkService? = null
     private var bound = false
@@ -256,7 +271,11 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
     private fun refreshSshPresetList() {
         sshListAdapter.clear()
         for (p in sshPresets) {
-            sshListAdapter.add("${p.name}\n${p.user}@${p.host}:${p.port} · ${p.command}")
+            val authTag = when (p.authMethod) {
+                SshAuthMethod.PASSWORD -> getString(R.string.ssh_list_auth_password)
+                SshAuthMethod.PRIVATE_KEY -> getString(R.string.ssh_list_auth_key)
+            }
+            sshListAdapter.add("${p.name}\n${p.user}@${p.host}:${p.port} · $authTag · ${p.command}")
         }
         sshListAdapter.notifyDataSetChanged()
     }
@@ -344,6 +363,24 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
             dialogBinding.editUser.setText(existing.user)
             dialogBinding.editCommand.setText(existing.command)
             dialogBinding.editPassword.setText(existing.password)
+            dialogBinding.editKeyPassphrase.setText(existing.keyPassphrase)
+            when (existing.authMethod) {
+                SshAuthMethod.PASSWORD -> dialogBinding.authPassword.isChecked = true
+                SshAuthMethod.PRIVATE_KEY -> {
+                    dialogBinding.authPrivateKey.isChecked = true
+                    if (existing.privateKeyPem.isNotBlank()) {
+                        dialogBinding.keyStoredHint.visibility = android.view.View.VISIBLE
+                    }
+                }
+            }
+        }
+        updateSshAuthSections(dialogBinding)
+        dialogBinding.authMethodGroup.setOnCheckedChangeListener { _, _ ->
+            updateSshAuthSections(dialogBinding)
+        }
+        dialogBinding.importKeyButton.setOnClickListener {
+            sshKeyImportBinding = dialogBinding
+            importSshKeyLauncher.launch(arrayOf("*/*"))
         }
         val builder = AlertDialog.Builder(this)
             .setTitle(if (editIndex == null) R.string.add_ssh_preset else R.string.edit_ssh_preset)
@@ -357,47 +394,25 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
             }
         }
         val dialog = builder.create()
+        dialog.setOnDismissListener { sshKeyImportBinding = null }
         dialog.setOnShowListener {
             dialogBinding.testRunButton.setOnClickListener {
-                val host = dialogBinding.editHost.text?.toString()?.trim().orEmpty()
-                val user = dialogBinding.editUser.text?.toString()?.trim().orEmpty()
-                val command = dialogBinding.editCommand.text?.toString()?.trim().orEmpty()
-                if (host.isEmpty() || user.isEmpty() || command.isEmpty()) {
-                    Toast.makeText(this, R.string.test_run_ssh_required, Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
-                }
-                val port = dialogBinding.editPort.text?.toString()?.trim()?.toIntOrNull() ?: 22
-                val preset = SshPreset(
-                    id = existing?.id ?: "test-run",
-                    name = dialogBinding.editName.text?.toString()?.trim().orEmpty().ifBlank { "test" },
-                    host = host,
-                    port = port.coerceIn(1, 65535),
-                    user = user,
-                    command = command,
-                    password = dialogBinding.editPassword.text?.toString().orEmpty()
+                val preset = buildSshPresetFromDialog(
+                    dialogBinding,
+                    existing,
+                    existing?.id ?: "test-run",
+                    forTestRun = true
                 )
+                if (preset == null) return@setOnClickListener
                 runSshTest(preset, dialogBinding.testRunButton)
             }
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val name = dialogBinding.editName.text?.toString()?.trim().orEmpty()
-                val host = dialogBinding.editHost.text?.toString()?.trim().orEmpty()
-                val port = dialogBinding.editPort.text?.toString()?.trim()?.toIntOrNull() ?: 22
-                val user = dialogBinding.editUser.text?.toString()?.trim().orEmpty()
-                val command = dialogBinding.editCommand.text?.toString()?.trim().orEmpty()
-                val password = dialogBinding.editPassword.text?.toString().orEmpty()
-                if (name.isEmpty() || host.isEmpty() || user.isEmpty() || command.isEmpty()) {
-                    Toast.makeText(this, R.string.ssh_fields_required, Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
-                }
-                val preset = SshPreset(
-                    id = existing?.id ?: UUID.randomUUID().toString(),
-                    name = name,
-                    host = host,
-                    port = port.coerceIn(1, 65535),
-                    user = user,
-                    command = command,
-                    password = password
+                val preset = buildSshPresetFromDialog(
+                    dialogBinding,
+                    existing,
+                    existing?.id ?: UUID.randomUUID().toString()
                 )
+                if (preset == null) return@setOnClickListener
                 if (editIndex == null) {
                     sshPresets.add(preset)
                 } else {
@@ -408,6 +423,72 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
             }
         }
         dialog.show()
+    }
+
+    private fun updateSshAuthSections(binding: DialogSshPresetBinding) {
+        val keyAuth = binding.authPrivateKey.isChecked
+        binding.passwordAuthSection.visibility =
+            if (keyAuth) android.view.View.GONE else android.view.View.VISIBLE
+        binding.keyAuthSection.visibility =
+            if (keyAuth) android.view.View.VISIBLE else android.view.View.GONE
+    }
+
+    private fun buildSshPresetFromDialog(
+        binding: DialogSshPresetBinding,
+        existing: SshPreset?,
+        id: String,
+        forTestRun: Boolean = false
+    ): SshPreset? {
+        var name = binding.editName.text?.toString()?.trim().orEmpty()
+        val host = binding.editHost.text?.toString()?.trim().orEmpty()
+        val port = binding.editPort.text?.toString()?.trim()?.toIntOrNull() ?: 22
+        val user = binding.editUser.text?.toString()?.trim().orEmpty()
+        val command = binding.editCommand.text?.toString()?.trim().orEmpty()
+        val authMethod = if (binding.authPrivateKey.isChecked) {
+            SshAuthMethod.PRIVATE_KEY
+        } else {
+            SshAuthMethod.PASSWORD
+        }
+        if (host.isEmpty() || user.isEmpty() || command.isEmpty()) {
+            Toast.makeText(
+                this,
+                if (forTestRun) R.string.test_run_ssh_required else R.string.ssh_fields_required,
+                Toast.LENGTH_SHORT
+            ).show()
+            return null
+        }
+        if (name.isEmpty()) {
+            if (forTestRun) {
+                name = "test"
+            } else {
+                Toast.makeText(this, R.string.ssh_fields_required, Toast.LENGTH_SHORT).show()
+                return null
+            }
+        }
+        val password = binding.editPassword.text?.toString().orEmpty()
+        val keyPassphrase = binding.editKeyPassphrase.text?.toString().orEmpty()
+        val pastedKey = binding.editPrivateKey.text?.toString()?.trim().orEmpty()
+        val privateKeyPem = when {
+            pastedKey.isNotEmpty() -> pastedKey
+            authMethod == SshAuthMethod.PRIVATE_KEY && existing != null -> existing.privateKeyPem
+            else -> ""
+        }
+        if (authMethod == SshAuthMethod.PRIVATE_KEY && privateKeyPem.isBlank()) {
+            Toast.makeText(this, R.string.ssh_key_required, Toast.LENGTH_SHORT).show()
+            return null
+        }
+        return SshPreset(
+            id = id,
+            name = name,
+            host = host,
+            port = port.coerceIn(1, 65535),
+            user = user,
+            command = command,
+            authMethod = authMethod,
+            password = password,
+            privateKeyPem = privateKeyPem,
+            keyPassphrase = keyPassphrase
+        )
     }
 
     private fun runHttpTest(preset: HttpPreset, button: android.widget.Button) {
@@ -450,7 +531,11 @@ class MainActivity : AppCompatActivity(), BleLinkClient.Listener {
                 } else {
                     getString(R.string.test_run_ssh_title, result.exitStatus)
                 }
-                val summary = if (result.errCode != 0) sshErrLabel(result.errCode) else null
+                val summary = when {
+                    result.errCode != 0 && result.detail.isNotBlank() -> result.detail
+                    result.errCode != 0 -> sshErrLabel(result.errCode)
+                    else -> null
+                }
                 showTestResult(title, summary, bodyText, result.log)
             }
         }
