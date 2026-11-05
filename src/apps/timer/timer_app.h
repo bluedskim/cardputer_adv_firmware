@@ -47,7 +47,9 @@ private:
     bool isActionRow(std::size_t index, ListAction* out = nullptr) const;
     bool isRunning(const TimerEntry& entry) const;
     uint32_t remainingMs(const TimerEntry& entry) const;
-    void formatPreset(char* buf, std::size_t len, uint8_t hours, uint8_t minutes) const;
+    void formatPreset(char* buf, std::size_t len, uint8_t hours, uint8_t minutes,
+                      uint8_t seconds) const;
+    void adjustEditField(int delta);
     void formatRemaining(char* buf, std::size_t len, uint32_t ms) const;
     void markDirty() { dirty_ = true; }
     void requestHeaderFocus() { pending_header_focus_ = true; }
@@ -64,4 +66,6 @@ private:
     bool dirty_ = true;
     bool pending_header_focus_ = false;
     bool header_focused_ = false;
+    std::size_t edit_seconds_ = 0;
+    int edit_field_ = -1;  // duration field being edited: 0 h, 1 m, 2 s; -1 = not editing
 };

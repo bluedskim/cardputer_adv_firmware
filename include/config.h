@@ -15,7 +15,9 @@ constexpr uint8_t kTorchDefaultBrightness = 255;
 constexpr uint8_t kMaxNameLength = 24;
 
 constexpr uint8_t kMaxTimers = 8;
-constexpr uint8_t kTimerMaxHours = 23;
+constexpr uint8_t kTimerMaxHours = 99;
+constexpr uint8_t kTimerSecondsStep = 5;
+constexpr uint32_t kTimerMinSec = 10;  // shorter timers are not useful
 
 constexpr uint8_t kMaxStopwatchHistory = 10;
 constexpr uint8_t kDefaultSleepOptionIndex = 3;  // 5 min (Immediate, 30s, 1m, 5m, …)
