@@ -402,6 +402,9 @@ bool AppShell::consumeHeaderKeys(const Keyboard_Class::KeysState& status) {
 }
 
 void AppShell::drawHeader() const {
+    if (apps_[current_index_]->hidesHeader()) {
+        return;
+    }
     auto& display = M5Cardputer.Display;
     const int width = display.width();
 
