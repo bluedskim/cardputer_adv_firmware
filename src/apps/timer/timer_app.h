@@ -35,6 +35,8 @@ private:
     void enterList();
     void enterEdit(std::size_t index);
     void tickTimers();
+    void beep(uint32_t duration_ms);
+    void releaseSpeakerWhenDone(uint32_t now);
     void draw() const;
     void drawListRow(int y, std::size_t index, bool selected) const;
     NavRequest handleInput(const Keyboard_Class::KeysState& status);
@@ -61,6 +63,9 @@ private:
     std::size_t edit_hours_ = 0;
     std::size_t edit_minutes_ = 5;
     uint32_t last_tick_sec_ = 0;
+    uint32_t last_cue_ms_ = 0;
+    uint32_t speaker_release_ms_ = 0;
+    bool owns_speaker_ = false;  // Speaker was started for a beep and must be ended
     bool dirty_ = true;
     bool pending_header_focus_ = false;
     bool header_focused_ = false;
