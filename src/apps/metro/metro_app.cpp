@@ -8,6 +8,7 @@
 #include "config.h"
 #include "input/keyboard_input.h"
 #include "ui/fitted_text.h"
+#include "ui/frame.h"
 
 namespace {
 
@@ -320,7 +321,7 @@ void MetroApp::adjustFocused(const int delta) {
 }
 
 void MetroApp::paintLeds() {
-    auto& display = M5Cardputer.Display;
+    auto& display = ui::frame();
     const uint8_t count = ledCount();
     const int r = ledRadius(count);
     const int pane_w = ledPaneWidth(count);
@@ -362,7 +363,7 @@ void MetroApp::paintFooter() const {
 }
 
 void MetroApp::drawChrome() {
-    auto& display = M5Cardputer.Display;
+    auto& display = ui::frame();
     display.startWrite();
     display.fillRect(0, kContentTop, display.width(), display.height() - kContentTop, TFT_BLACK);
 
@@ -445,10 +446,12 @@ void MetroApp::drawChrome() {
 void MetroApp::draw() {
     if (!chrome_valid_ || dirty_) {
         drawChrome();
+        ui::presentContent();
         return;
     }
     if (leds_dirty_) {
         paintLeds();
+        ui::present(kHeroTop, kHeroH);
     }
 }
 

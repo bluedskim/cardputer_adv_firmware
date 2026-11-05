@@ -8,6 +8,7 @@
 #include "config.h"
 #include "input/keyboard_input.h"
 #include "ui/fitted_text.h"
+#include "ui/frame.h"
 
 namespace {
 
@@ -65,7 +66,7 @@ uint32_t StopwatchApp::currentElapsedMs() const {
 }
 
 void StopwatchApp::drawElapsed() const {
-    auto& display = M5Cardputer.Display;
+    auto& display = ui::frame();
     char buf[20];
     formatDuration(buf, sizeof(buf), currentElapsedMs());
 
@@ -135,6 +136,7 @@ NavRequest StopwatchApp::onUpdate(const Keyboard_Class::KeysState* keys, bool he
         if (cs != last_draw_cs_) {
             last_draw_cs_ = cs;
             drawElapsed();
+            ui::present(kElapsedBandTop, kElapsedBandHeight);
         }
     }
 
@@ -150,6 +152,7 @@ NavRequest StopwatchApp::onUpdate(const Keyboard_Class::KeysState* keys, bool he
 
     if (dirty_) {
         draw();
+        ui::presentContent();
         dirty_ = false;
         if (screen_ == Screen::Main && running_) {
             last_draw_cs_ = currentElapsedMs() / 10;
@@ -262,7 +265,7 @@ NavRequest StopwatchApp::handleInput(const Keyboard_Class::KeysState& status) {
 }
 
 void StopwatchApp::draw() const {
-    auto& display = M5Cardputer.Display;
+    auto& display = ui::frame();
     display.fillRect(0, kContentTop, display.width(), display.height() - kContentTop, TFT_BLACK);
 
     if (screen_ == Screen::TextInput) {
@@ -308,7 +311,7 @@ void StopwatchApp::draw() const {
 
         if (count == 0) {
             display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-            ui::fitTextSize("(empty)", display.width() - 16);
+            ui::fitTextSize(display, "(empty)", display.width() - 16);
             display.setCursor(8, kListTop);
             display.print("(empty)");
         }

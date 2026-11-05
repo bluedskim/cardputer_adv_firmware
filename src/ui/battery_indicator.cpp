@@ -24,7 +24,7 @@ uint16_t levelColor(const int level) {
     return TFT_GREEN;
 }
 
-void drawLightningBolt(M5GFX& display, const int x, const int y) {
+void drawLightningBolt(lgfx::LovyanGFX& display, const int x, const int y) {
     // Classic vertical ⚡ (6x7) — recognizable zigzag, white + black outline.
     static constexpr const char* kRows[] = {
         "...##.",
@@ -98,7 +98,7 @@ BatterySnapshot readBatterySnapshot() {
     return snapshot;
 }
 
-void drawBatteryIndicator(M5GFX& display, int x, int y, const BatterySnapshot& battery) {
+void drawBatteryIndicator(lgfx::LovyanGFX& display, int x, int y, const BatterySnapshot& battery) {
     display.drawRect(x, y, kBodyWidth, kBodyHeight, TFT_WHITE);
     display.fillRect(x + kBodyWidth, y + 3, kTipWidth, kBodyHeight - 6, TFT_WHITE);
 

@@ -7,6 +7,7 @@
 
 #include "config.h"
 #include "input/keyboard_input.h"
+#include "ui/frame.h"
 
 namespace {
 
@@ -205,6 +206,7 @@ NavRequest TimerApp::onUpdate(const Keyboard_Class::KeysState* keys, bool header
 
     if (dirty_) {
         draw();
+        ui::presentContent();
         dirty_ = false;
     }
     if (pending_header_focus_) {
@@ -401,7 +403,7 @@ NavRequest TimerApp::handleInput(const Keyboard_Class::KeysState& status) {
 }
 
 void TimerApp::drawListRow(const int y, const std::size_t index, const bool selected) const {
-    auto& display = M5Cardputer.Display;
+    auto& display = ui::frame();
     const int width = display.width();
     const uint16_t fg = selected ? TFT_YELLOW : TFT_WHITE;
     const uint16_t bg = selected ? TFT_NAVY : TFT_BLACK;
@@ -453,7 +455,7 @@ void TimerApp::drawListRow(const int y, const std::size_t index, const bool sele
 }
 
 void TimerApp::draw() const {
-    auto& display = M5Cardputer.Display;
+    auto& display = ui::frame();
     display.fillRect(0, kContentTop, display.width(), display.height() - kContentTop, TFT_BLACK);
 
     if (screen_ == Screen::Edit && selected_ < storage_.timers().size()) {

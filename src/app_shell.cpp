@@ -15,6 +15,7 @@
 #include "app_visibility.h"
 #include "ble/ble_link.h"
 #include "ui/battery_indicator.h"
+#include "ui/frame.h"
 
 namespace {
 
@@ -402,7 +403,7 @@ bool AppShell::consumeHeaderKeys(const Keyboard_Class::KeysState& status) {
 }
 
 void AppShell::drawHeader() const {
-    auto& display = M5Cardputer.Display;
+    auto& display = ui::frame();
     const int width = display.width();
 
     std::size_t visible[16];
@@ -470,4 +471,5 @@ void AppShell::drawHeader() const {
             display.drawCircle(dot_x, 11, kDotActiveRing, TFT_WHITE);
         }
     }
+    ui::present(0, config::kHeaderHeight);
 }
